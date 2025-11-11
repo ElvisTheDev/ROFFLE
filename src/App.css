@@ -91,16 +91,13 @@ body{
   background: radial-gradient(closest-side, rgba(255,255,255,.08), transparent 70%);
 }
 
-/* Slice text — 2× bigger now */
+/* Slice text — 2× bigger */
 .slice-txt{
-  font: 900 28px/1.1 Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial; /* doubled from 14 → 28 */
+  font: 900 28px/1.1 Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial;
   paint-order: stroke fill;
   stroke: rgba(0,0,0,.25);
   stroke-width: 2px;
   letter-spacing: .2px;
-}
-.slice-txt.is-max{
-  /* fill set to white from JSX; glow comes from filter */
 }
 
 /* Result */
