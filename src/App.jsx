@@ -1,182 +1,156 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 /**
- * 25-section wheel mapping (1-indexed spec -> 0-indexed code)
- * 1:  MAX WIN — 1000 (metallic black)
- * 2,4,6,8,10,12,14,16,18,20,22,24: 5  (green)
- * 3,7,11,15,19,23: 10 (blue)
- * 5,9,13: 20 (purple)
- * 17,25: 50 (red)
- * 21: 100 (gold)
+ * 25-section mapping (1-indexed -> 0-indexed)
+ * 1: +1000 (MAX metallic black)
+ * 2,4,6,8,10,12,14,16,18,20,22,24: +5   (green chrome)
+ * 3,7,11,15,19,23: +10                  (blue chrome)
+ * 5,9,13: +20                           (purple chrome)
+ * 17,25: +50                            (red chrome)
+ * 21: +100                              (gold chrome)
  */
 
 const SEGMENTS_TOTAL = 25;
 const SEG_DEG = 360 / SEGMENTS_TOTAL; // 14.4°
+const BASE_OFFSET = -90; // rotate so 0deg is top
 
-const COLORS = {
-  // professional, slightly-muted metallic hues
-  green: "#1fa24f",   // 5
-  blue:  "#1f56c4",   // 10
-  purple:"#6a2fd8",   // 20
-  red:   "#d83a34",   // 50
-  gold:  "#d49a06",   // 100
-  // metallic black stops for MAX wedge
-  maxA:  "#0c0c10",
-  maxB:  "#16161b",
-  maxC:  "#0a0a0e",
+// Base hues (we’ll build chrome from these)
+const HUES = {
+  green: "#1fa24f",
+  blue:  "#1f56c4",
+  purple:"#6a2fd8",
+  red:   "#d83a34",
+  gold:  "#d49a06",
 };
 
-const tg = window.Telegram?.WebApp;
+// Metallic black for MAX
+const MAX_METAL = ["#0c0c10", "#17171c", "#0a0a0e"]; // edge / spec / edge
 
+// Chrome palettes (edge / specular line / opposite edge) per hue
+const CHROME = {
+  green: ["#0e5c30", "#5af2a0", "#0a3f21"],
+  blue:  ["#0f2f6b", "#7db2ff", "#0a214d"],
+  purple:["#3a1491", "#c0a3ff", "#270b64"],
+  red:   ["#6f1410", "#ff9690", "#4b0e0b"],
+  gold:  ["#6a4b07", "#ffd37a", "#4a3305"],
+};
+
+// Build wheel with your exact indices
 function buildWheel25() {
   const slots = new Array(SEGMENTS_TOTAL).fill(null);
-  // Section 1 (index 0): MAX
   slots[0] = { label: "+1000", amount: 1000, type: "max" };
 
-  const put = (indices1, amount, color) => {
-    indices1.forEach((sec1) => {
-      const i = sec1 - 1;
-      slots[i] = { label: `+${amount}`, amount, color, type: "flat" };
+  const put = (idxs, amount, tone) =>
+    idxs.forEach(n => {
+      const i = n - 1;
+      slots[i] = { label: `+${amount}`, amount, type: "flat", tone };
     });
-  };
 
-  put([2,4,6,8,10,12,14,16,18,20,22,24], 5, COLORS.green);
-  put([3,7,11,15,19,23], 10, COLORS.blue);
-  put([5,9,13], 20, COLORS.purple);
-  put([17,25], 50, COLORS.red);
-  put([21], 100, COLORS.gold);
+  put([2,4,6,8,10,12,14,16,18,20,22,24], 5,  "green");
+  put([3,7,11,15,19,23],                  10, "blue");
+  put([5,9,13],                            20, "purple");
+  put([17,25],                             50, "red");
+  put([21],                                100,"gold");
 
-  // safety fill (shouldn't be needed)
-  for (let i = 0; i < slots.length; i++) {
-    if (!slots[i]) slots[i] = { label: "+5", amount: 5, color: COLORS.green, type: "flat" };
-  }
+  for (let i=0;i<slots.length;i++) if (!slots[i]) slots[i]={label:"+5",amount:5,type:"flat",tone:"green"};
   return slots;
 }
+
+const tg = window.Telegram?.WebApp;
 
 export default function App() {
   const wheel = useMemo(buildWheel25, []);
   const [spinning, setSpinning] = useState(false);
-  const [rotation, setRotation] = useState(0); // cumulative rotation (deg)
+  const [rotation, setRotation] = useState(0);
   const [lastWin, setLastWin] = useState(null);
   const [bank, setBank] = useState(0);
   const [theme, setTheme] = useState({ bg: "#0b0b13", text: "#eaeaea" });
 
-  // sounds
-  const clickSfx = useRef(null);
-  const rollLoopSfx = useRef(null);
-  const winSfx = useRef(null);
-
-  // ────────────────────────── audio
+  // audio
+  const clickSfx = useRef(null), rollLoopSfx = useRef(null), winSfx = useRef(null);
   useEffect(() => {
-    clickSfx.current = new Audio("/sounds/click.mp3"); clickSfx.current.preload = "auto";
-    rollLoopSfx.current = new Audio("/sounds/roll_loop.mp3"); rollLoopSfx.current.loop = true; rollLoopSfx.current.preload = "auto";
-    winSfx.current = new Audio("/sounds/win.mp3"); winSfx.current.preload = "auto";
+    clickSfx.current = new Audio("/sounds/click.mp3");
+    rollLoopSfx.current = new Audio("/sounds/roll_loop.mp3"); rollLoopSfx.current.loop = true;
+    winSfx.current = new Audio("/sounds/win.mp3");
   }, []);
 
-  // ────────────────────────── Telegram theme sync
+  // Telegram theme + MainButton
   useEffect(() => {
     if (!tg) return;
     const sync = () => {
       const p = tg.themeParams || {};
-      setTheme({
-        bg: p.bg_color || "#0b0b13",
-        text: p.text_color || "#eaeaea",
-      });
+      setTheme({ bg: p.bg_color || "#0b0b13", text: p.text_color || "#eaeaea" });
     };
-    sync();
-    tg.onEvent?.("themeChanged", sync);
+    sync(); tg.onEvent?.("themeChanged", sync);
     return () => tg.offEvent?.("themeChanged", sync);
   }, []);
-
-  // ────────────────────────── Telegram MainButton mirrors Spin
   useEffect(() => {
     if (!tg) return;
     tg.MainButton.setText(spinning ? "Spinning..." : "Spin");
     spinning ? tg.MainButton.showProgress() : tg.MainButton.hideProgress();
-    tg.MainButton[spinning ? "disable" : "enable"]?.();
-    tg.MainButton.show();
-    const handler = () => handleSpin();
-    tg.MainButton.onClick(handler);
-    return () => tg.MainButton.offClick(handler);
+    tg.MainButton[spinning ? "disable" : "enable"]?.(); tg.MainButton.show();
+    const h = () => handleSpin();
+    tg.MainButton.onClick(h); return () => tg.MainButton.offClick(h);
   }, [spinning]);
 
-  /**
-   * BASE_OFFSET aligns CSS 0deg (right) to TOP (pointer).
-   * So "target slice center at 0deg after offset" guarantees the winner sits under the pointer.
-   */
-  const BASE_OFFSET = -90; // degrees
-  const chooseIndex = () => Math.floor(Math.random() * SEGMENTS_TOTAL);
-
-  const computeFinalRotation = (currentRot, targetIndex) => {
-    const indexCenter = targetIndex * SEG_DEG + SEG_DEG / 2; // from CSS 0deg (right)
-    // We want center at 0deg (after BASE_OFFSET applied in CSS)
-    const toZero = (360 - (indexCenter % 360)) % 360;
-    const extraTurns = 5 + Math.floor(Math.random() * 3); // 5..7 spins
-    return currentRot + extraTurns * 360 + toZero;
-  };
-
-  const play = async (ref) => { try { if (ref?.current) { ref.current.currentTime = 0; await ref.current.play(); } } catch {} };
-  const stop = (ref) => { try { if (ref?.current) { ref.current.pause(); ref.current.currentTime = 0; } } catch {} };
-
-  const handleSpin = async () => {
-    if (spinning) return;
-    setSpinning(true);
-    setLastWin(null);
-
-    tg?.HapticFeedback?.impactOccurred?.("medium");
-    await play(clickSfx);
-    await play(rollLoopSfx);
-
-    const targetIndex = chooseIndex();
-    const finalRot = computeFinalRotation(rotation, targetIndex);
-    requestAnimationFrame(() => setRotation(finalRot));
-
-    const DURATION = 4800; // keep in sync with CSS transition
-    setTimeout(() => {
-      const win = wheel[targetIndex];
-      setLastWin({ index: targetIndex, ...win });
-      setBank((b) => b + (win.amount || 0));
-      stop(rollLoopSfx);
-      play(winSfx);
-      tg?.HapticFeedback?.notificationOccurred?.("success");
-      setSpinning(false);
-    }, DURATION + 90);
-  };
-
-  // ────────────────────────── Wheel paint (conic)
-  // MAX uses metallic black: split its slice into 3 stops
+  // Metallic conic paint: each slice = edge → specular → edge within its arc
   const wheelBackground = useMemo(() => {
     const parts = [];
     let acc = 0;
     for (let i = 0; i < SEGMENTS_TOTAL; i++) {
-      const start = acc;
-      const end = acc + SEG_DEG;
+      const start = acc, end = acc + SEG_DEG;
       const s = wheel[i];
       if (s.type === "max") {
-        const mid1 = start + SEG_DEG * 0.33;
-        const mid2 = start + SEG_DEG * 0.66;
-        parts.push(`${COLORS.maxA} ${start}deg ${mid1}deg`);
-        parts.push(`${COLORS.maxB} ${mid1}deg ${mid2}deg`);
-        parts.push(`${COLORS.maxC} ${mid2}deg ${end}deg`);
+        const m1 = start + SEG_DEG*0.35, m2 = start + SEG_DEG*0.55;
+        parts.push(`${MAX_METAL[0]} ${start}deg ${m1}deg`);
+        parts.push(`${MAX_METAL[1]} ${m1}deg ${m2}deg`);
+        parts.push(`${MAX_METAL[2]} ${m2}deg ${end}deg`);
       } else {
-        parts.push(`${s.color} ${start}deg ${end}deg`);
+        const pal = CHROME[s.tone]; // [edge, spec, edge]
+        const m1 = start + SEG_DEG*0.33, m2 = start + SEG_DEG*0.60;
+        parts.push(`${pal[0]} ${start}deg ${m1}deg`);
+        parts.push(`${pal[1]} ${m1}deg ${m2}deg`);
+        parts.push(`${pal[2]} ${m2}deg ${end}deg`);
       }
       acc = end;
     }
     return `conic-gradient(${parts.join(", ")})`;
   }, [wheel]);
 
-  // Slice labels (around the rim)
-  const sliceLabels = useMemo(
-    () =>
-      wheel.map((s, idx) => ({
-        idx,
-        text: s.type === "max" ? "+1000" : s.label,
-        angle: idx * SEG_DEG + SEG_DEG / 2,
-        isMax: s.type === "max",
-      })),
+  const labels = useMemo(
+    () => wheel.map((s,i)=>({ text:s.label, angle:i*SEG_DEG+SEG_DEG/2, isMax:s.type==="max" })),
     [wheel]
   );
+
+  const chooseIndex = () => Math.floor(Math.random()*SEGMENTS_TOTAL);
+  const computeFinalRotation = (current, idx) => {
+    const center = idx*SEG_DEG + SEG_DEG/2; // from CSS 0deg (right)
+    const toZero = (360 - (center % 360)) % 360; // land center at 0deg (top after BASE_OFFSET)
+    const extra = 5 + Math.floor(Math.random()*3);
+    return current + extra*360 + toZero;
+  };
+
+  const play = async r => { try { if(r?.current){ r.current.currentTime=0; await r.current.play(); } } catch{} };
+  const stop = r => { try { if(r?.current){ r.current.pause(); r.current.currentTime=0; } } catch{} };
+
+  const handleSpin = async () => {
+    if (spinning) return;
+    setSpinning(true); setLastWin(null);
+    tg?.HapticFeedback?.impactOccurred?.("medium");
+    await play(clickSfx); await play(rollLoopSfx);
+    const idx = chooseIndex();
+    const finalRot = computeFinalRotation(rotation, idx);
+    requestAnimationFrame(()=>setRotation(finalRot));
+    const D = 4800;
+    setTimeout(()=> {
+      const win = wheel[idx];
+      setLastWin({ index: idx, ...win });
+      setBank(b=>b+(win.amount||0));
+      stop(rollLoopSfx); play(winSfx);
+      tg?.HapticFeedback?.notificationOccurred?.("success");
+      setSpinning(false);
+    }, D+90);
+  };
 
   return (
     <div className="tg-app" style={{ "--bg": theme.bg, "--text": theme.text }}>
@@ -189,28 +163,24 @@ export default function App() {
         </header>
 
         <div className="wheel-wrap">
-          {/* pointer (top) */}
-          <div className={`pointer ${lastWin && !spinning ? "pulse" : ""}`}>
-            <div className="pointer-led" />
-          </div>
+          <div className={`pointer ${lastWin && !spinning ? "pulse" : ""}`}><div className="pointer-led" /></div>
 
-          {/* wheel */}
           <div
             className={`wheel ${spinning ? "motion" : ""}`}
             style={{
               background: wheelBackground,
               transform: `rotate(${BASE_OFFSET + rotation}deg)`,
-              // winner glow: always illuminate the top wedge exactly (fixed arc width = 1 slice)
               "--hl-width": `${SEG_DEG}deg`,
               "--show-win": lastWin && !spinning ? 1 : 0,
             }}
           >
-            {/* metallic trim + sheen + noise */}
-            <div className="rim" aria-hidden />
-            <div className="rim-gleam" aria-hidden />
-            <div className="noise" aria-hidden />
+            {/* OUTER GOLD TRIM + chrome inner ring (from your CSS) */}
+            <div className="outer-trim" aria-hidden />
+            <div className="trim-gleam" aria-hidden />
+            <div className="inner-chrome" aria-hidden />
 
-            {/* separators & speculars */}
+            {/* metallic surface overlays */}
+            <div className="noise" aria-hidden />
             <div className="spokes" aria-hidden />
             <div className="specular" aria-hidden />
 
@@ -219,27 +189,25 @@ export default function App() {
             <div className="center-cap" aria-hidden />
             <div className="center-gloss" aria-hidden />
 
-            {/* labels on each slice */}
-            {sliceLabels.map(({ idx, text, angle, isMax }) => (
+            {/* labels */}
+            {labels.map(({text,angle,isMax},k)=>(
               <div
-                key={idx}
+                key={k}
                 className={`slice-label ${isMax ? "is-max" : ""}`}
-                style={{ transform: `rotate(${angle}deg) translate(0, -43%) rotate(${-angle}deg)` }}
+                style={{ transform:`rotate(${angle}deg) translate(0, -43%) rotate(${-angle}deg)` }}
               >
                 {text}
               </div>
             ))}
 
-            {/* winner highlight (fixed to top, independent of rotation) */}
+            {/* winner glow locked to TOP wedge */}
             <div className="winner-overlay" aria-hidden />
           </div>
         </div>
 
         {lastWin && (
           <div className="result">
-            <div>
-              Stopped on <b>#{lastWin.index + 1}</b> — <span className={`pill ${lastWin.type === "max" ? "max" : ""}`}>{lastWin.label}</span> ⇒ <b>+{lastWin.amount}</b>
-            </div>
+            Stopped on <b>#{lastWin.index+1}</b> — <span className={`pill ${lastWin.type==="max"?"max":""}`}>{lastWin.label}</span> ⇒ <b>+{lastWin.amount}</b>
           </div>
         )}
       </div>
