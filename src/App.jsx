@@ -1,58 +1,63 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 /**
- * 25-section mapping (1-indexed -> 0-indexed)
- * 1: +1000 (MAX metallic black)
- * 2,4,6,8,10,12,14,16,18,20,22,24: +5   (green chrome)
- * 3,7,11,15,19,23: +10                  (blue chrome)
- * 5,9,13: +20                           (purple chrome)
- * 17,25: +50                            (red chrome)
- * 21: +100                              (gold chrome)
+ * Wheel: 25 sections (1-indexed spec -> 0-indexed code)
+ *
+ * Colours (visual only):
+ *  - 1:   Red chrome (MAX)
+ *  - 2,4,6,8,10,12,14,16,18,20,22,24: Black chrome
+ *  - 3,5,7,9,11,13,15,17,19,21,23,25: Silver chrome
+ *
+ * Payouts (kept as previously configured):
+ *  - MAX (1): +1000
+ *  - 5 coins:  sections 2,4,6,8,10,12,14,16,18,20,22,24
+ *  - 10 coins: sections 3,7,11,15,19,23
+ *  - 20 coins: sections 5,9,13
+ *  - 50 coins: sections 17,25
+ *  - 100 coins: section 21
  */
 
 const SEGMENTS_TOTAL = 25;
 const SEG_DEG = 360 / SEGMENTS_TOTAL; // 14.4°
-const BASE_OFFSET = -90; // rotate so 0deg is top
+const BASE_OFFSET = -90; // make 0deg at TOP (pointer)
 
-// Base hues (we’ll build chrome from these)
-const HUES = {
-  green: "#1fa24f",
-  blue:  "#1f56c4",
-  purple:"#6a2fd8",
-  red:   "#d83a34",
-  gold:  "#d49a06",
-};
-
-// Metallic black for MAX
-const MAX_METAL = ["#0c0c10", "#17171c", "#0a0a0e"]; // edge / spec / edge
-
-// Chrome palettes (edge / specular line / opposite edge) per hue
 const CHROME = {
-  green: ["#0e5c30", "#5af2a0", "#0a3f21"],
-  blue:  ["#0f2f6b", "#7db2ff", "#0a214d"],
-  purple:["#3a1491", "#c0a3ff", "#270b64"],
-  red:   ["#6f1410", "#ff9690", "#4b0e0b"],
-  gold:  ["#6a4b07", "#ffd37a", "#4a3305"],
+  // three-stop (edge / specular / edge) for metallic feel
+  black:  ["#0a0a0e", "#9aa3ad", "#0b0d12"],
+  silver: ["#9fa8b3", "#ffffff", "#858e99"],
+  redMax: ["#4e0b08", "#ff9c92", "#2f0605"], // strong red chrome for MAX
 };
 
-// Build wheel with your exact indices
 function buildWheel25() {
   const slots = new Array(SEGMENTS_TOTAL).fill(null);
-  slots[0] = { label: "+1000", amount: 1000, type: "max" };
 
-  const put = (idxs, amount, tone) =>
-    idxs.forEach(n => {
-      const i = n - 1;
-      slots[i] = { label: `+${amount}`, amount, type: "flat", tone };
-    });
+  // MAX (section 1)
+  slots[0] = { label: "+1000", amount: 1000, type: "max", tone: "redMax" };
 
-  put([2,4,6,8,10,12,14,16,18,20,22,24], 5,  "green");
-  put([3,7,11,15,19,23],                  10, "blue");
-  put([5,9,13],                            20, "purple");
-  put([17,25],                             50, "red");
-  put([21],                                100,"gold");
+  // helpers to assign payouts (visual tones handled later)
+  const put = (idxs, amount) =>
+    idxs.forEach(n => { slots[n - 1] = slots[n - 1] || { label: `+${amount}`, amount, type: "flat" }; });
 
-  for (let i=0;i<slots.length;i++) if (!slots[i]) slots[i]={label:"+5",amount:5,type:"flat",tone:"green"};
+  put([2,4,6,8,10,12,14,16,18,20,22,24], 5);
+  put([3,7,11,15,19,23], 10);
+  put([5,9,13], 20);
+  put([17,25], 50);
+  put([21], 100);
+
+  // Now assign CHROME tones by your new colour spec (visual only)
+  for (let sec1 = 1; sec1 <= SEGMENTS_TOTAL; sec1++) {
+    const i = sec1 - 1;
+    if (sec1 === 1) { slots[i].tone = "redMax"; continue; }
+    if ([2,4,6,8,10,12,14,16,18,20,22,24].includes(sec1)) {
+      slots[i].tone = "black";
+    } else {
+      // 3,5,7,9,11,13,15,17,19,21,23,25
+      slots[i].tone = "silver";
+    }
+    // ensure label exists
+    if (!slots[i].label) slots[i].label = `+${slots[i].amount || 5}`;
+  }
+
   return slots;
 }
 
@@ -69,9 +74,9 @@ export default function App() {
   // audio
   const clickSfx = useRef(null), rollLoopSfx = useRef(null), winSfx = useRef(null);
   useEffect(() => {
-    clickSfx.current = new Audio("/sounds/click.mp3");
-    rollLoopSfx.current = new Audio("/sounds/roll_loop.mp3"); rollLoopSfx.current.loop = true;
-    winSfx.current = new Audio("/sounds/win.mp3");
+    clickSfx.current = new Audio("/sounds/click.mp3"); clickSfx.current.preload = "auto";
+    rollLoopSfx.current = new Audio("/sounds/roll_loop.mp3"); rollLoopSfx.current.loop = true; rollLoopSfx.current.preload = "auto";
+    winSfx.current = new Audio("/sounds/win.mp3"); winSfx.current.preload = "auto";
   }, []);
 
   // Telegram theme + MainButton
@@ -93,39 +98,33 @@ export default function App() {
     tg.MainButton.onClick(h); return () => tg.MainButton.offClick(h);
   }, [spinning]);
 
-  // Metallic conic paint: each slice = edge → specular → edge within its arc
+  // Metallic conic paint per slice (edge/specular/edge)
   const wheelBackground = useMemo(() => {
     const parts = [];
     let acc = 0;
     for (let i = 0; i < SEGMENTS_TOTAL; i++) {
       const start = acc, end = acc + SEG_DEG;
       const s = wheel[i];
-      if (s.type === "max") {
-        const m1 = start + SEG_DEG*0.35, m2 = start + SEG_DEG*0.55;
-        parts.push(`${MAX_METAL[0]} ${start}deg ${m1}deg`);
-        parts.push(`${MAX_METAL[1]} ${m1}deg ${m2}deg`);
-        parts.push(`${MAX_METAL[2]} ${m2}deg ${end}deg`);
-      } else {
-        const pal = CHROME[s.tone]; // [edge, spec, edge]
-        const m1 = start + SEG_DEG*0.33, m2 = start + SEG_DEG*0.60;
-        parts.push(`${pal[0]} ${start}deg ${m1}deg`);
-        parts.push(`${pal[1]} ${m1}deg ${m2}deg`);
-        parts.push(`${pal[2]} ${m2}deg ${end}deg`);
-      }
+      const pal = CHROME[s.tone === "redMax" ? "redMax" : s.tone]; // black/silver or redMax
+      // widen specular for stronger chrome
+      const m1 = start + SEG_DEG * 0.30, m2 = start + SEG_DEG * 0.62;
+      parts.push(`${pal[0]} ${start}deg ${m1}deg`);
+      parts.push(`${pal[1]} ${m1}deg ${m2}deg`);
+      parts.push(`${pal[2]} ${m2}deg ${end}deg`);
       acc = end;
     }
     return `conic-gradient(${parts.join(", ")})`;
   }, [wheel]);
 
   const labels = useMemo(
-    () => wheel.map((s,i)=>({ text:s.label, angle:i*SEG_DEG+SEG_DEG/2, isMax:s.type==="max" })),
+    () => wheel.map((s,i)=>({ idx:i, text:s.label, angle:i*SEG_DEG+SEG_DEG/2, isMax:s.type==="max" })),
     [wheel]
   );
 
   const chooseIndex = () => Math.floor(Math.random()*SEGMENTS_TOTAL);
   const computeFinalRotation = (current, idx) => {
-    const center = idx*SEG_DEG + SEG_DEG/2; // from CSS 0deg (right)
-    const toZero = (360 - (center % 360)) % 360; // land center at 0deg (top after BASE_OFFSET)
+    const center = idx*SEG_DEG + SEG_DEG/2; // CSS 0deg is right
+    const toZero = (360 - (center % 360)) % 360; // land at top after BASE_OFFSET
     const extra = 5 + Math.floor(Math.random()*3);
     return current + extra*360 + toZero;
   };
@@ -163,23 +162,24 @@ export default function App() {
         </header>
 
         <div className="wheel-wrap">
-          <div className={`pointer ${lastWin && !spinning ? "pulse" : ""}`}><div className="pointer-led" /></div>
+          <div className={`pointer ${lastWin && !spinning ? "pulse" : ""}`}>
+            <div className="pointer-led" />
+          </div>
 
           <div
             className={`wheel ${spinning ? "motion" : ""}`}
             style={{
               background: wheelBackground,
               transform: `rotate(${BASE_OFFSET + rotation}deg)`,
-              "--hl-width": `${SEG_DEG}deg`,
-              "--show-win": lastWin && !spinning ? 1 : 0,
+              // no winner overlay anymore (removed)
             }}
           >
-            {/* OUTER GOLD TRIM + chrome inner ring (from your CSS) */}
+            {/* OUTER GOLD TRIM (thicker) + chrome inner ring */}
             <div className="outer-trim" aria-hidden />
             <div className="trim-gleam" aria-hidden />
             <div className="inner-chrome" aria-hidden />
 
-            {/* metallic surface overlays */}
+            {/* metallic overlays */}
             <div className="noise" aria-hidden />
             <div className="spokes" aria-hidden />
             <div className="specular" aria-hidden />
@@ -189,19 +189,16 @@ export default function App() {
             <div className="center-cap" aria-hidden />
             <div className="center-gloss" aria-hidden />
 
-            {/* labels */}
-            {labels.map(({text,angle,isMax},k)=>(
+            {/* labels; add 'won' class to the winning one (text glow only) */}
+            {labels.map(({idx,text,angle,isMax})=>(
               <div
-                key={k}
-                className={`slice-label ${isMax ? "is-max" : ""}`}
+                key={idx}
+                className={`slice-label ${isMax ? "is-max" : ""} ${lastWin && lastWin.index===idx ? "won" : ""}`}
                 style={{ transform:`rotate(${angle}deg) translate(0, -43%) rotate(${-angle}deg)` }}
               >
                 {text}
               </div>
             ))}
-
-            {/* winner glow locked to TOP wedge */}
-            <div className="winner-overlay" aria-hidden />
           </div>
         </div>
 
