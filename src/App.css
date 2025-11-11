@@ -1,15 +1,10 @@
 :root{
-  /* Dominant champagne gold trim */
   --gold1:#caa03a;
   --gold2:#f3d077;
   --gold3:#7a5d19;
 
-  /* Brand glows */
   --brand-purple:#7c5cff;
   --brand-teal:#19FB9B;
-
-  /* Label radius (negative Y from center) */
-  --labelRadius:-44%;
 }
 
 /* Base */
@@ -22,7 +17,7 @@ body{
   font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial;
 }
 .tg-app{min-height:100%;display:flex;justify-content:center}
-.compact{width:min(100vw,480px);padding:10px 10px 16px}
+.compact{width:min(100vw,520px);padding:10px 10px 16px}
 
 /* Header */
 .header{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:8px}
@@ -39,7 +34,7 @@ body{
 }
 .spin:disabled{opacity:.7}
 
-/* Brand backdrop (soft glows) */
+/* Background glow */
 .brand-bg{
   background:
     radial-gradient(40% 60% at 12% 88%, rgba(124,92,255,.16), transparent 60%),
@@ -48,101 +43,24 @@ body{
 }
 
 /* Stage */
-.wheel-wrap{position:relative;width:100%;aspect-ratio:1/1;margin:6px auto 12px;max-width:460px}
+.wheel-wrap{position:relative;width:100%;aspect-ratio:1/1;margin:6px auto 12px;max-width:520px}
 
-/* Pointer */
-.pointer{
-  position:absolute;top:-2px;left:50%;transform:translateX(-50%);
-  width:0;height:0;z-index:40;
-  border-left:12px solid transparent;border-right:12px solid transparent;border-bottom:18px solid #f5f7ff;
-  filter:drop-shadow(0 0 10px rgba(255,255,255,.35));
-}
-.pointer-led{
-  position:absolute;left:50%;top:12px;transform:translateX(-50%);
-  width:8px;height:8px;border-radius:50%;
-  background:#fff; box-shadow:0 0 14px rgba(255,255,255,.8);
-}
-.pointer.pulse .pointer-led{animation:ledBlink .9s ease 3}
-@keyframes ledBlink{50%{opacity:.35; box-shadow:0 0 6px rgba(255,255,255,.45)}}
-
-/* Wheel face (rotates) */
-.wheel{
-  position:absolute;inset:0;border-radius:50%;
-  transition:transform 4.8s cubic-bezier(.12,.8,.12,1);
-  overflow:hidden;
-  box-shadow:
-    0 0 0 18px rgba(8,8,14,.7) inset,
-    0 0 0 1px rgba(255,255,255,.12) inset,
-    0 30px 70px rgba(0,0,0,.55);
-}
-.wheel.motion{filter:saturate(1.02) drop-shadow(0 0 36px rgba(255,215,130,.18))}
-
-/* ── DOMINANT GOLD OUTER RIM (thick) ── */
-.outer-trim{
-  position:absolute;inset:-28px;border-radius:50%;z-index:26;pointer-events:none;
-  /* thickness ~ 40px */
-  -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 40px), #000 calc(100% - 40px));
-          mask: radial-gradient(closest-side, transparent calc(100% - 40px), #000 calc(100% - 40px));
-  background:
-    conic-gradient(from 0deg,
-      var(--gold3) 0deg 30deg,
-      var(--gold1) 30deg 120deg,
-      var(--gold2) 120deg 180deg,
-      var(--gold1) 180deg 330deg,
-      var(--gold3) 330deg 360deg
-    );
-  box-shadow:
-    0 12px 28px rgba(0,0,0,.6),
-    inset 0 0 16px rgba(255,255,255,.28);
-}
-.trim-gleam{
-  position:absolute;inset:-28px;border-radius:50%;z-index:27;pointer-events:none;
-  -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 40px), #000 calc(100% - 40px));
-          mask: radial-gradient(closest-side, transparent calc(100% - 40px), #000 calc(100% - 40px));
-  background:
-    radial-gradient(70% 50% at 62% 12%, rgba(255,255,255,.33), transparent 60%),
-    radial-gradient(70% 50% at 22% 82%, rgba(255,255,255,.14), transparent 60%);
-  mix-blend-mode:screen;
-}
-.trim-studs{
-  position:absolute;inset:-28px;border-radius:50%;z-index:28;pointer-events:none;
-  -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 40px), #000 calc(100% - 40px));
-          mask: radial-gradient(closest-side, transparent calc(100% - 40px), #000 calc(100% - 40px));
-  background:
-    radial-gradient(circle, rgba(255,255,255,.95) 0 2px, rgba(255,255,255,0) 3px) center/18px 18px,
-    repeating-conic-gradient(rgba(0,0,0,.25) 0deg 3deg, rgba(0,0,0,0) 3deg 14.4deg);
-  mix-blend-mode:overlay;
+/* Pointer (SVG sits above) */
+.pointer-svg{
+  position:absolute;left:0;right:0;margin:0 auto;top:0;width:100%;height:auto;z-index:40;pointer-events:none;
 }
 
-/* Inner chrome divider (hairline ring) */
-.inner-chrome{
-  position:absolute;inset:0;border-radius:50%;z-index:25;pointer-events:none;
-  -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 12px), #000 calc(100% - 12px));
-          mask: radial-gradient(closest-side, transparent calc(100% - 12px), #000 calc(100% - 12px));
-  background: linear-gradient(45deg, #b8b8b8, #2a2a2a 45%, #b8b8b8 80%);
-  mix-blend-mode:overlay; opacity:.95;
+/* Wheel SVG */
+.wheel-svg{
+  position:absolute;inset:0;z-index:10;pointer-events:none;
+  filter: drop-shadow(0 30px 70px rgba(0,0,0,.55));
 }
+.rotor{ transition: transform 4.8s cubic-bezier(.12,.8,.12,1); }
+.rotor.motion{ filter: saturate(1.02); }
 
-/* Face overlays (soft) */
-.spokes{
-  position:absolute;inset:0;border-radius:50%;z-index:5;pointer-events:none;
-  background:
-    repeating-conic-gradient(rgba(255,255,255,.12) 0deg .8deg, transparent .8deg 14.4deg),
-    repeating-conic-gradient(rgba(0,0,0,.18) 0deg .22deg, transparent .22deg 14.4deg);
-  mix-blend-mode:overlay;
-}
-.specular{
-  position:absolute;inset:0;border-radius:50%;z-index:6;pointer-events:none;
-  background:
-    radial-gradient(120% 80% at 20% 20%, rgba(255,255,255,.07), transparent 42%),
-    radial-gradient(120% 80% at 78% 80%, rgba(255,255,255,.06), transparent 46%);
-  mix-blend-mode:screen;
-}
-
-/* NON-rotating center stack (keeps logo still) */
+/* Center stack (non-rotating) */
 .center-stack{
-  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-  width:100%;height:100%;pointer-events:none;z-index:35;
+  position:absolute;inset:0;display:block;z-index:50;pointer-events:none;
 }
 .center-ring{
   position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
@@ -162,44 +80,31 @@ body{
     inset 0 2px 0 rgba(255,255,255,.15),
     inset 0 -4px 10px rgba(0,0,0,.6),
     0 6px 18px rgba(0,0,0,.45);
-  z-index:1;
 }
 .center-logo-img{
   position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
   width:22%;aspect-ratio:1/1;object-fit:contain;
   filter: drop-shadow(0 4px 12px rgba(124,92,255,.35)) drop-shadow(0 2px 8px rgba(25,251,155,.25));
-  z-index:2;
 }
 .center-gloss{
   position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
   width:30%;aspect-ratio:1/1;border-radius:50%;
   background: radial-gradient(closest-side, rgba(255,255,255,.08), transparent 70%);
-  z-index:3;
 }
 
-/* Slice labels — placed on a radius; each slice gets its own */
-.slice-label{
-  position:absolute;top:50%;left:50%;
-  width:auto; /* auto width to stop labels spanning across slices */
-  transform-origin:50% 50%;
-  transform: translate(-50%,-50%);
-  font-weight:900;font-size:12px;letter-spacing:.2px;
-  color:#0a0d12;
-  text-shadow:0 1px 0 rgba(255,255,255,.6);
-  z-index:10;
-  /* we re-apply the polar transform inline:
-     rotate(angle) translate(0, var(--labelRadius)) rotate(-angle) */
+/* Slice text styling (applies per-slice colors via SVG fill from JSX rules) */
+.slice-txt{
+  font: 900 14px/1.1 Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  paint-order: stroke fill;
+  stroke: rgba(0,0,0,.25);
+  stroke-width: 2px;
+  letter-spacing: .2px;
+  /* default fill overwritten per-slice rule in JSX when rendered */
+  fill: #000;
 }
-.slice-label.is-max{
-  color:#ffffff;
-  text-shadow:0 0 8px rgba(124,92,255,.6), 0 0 10px rgba(25,251,155,.45), 0 1px 0 rgba(0,0,0,.85);
-}
-.slice-label.won{
-  text-shadow:
-    0 0 1px #fff,
-    0 0 8px rgba(124,92,255,.8),
-    0 0 12px rgba(25,251,155,.8),
-    0 1px 0 rgba(0,0,0,.95);
+.slice-txt.is-max{
+  fill:#fff;
+  text-shadow:0 0 8px rgba(124,92,255,.6), 0 0 10px rgba(25,251,155,.45);
 }
 
 /* Result */
