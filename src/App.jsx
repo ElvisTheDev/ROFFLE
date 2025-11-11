@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 /**
- * 25 sections, same payouts:
+ * 25 sections — payouts unchanged
  * 1: MAX +1000
  * 2,4,6,8,10,12,14,16,18,20,22,24: +5
  * 3,7,11,15,19,23: +10
@@ -10,43 +10,46 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
  * 21: +100
  *
  * Visuals:
- * - Brand metallic chrome wedges (TEAL/PURPLE/BLACK/WHITE), cycling after MAX
- * - Gold outer rim is dominant (thick, bright, studded)
- * - Center cap shows embossed "R"
+ * - Metallic (subtle) wedges in brand colours: black / white / purple / teal
+ * - Narrow, soft specular line in the middle of each slice (not stripy)
+ * - Thick champagne-gold outer rim
+ * - Center cap = black puck with your logo image
  */
 
 const SEGMENTS_TOTAL = 25;
 const SEG_DEG = 360 / SEGMENTS_TOTAL; // 14.4°
 const BASE_OFFSET = -90; // align 0deg to top pointer
 
-// Chrome palettes: [edge, specular, edge]
-const CHROME = {
-  black:   ["#0a0b10", "#8a96a3", "#0b0d12"],
-  white:   ["#a9b3bf", "#ffffff", "#87919c"],       // “white” chrome (cool silver)
-  teal:    ["#0b3a2e", "#3ef7c0", "#06251c"],       // brand teal chrome
-  purple:  ["#2a1a5e", "#9c84ff", "#1a0f3d"],       // brand purple chrome
-  max:     ["#150e2b", "#7c5cff", "#19FB9B"],       // MAX = sapphire neon (brand)
+// ───────────────────────────────────────────────────────────
+// Metallic palettes per tone (edge→mid→specular→mid→edge)
+// Kept low-contrast so it feels metallic, not stripy.
+const METAL = {
+  black:   ["#0b0d12", "#151922", "#8b95a1", "#151922", "#0a0c11"],
+  white:   ["#88929e", "#aeb8c4", "#ffffff", "#aeb8c4", "#808a96"],
+  purple:  ["#1b1438", "#2e235b", "#a79aff", "#2e235b", "#181234"],
+  teal:    ["#06261d", "#0d3e30", "#40f6c8", "#0d3e30", "#052019"],
+  max:     ["#120d24", "#241a4a", "#7c5cff", "#0f2f2a", "#0c111f"], // subtle purple→teal cues
 };
 
-// Build wheel with payouts
+// ───────────────────────────────────────────────────────────
 function buildWheel25() {
   const slots = new Array(SEGMENTS_TOTAL).fill(null);
   // MAX
   slots[0] = { label: "+1000", amount: 1000, type: "max", tone: "max" };
 
-  const put = (idxs, amount) =>
+  const setPayout = (idxs, amount) =>
     idxs.forEach(n => {
       const i = n - 1;
       if (!slots[i]) slots[i] = { label: `+${amount}`, amount, type: "flat" };
     });
 
-  put([2,4,6,8,10,12,14,16,18,20,22,24], 5);
-  put([3,7,11,15,19,23], 10);
-  put([5,9,13], 20);
-  put([17,25], 50);
-  put([21], 100);
+  setPayout([2,4,6,8,10,12,14,16,18,20,22,24], 5);
+  setPayout([3,7,11,15,19,23], 10);
+  setPayout([5,9,13], 20);
+  setPayout([17,25], 50);
+  setPayout([21], 100);
 
-  // Tone assignment (brand cycle after MAX): black → white → purple → teal → repeat
+  // Brand cycle after MAX: black → white → purple → teal → repeat
   const cycle = ["black", "white", "purple", "teal"];
   let c = 0;
   for (let sec1 = 2; sec1 <= SEGMENTS_TOTAL; sec1++) {
@@ -59,6 +62,8 @@ function buildWheel25() {
 }
 
 const tg = window.Telegram?.WebApp;
+// change this to your actual file name under /public (e.g. /roffle-logo.png)
+const CENTER_LOGO_SRC = "/logo.png";
 
 export default function App() {
   const wheel = useMemo(buildWheel25, []);
@@ -95,19 +100,24 @@ export default function App() {
     tg.MainButton.onClick(h); return () => tg.MainButton.offClick(h);
   }, [spinning]);
 
-  // Metallic conic paint: each slice 3 stops (edge/specular/edge)
+  // ───────────────────────────────────────────────────────────
+  // Soft metallic conic paint: 5 stops per slice with a narrow specular band (~8%)
   const wheelBackground = useMemo(() => {
     const parts = [];
     let acc = 0;
     for (let i = 0; i < SEGMENTS_TOTAL; i++) {
       const start = acc, end = acc + SEG_DEG;
-      const { tone } = wheel[i];
-      const pal = CHROME[tone];
-      const m1 = start + SEG_DEG * 0.32;
-      const m2 = start + SEG_DEG * 0.64;
-      parts.push(`${pal[0]} ${start}deg ${m1}deg`);
-      parts.push(`${pal[1]} ${m1}deg ${m2}deg`);
-      parts.push(`${pal[2]} ${m2}deg ${end}deg`);
+      const pal = METAL[wheel[i].tone]; // [edge, mid1, spec, mid2, edge]
+      const s1 = start + SEG_DEG * 0.25; // 25%
+      const s2 = start + SEG_DEG * 0.46; // 46%
+      const s3 = start + SEG_DEG * 0.54; // 54%  (specular band ~8%)
+      const s4 = start + SEG_DEG * 0.75; // 75%
+
+      parts.push(`${pal[0]} ${start}deg ${s1}deg`);
+      parts.push(`${pal[1]} ${s1}deg ${s2}deg`);
+      parts.push(`${pal[2]} ${s2}deg ${s3}deg`);
+      parts.push(`${pal[3]} ${s3}deg ${s4}deg`);
+      parts.push(`${pal[4]} ${s4}deg ${end}deg`);
       acc = end;
     }
     return `conic-gradient(${parts.join(", ")})`;
@@ -120,7 +130,6 @@ export default function App() {
 
   const chooseIndex = () => Math.floor(Math.random()*SEGMENTS_TOTAL);
   const computeFinalRotation = (current, idx) => {
-    // Land chosen slice center at top (after BASE_OFFSET)
     const center = idx*SEG_DEG + SEG_DEG/2;
     const toZero = (360 - (center % 360)) % 360;
     const extra = 5 + Math.floor(Math.random()*3);
@@ -168,7 +177,7 @@ export default function App() {
             className={`wheel ${spinning ? "motion" : ""}`}
             style={{ background: wheelBackground, transform: `rotate(${BASE_OFFSET + rotation}deg)` }}
           >
-            {/* Dominant champagne-gold outer rim */}
+            {/* Dominant gold outer rim */}
             <div className="outer-trim" aria-hidden />
             <div className="trim-gleam" aria-hidden />
             <div className="trim-studs" aria-hidden />
@@ -181,13 +190,13 @@ export default function App() {
             <div className="spokes" aria-hidden />
             <div className="specular" aria-hidden />
 
-            {/* Center hardware + brand "R" */}
+            {/* Center hardware + YOUR LOGO on black puck */}
             <div className="center-ring" aria-hidden />
             <div className="center-cap" aria-hidden />
-            <div className="center-logo" aria-hidden>R</div>
+            <img className="center-logo-img" src={CENTER_LOGO_SRC} alt="Roffle logo" />
             <div className="center-gloss" aria-hidden />
 
-            {/* Labels (winner gets neon halo only) */}
+            {/* Labels (winner text gets neon halo only) */}
             {labels.map(({idx,text,angle,isMax})=>(
               <div
                 key={idx}
