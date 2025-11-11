@@ -2,7 +2,6 @@
   --gold1:#caa03a;
   --gold2:#f3d077;
   --gold3:#7a5d19;
-
   --brand-purple:#7c5cff;
   --brand-teal:#19FB9B;
 }
@@ -92,19 +91,16 @@ body{
   background: radial-gradient(closest-side, rgba(255,255,255,.08), transparent 70%);
 }
 
-/* Slice text styling (applies per-slice colors via SVG fill from JSX rules) */
+/* Slice text — 2× bigger now */
 .slice-txt{
-  font: 900 14px/1.1 Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  font: 900 28px/1.1 Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial; /* doubled from 14 → 28 */
   paint-order: stroke fill;
   stroke: rgba(0,0,0,.25);
   stroke-width: 2px;
   letter-spacing: .2px;
-  /* default fill overwritten per-slice rule in JSX when rendered */
-  fill: #000;
 }
 .slice-txt.is-max{
-  fill:#fff;
-  text-shadow:0 0 8px rgba(124,92,255,.6), 0 0 10px rgba(25,251,155,.45);
+  /* fill set to white from JSX; glow comes from filter */
 }
 
 /* Result */
@@ -120,6 +116,6 @@ body{
   border:2px solid rgba(255,255,255,.15);font-weight:800
 }
 .pill.max{
-  background:linear-gradient(135deg,#160f25,var(--brand-purple),var(--brand-teal));
+  background:linear-gradient(135deg,#160f25,var(--gold1),var(--gold2));
   color:#ffffff;border-color:rgba(255,255,255,.22)
 }
