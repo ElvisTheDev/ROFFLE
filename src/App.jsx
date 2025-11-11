@@ -1,40 +1,40 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 /**
- * 25-section wheel (SVG-based so each slice can have a true 180° linear gradient)
+ * 25-section SVG wheel with true per-slice 180° linear gradients.
  *
  * Colors per request:
- *  - Section 1 (MAX): linear gradient top→bottom #43cda3 → #490e6d
- *  - All other EVEN sections: basic BLACK (linear gradient #404040 → #000000)
- *  - All other ODD sections:  basic WHITE (linear gradient #ffffff → #a8a8a8)
+ *  - Section 1 (MAX): linear gradient #43cda3 → #490e6d (top→bottom)
+ *  - All other EVEN sections: BLACK gradient #404040 → #000000
+ *  - All other ODD sections:  WHITE gradient #ffffff → #a8a8a8
  *
- * Payout text rules:
- *  - WHITE text on BLACK sections
- *  - BLACK text on WHITE sections
- *  - WHITE text on MAX section
+ * Labels:
+ *  - (No "+") Just numbers: 5, 10, 20, 50, 100, 1000
+ *  - WHITE text on black slices (even)
+ *  - BLACK text on white slices (odd)
+ *  - WHITE text on MAX (1000) + glow
  *
- * Also:
- *  - Red pointer with dark red outline
- *  - Thick gold outer rim (dominant)
- *  - Center logo stays STILL (does not rotate)
+ * Pointer: red with dark red outline.
+ * Center logo: stays STILL (non-rotating).
+ * Bug fix: chosen slice center lands at the TOP pointer.
  */
 
 const SEGMENTS_TOTAL = 25;
-const SEG_DEG = 360 / SEGMENTS_TOTAL; // 14.4
-const BASE_OFFSET = -90; // start at top
+const SEG_DEG = 360 / SEGMENTS_TOTAL; // 14.4°
+const START_OFFSET = -90; // rotate render only so 0° is at the top
 
-// payouts
+// Build payouts
 function buildSlots() {
   const arr = Array(SEGMENTS_TOTAL).fill(null);
 
-  // sec1 = 1: MAX
-  arr[0] = { amount: 1000, label: "+1000", type: "max" };
+  // Section 1: MAX
+  arr[0] = { amount: 1000, label: "1000", type: "max" };
 
   const put = (idxs, amt) => {
     idxs.forEach((n) => {
       const i = n - 1;
       if (!arr[i]) arr[i] = { amount: amt, type: "flat" };
-      arr[i].label = `+${amt}`;
+      arr[i].label = String(amt); // <- no plus sign
     });
   };
 
@@ -54,12 +54,12 @@ function buildSlots() {
 
   // safety labels
   for (let i = 0; i < arr.length; i++) {
-    if (arr[i] && !arr[i].label) arr[i].label = `+${arr[i].amount ?? ""}`.trim();
+    if (arr[i] && !arr[i].label) arr[i].label = String(arr[i].amount ?? "");
   }
   return arr;
 }
 
-// geometry helpers
+// geometry helpers (angles measured from +X axis; we apply START_OFFSET at render)
 function polarToCartesian(cx, cy, r, aDeg) {
   const a = (aDeg * Math.PI) / 180;
   return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
@@ -68,21 +68,16 @@ function wedgePath(cx, cy, r, startDeg, endDeg) {
   const start = polarToCartesian(cx, cy, r, startDeg);
   const end = polarToCartesian(cx, cy, r, endDeg);
   const largeArc = endDeg - startDeg > 180 ? 1 : 0;
-  return [
-    `M ${cx} ${cy}`,
-    `L ${start.x} ${start.y}`,
-    `A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y}`,
-    `Z`,
-  ].join(" ");
+  return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y} Z`;
 }
 
 const tg = window.Telegram?.WebApp;
-const CENTER_LOGO_SRC = "/logo.png"; // place your logo at public/logo.png
+const CENTER_LOGO_SRC = "/logo.png"; // put your logo in /public/logo.png
 
 export default function App() {
   const slots = useMemo(buildSlots, []);
   const [spinning, setSpinning] = useState(false);
-  const [rotation, setRotation] = useState(0); // degrees
+  const [rotation, setRotation] = useState(0); // degrees (we add START_OFFSET only at render)
   const [lastWin, setLastWin] = useState(null);
   const [bank, setBank] = useState(0);
   const [theme, setTheme] = useState({ bg: "#000", text: "#e8ecf2" });
@@ -116,11 +111,12 @@ export default function App() {
 
   // choose win index
   const chooseIndex = () => Math.floor(Math.random() * SEGMENTS_TOTAL);
-  // make slice center land at top
+
+  // Compute rotation so the chosen slice CENTER hits 0° (right). We render with START_OFFSET=-90°, so 0° at render becomes TOP.
   const computeFinalRotation = (current, idx) => {
-    const center = idx * SEG_DEG + SEG_DEG / 2;
-    const toZero = (360 - (center % 360)) % 360;
-    const extra = 5 + Math.floor(Math.random() * 3);
+    const center = idx * SEG_DEG + SEG_DEG / 2; // no offset here
+    const toZero = (360 - (center % 360)) % 360; // land center at 0°
+    const extra = 5 + Math.floor(Math.random() * 3); // 5..7 spins
     return current + extra * 360 + toZero;
   };
 
@@ -146,49 +142,44 @@ export default function App() {
     }, D + 90);
   };
 
-  // SVG geometry (normalized 1000x1000)
+  // SVG geometry
   const cx = 500, cy = 500;
-  const R_FACE = 440;    // face radius
-  const R_TRIM = 470;    // gold rim outer radius
-  const TRIM_W = 40;     // ~40px thick (dominant)
+  const R_FACE = 440;
+  const R_TRIM = 470;
+  const TRIM_W = 40;
   const pointerY = 36;
 
-  // Precompute slice geometry + label placement
+  // Wedges (no pre-offset here!)
   const wedges = useMemo(() => {
     return Array.from({ length: SEGMENTS_TOTAL }, (_, i) => {
-      const start = BASE_OFFSET + i * SEG_DEG;
+      const start = i * SEG_DEG;
       const end = start + SEG_DEG;
       const mid = (start + end) / 2;
       const path = wedgePath(cx, cy, R_FACE, start, end);
 
-      // label position (radial)
-      const labelR = 360; // distance from center
-      const p = polarToCartesian(cx, cy, labelR, mid);
+      // label position
+      const labelR = 360;
+      const { x, y } = polarToCartesian(cx, cy, labelR, mid);
+
+      // text color rule
       const sec1 = i + 1;
+      let textFill = "#000";
+      if (sec1 === 1) textFill = "#fff";
+      else if (sec1 % 2 === 0) textFill = "#fff"; // even black slice
+      else textFill = "#000"; // odd white slice
 
-      // color & text fill
-      let fillRef = `grad-${i}`;
-      let textFill = "#000"; // default
-      if (sec1 === 1) { // MAX
-        textFill = "#fff";
-      } else if (sec1 % 2 === 0) { // even -> black
-        textFill = "#fff";
-      } else { // odd -> white
-        textFill = "#000";
-      }
-
-      return { i, sec1, start, end, mid, path, labelX: p.x, labelY: p.y, fillRef, textFill };
+      return { i, sec1, start, end, mid, path, labelX: x, labelY: y, textFill };
     });
   }, []);
 
-  // label data
+  // Labels
   const labels = useMemo(() => {
-    return wedges.map(({ i, sec1, mid, labelX, labelY }) => {
+    return wedges.map(({ i, sec1, mid, labelX, labelY, textFill }) => {
       const s = slots[i];
       const text = s?.label || "";
       const isMax = s?.type === "max";
-      const rotate = mid + 90; // upright text along radius
-      return { i, sec1, text, isMax, x: labelX, y: labelY, rotate };
+      const rotate = mid + 90; // keep text upright along radius
+      return { i, sec1, text, isMax, x: labelX, y: labelY, rotate, textFill };
     });
   }, [wedges, slots]);
 
@@ -214,68 +205,66 @@ export default function App() {
             />
           </svg>
 
-          {/* WHEEL SVG — the group below rotates */}
+          {/* WHEEL SVG */}
           <svg className="wheel-svg" viewBox="0 0 1000 1000" aria-hidden>
             <defs>
-              {/* slice gradients */}
-              {wedges.map(({ i, sec1 }) => {
+              {/* Slice linear gradients (top→bottom) */}
+              {Array.from({ length: SEGMENTS_TOTAL }, (_, i) => {
+                const sec1 = i + 1;
+                const id = `grad-${i}`;
                 if (sec1 === 1) {
-                  // MAX gradient (purple -> teal)
                   return (
-                    <linearGradient id={`grad-${i}`} key={`g${i}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                    <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
                       <stop offset="0%" stopColor="#43cda3" />
                       <stop offset="100%" stopColor="#490e6d" />
                     </linearGradient>
                   );
                 } else if (sec1 % 2 === 0) {
-                  // even = black section gradient
                   return (
-                    <linearGradient id={`grad-${i}`} key={`g${i}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                    <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
                       <stop offset="0%" stopColor="#404040" />
                       <stop offset="100%" stopColor="#000000" />
                     </linearGradient>
                   );
                 } else {
-                  // odd = white section gradient
                   return (
-                    <linearGradient id={`grad-${i}`} key={`g${i}`} x1="0%" y1="0%" x2="0%" y2="100%">
+                    <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
                       <stop offset="0%" stopColor="#ffffff" />
                       <stop offset="100%" stopColor="#a8a8a8" />
                     </linearGradient>
                   );
                 }
               })}
-              {/* gold rim gradient */}
+
+              {/* Gold rim gradient */}
               <linearGradient id="goldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
                 <stop offset="0%" stopColor="#f6e19a" />
                 <stop offset="50%" stopColor="#caa03a" />
                 <stop offset="100%" stopColor="#7a5d19" />
               </linearGradient>
+
+              {/* Strong white glow for MAX text */}
+              <filter id="textGlow" x="-50%" y="-50%" width="200%" height="200%">
+                <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#ffffff" floodOpacity="1"/>
+                <feDropShadow dx="0" dy="0" stdDeviation="5" floodColor="#ffffff" floodOpacity=".7"/>
+              </filter>
             </defs>
 
-            {/* GOLD OUTER RIM (dominant) */}
-            <circle
-              cx={cx}
-              cy={cy}
-              r={R_TRIM}
-              fill="none"
-              stroke="url(#goldGrad)"
-              strokeWidth={TRIM_W}
-              filter="url(#)"
-            />
+            {/* GOLD OUTER RIM */}
+            <circle cx={cx} cy={cy} r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
 
-            {/* Rotating group: slices + labels rotate together */}
+            {/* Rotating group: apply only START_OFFSET + runtime rotation here */}
             <g
               className={`rotor ${spinning ? "motion" : ""}`}
-              style={{ transform: `rotate(${rotation}deg)`, transformOrigin: "500px 500px" }}
+              style={{ transform: `rotate(${START_OFFSET + rotation}deg)`, transformOrigin: "500px 500px" }}
             >
-              {/* wedges */}
-              {wedges.map(({ i, path, fillRef }) => (
-                <path key={`p${i}`} d={path} fill={`url(#${fillRef})`} />
+              {/* Slices */}
+              {wedges.map(({ i, path }) => (
+                <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />
               ))}
 
-              {/* labels (on each slice) */}
-              {labels.map(({ i, text, isMax, x, y, rotate }) => (
+              {/* Payout labels per-slice */}
+              {labels.map(({ i, text, isMax, x, y, rotate, textFill }) => (
                 <g key={`t${i}`} transform={`rotate(${rotate} ${x} ${y})`}>
                   <text
                     x={x}
@@ -283,7 +272,8 @@ export default function App() {
                     textAnchor="middle"
                     dominantBaseline="middle"
                     className={`slice-txt ${isMax ? "is-max" : ""}`}
-                    data-sec={i + 1}
+                    fill={textFill}
+                    filter={isMax ? "url(#textGlow)" : undefined}
                   >
                     {text}
                   </text>
