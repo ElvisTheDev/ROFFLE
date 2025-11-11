@@ -1,10 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 /**
- * 25 sections (1-indexed spec -> 0-indexed)
- * Visual design updated to ROFFLE brand: black/teal/purple neon on deep black.
- *
- * Payouts unchanged:
+ * 25 sections, same payouts:
  * 1: MAX +1000
  * 2,4,6,8,10,12,14,16,18,20,22,24: +5
  * 3,7,11,15,19,23: +10
@@ -12,30 +9,30 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
  * 17,25: +50
  * 21: +100
  *
- * Colours (visual only):
- *  - Section 1 (MAX): Sapphire Neon chrome (purple→teal specular)
- *  - Even non-MAX: Obsidian black chrome
- *  - Odd  non-MAX (except 1): Platinum silver chrome
+ * Visuals:
+ * - Brand metallic chrome wedges (TEAL/PURPLE/BLACK/WHITE), cycling after MAX
+ * - Gold outer rim is dominant (thick, bright, studded)
+ * - Center cap shows embossed "R"
  */
 
 const SEGMENTS_TOTAL = 25;
 const SEG_DEG = 360 / SEGMENTS_TOTAL; // 14.4°
 const BASE_OFFSET = -90; // align 0deg to top pointer
 
-// Chrome palettes per slice (edge / specular / edge)
+// Chrome palettes: [edge, specular, edge]
 const CHROME = {
-  obsidian: ["#0a0b10", "#7b8a9a", "#0c0e15"],            // black chrome
-  platinum: ["#9aa6b5", "#ffffff", "#7f8893"],            // cool silver chrome
-  // MAX: darker sapphire edges with neon specular (brand purple→teal)
-  maxSapphire: ["#160f25", "#7c5cff", "#19FB9B"],         // edge / purple neon / teal neon
+  black:   ["#0a0b10", "#8a96a3", "#0b0d12"],
+  white:   ["#a9b3bf", "#ffffff", "#87919c"],       // “white” chrome (cool silver)
+  teal:    ["#0b3a2e", "#3ef7c0", "#06251c"],       // brand teal chrome
+  purple:  ["#2a1a5e", "#9c84ff", "#1a0f3d"],       // brand purple chrome
+  max:     ["#150e2b", "#7c5cff", "#19FB9B"],       // MAX = sapphire neon (brand)
 };
 
-// build wheel with mapping
+// Build wheel with payouts
 function buildWheel25() {
   const slots = new Array(SEGMENTS_TOTAL).fill(null);
-
-  // 1: MAX
-  slots[0] = { label: "+1000", amount: 1000, type: "max", tone: "maxSapphire" };
+  // MAX
+  slots[0] = { label: "+1000", amount: 1000, type: "max", tone: "max" };
 
   const put = (idxs, amount) =>
     idxs.forEach(n => {
@@ -49,14 +46,15 @@ function buildWheel25() {
   put([17,25], 50);
   put([21], 100);
 
-  // tone mapping for brand colours
-  for (let sec1 = 1; sec1 <= SEGMENTS_TOTAL; sec1++) {
+  // Tone assignment (brand cycle after MAX): black → white → purple → teal → repeat
+  const cycle = ["black", "white", "purple", "teal"];
+  let c = 0;
+  for (let sec1 = 2; sec1 <= SEGMENTS_TOTAL; sec1++) {
     const i = sec1 - 1;
-    if (sec1 === 1) { slots[i].tone = "maxSapphire"; continue; }
-    // even non-MAX = obsidian, odd non-MAX = platinum
-    slots[i].tone = (sec1 % 2 === 0) ? "obsidian" : "platinum";
+    if (!slots[i]) continue;
+    slots[i].tone = cycle[c % cycle.length];
+    c++;
   }
-
   return slots;
 }
 
@@ -97,16 +95,16 @@ export default function App() {
     tg.MainButton.onClick(h); return () => tg.MainButton.offClick(h);
   }, [spinning]);
 
-  // brand metallic conic paint: each slice 3 stops (edge/specular/edge)
+  // Metallic conic paint: each slice 3 stops (edge/specular/edge)
   const wheelBackground = useMemo(() => {
     const parts = [];
     let acc = 0;
     for (let i = 0; i < SEGMENTS_TOTAL; i++) {
       const start = acc, end = acc + SEG_DEG;
-      const s = wheel[i];
-      const pal = CHROME[s.tone]; // ["edge","spec","edge"]
+      const { tone } = wheel[i];
+      const pal = CHROME[tone];
       const m1 = start + SEG_DEG * 0.32;
-      const m2 = start + SEG_DEG * 0.62;
+      const m2 = start + SEG_DEG * 0.64;
       parts.push(`${pal[0]} ${start}deg ${m1}deg`);
       parts.push(`${pal[1]} ${m1}deg ${m2}deg`);
       parts.push(`${pal[2]} ${m2}deg ${end}deg`);
@@ -122,9 +120,10 @@ export default function App() {
 
   const chooseIndex = () => Math.floor(Math.random()*SEGMENTS_TOTAL);
   const computeFinalRotation = (current, idx) => {
-    const center = idx*SEG_DEG + SEG_DEG/2;             // CSS 0deg = right
-    const toZero = (360 - (center % 360)) % 360;        // land at top (after BASE_OFFSET)
-    const extra = 5 + Math.floor(Math.random()*3);      // 5..7 spins
+    // Land chosen slice center at top (after BASE_OFFSET)
+    const center = idx*SEG_DEG + SEG_DEG/2;
+    const toZero = (360 - (center % 360)) % 360;
+    const extra = 5 + Math.floor(Math.random()*3);
     return current + extra*360 + toZero;
   };
 
@@ -167,24 +166,28 @@ export default function App() {
 
           <div
             className={`wheel ${spinning ? "motion" : ""}`}
-            style={{
-              background: wheelBackground,
-              transform: `rotate(${BASE_OFFSET + rotation}deg)`,
-            }}
+            style={{ background: wheelBackground, transform: `rotate(${BASE_OFFSET + rotation}deg)` }}
           >
-            {/* premium rings & overlays */}
+            {/* Dominant champagne-gold outer rim */}
             <div className="outer-trim" aria-hidden />
             <div className="trim-gleam" aria-hidden />
+            <div className="trim-studs" aria-hidden />
+
+            {/* Chrome inner ring divider */}
             <div className="inner-chrome" aria-hidden />
 
+            {/* Metallic overlays */}
             <div className="noise" aria-hidden />
             <div className="spokes" aria-hidden />
             <div className="specular" aria-hidden />
 
+            {/* Center hardware + brand "R" */}
             <div className="center-ring" aria-hidden />
             <div className="center-cap" aria-hidden />
+            <div className="center-logo" aria-hidden>R</div>
             <div className="center-gloss" aria-hidden />
 
+            {/* Labels (winner gets neon halo only) */}
             {labels.map(({idx,text,angle,isMax})=>(
               <div
                 key={idx}
