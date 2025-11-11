@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 /**
- * Wheel spec (25 sections)
- * Payouts (unchanged):
+ * Wheel: 25 sections
+ * Payouts:
  * 1: MAX +1000
  * 2,4,6,8,10,12,14,16,18,20,22,24: +5
  * 3,7,11,15,19,23: +10
@@ -10,26 +10,26 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
  * 17,25: +50
  * 21: +100
  *
- * Visuals (requested):
- * - #1 slice: basic purple→teal gradient (brand), not chrome.
- * - Odd (except #1): black metallic.
- * - Even: silver metallic.
- * - Gold outer rim = ~2× thicker and dominant.
- * - Remove any slice-level svg/image (no artifacts). Only center logo remains.
- * - Show payout label on EVERY wedge (no stacking).
+ * Visuals (as requested):
+ * - Section 1: basic purple→teal gradient (not chrome).
+ * - All other EVEN sections: basic BLACK.
+ * - All other ODD sections: basic WHITE.
+ * - Gold outer rim is thick and dominant.
+ * - Center logo sits above the wheel and does NOT rotate.
+ * - Labels are placed per-slice, so payouts do NOT pile onto one section.
  */
 
 const SEGMENTS_TOTAL = 25;
 const SEG_DEG = 360 / SEGMENTS_TOTAL; // 14.4°
-const BASE_OFFSET = -90; // rotate so 0deg points to the TOP pointer
+const BASE_OFFSET = -90; // align 0deg to top pointer
 
-// Subtle metallic palettes (edge → mid → spec → mid → edge)
-const METAL = {
-  black:  ["#0b0d12", "#151922", "#8b95a1", "#151922", "#0a0c11"],
-  silver: ["#8f99a6", "#b7c0cc", "#ffffff", "#b7c0cc", "#808a96"],
-};
+// Flat colours
+const FLAT_BLACK = "#0b0c0f";
+const FLAT_WHITE = "#e9eef6";
+const GRAD_PURPLE = "#7c5cff";
+const GRAD_TEAL = "#19FB9B";
 
-// Center logo file in /public (adjust to your filename)
+// Center logo file (place it in /public). Change if your filename differs.
 const CENTER_LOGO_SRC = "/logo.png";
 
 function buildWheel25() {
@@ -42,7 +42,7 @@ function buildWheel25() {
     idxs.forEach((n) => {
       const i = n - 1;
       if (!slots[i]) slots[i] = { amount, type: "flat" };
-      slots[i].label = `+${amount}`; // ensure label set per section
+      slots[i].label = `+${amount}`; // ensure every mapped section gets its own label
     });
 
   put([2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24], 5);
@@ -51,12 +51,20 @@ function buildWheel25() {
   put([17, 25], 50);
   put([21], 100);
 
-  // Tone mapping: odd=black, even=silver; #1 is MAX gradient
+  // Colour assignment: 1 = gradient; even = BLACK; odd = WHITE
   for (let sec1 = 2; sec1 <= SEGMENTS_TOTAL; sec1++) {
     const i = sec1 - 1;
     if (!slots[i]) continue;
-    slots[i].tone = sec1 % 2 === 0 ? "silver" : "black";
+    slots[i].tone = sec1 % 2 === 0 ? "black" : "white";
   }
+
+  // Safety: ensure labels exist for all non-empty slots
+  for (let i = 0; i < slots.length; i++) {
+    if (slots[i] && !slots[i].label) {
+      slots[i].label = `+${slots[i].amount ?? ""}`.trim();
+    }
+  }
+
   return slots;
 }
 
@@ -76,13 +84,9 @@ export default function App() {
     winSfx = useRef(null);
 
   useEffect(() => {
-    clickSfx.current = new Audio("/sounds/click.mp3");
-    clickSfx.current.preload = "auto";
-    rollLoopSfx.current = new Audio("/sounds/roll_loop.mp3");
-    rollLoopSfx.current.loop = true;
-    rollLoopSfx.current.preload = "auto";
-    winSfx.current = new Audio("/sounds/win.mp3");
-    winSfx.current.preload = "auto";
+    clickSfx.current = new Audio("/sounds/click.mp3"); clickSfx.current.preload = "auto";
+    rollLoopSfx.current = new Audio("/sounds/roll_loop.mp3"); rollLoopSfx.current.loop = true; rollLoopSfx.current.preload = "auto";
+    winSfx.current = new Audio("/sounds/win.mp3"); winSfx.current.preload = "auto";
   }, []);
 
   // Telegram theme + MainButton
@@ -108,9 +112,9 @@ export default function App() {
   }, [spinning]);
 
   /**
-   * Paint the wheel with conic gradients:
-   * - For MAX (index 0): single-slice basic gradient (purple → teal).
-   * - For others: soft metallic (5 stops).
+   * Paint the wheel:
+   *  - Slice #1: purple→teal gradient across its arc.
+   *  - Others: flat black/white slices.
    */
   const wheelBackground = useMemo(() => {
     const parts = [];
@@ -121,30 +125,21 @@ export default function App() {
       const end = acc + SEG_DEG;
 
       if (i === 0) {
-        // MAX basic gradient across the slice
+        // Gradient within slice 1
         const mid = start + SEG_DEG * 0.5;
-        parts.push(`#7c5cff ${start}deg ${mid}deg`); // purple → mid
-        parts.push(`#19FB9B ${mid}deg ${end}deg`);   // → teal
+        parts.push(`${GRAD_PURPLE} ${start}deg ${mid}deg`);
+        parts.push(`${GRAD_TEAL} ${mid}deg ${end}deg`);
       } else {
-        const pal = METAL[wheel[i].tone]; // [edge, mid1, spec, mid2, edge]
-        const s1 = start + SEG_DEG * 0.22;
-        const s2 = start + SEG_DEG * 0.45;
-        const s3 = start + SEG_DEG * 0.55; // narrow spec band (~10%)
-        const s4 = start + SEG_DEG * 0.78;
-
-        parts.push(`${pal[0]} ${start}deg ${s1}deg`);
-        parts.push(`${pal[1]} ${s1}deg ${s2}deg`);
-        parts.push(`${pal[2]} ${s2}deg ${s3}deg`);
-        parts.push(`${pal[3]} ${s3}deg ${s4}deg`);
-        parts.push(`${pal[4]} ${s4}deg ${end}deg`);
+        const isEven = ((i + 1) % 2 === 0);
+        const color = isEven ? FLAT_BLACK : FLAT_WHITE;
+        parts.push(`${color} ${start}deg ${end}deg`);
       }
-
       acc = end;
     }
-
     return `conic-gradient(${parts.join(", ")})`;
-  }, [wheel]);
+  }, []);
 
+  // Label descriptors (one per slice, radial layout)
   const labels = useMemo(
     () =>
       wheel.map((s, i) => ({
@@ -158,30 +153,16 @@ export default function App() {
 
   const chooseIndex = () => Math.floor(Math.random() * SEGMENTS_TOTAL);
 
+  // Ensure the chosen slice's CENTER lands at the top pointer
   const computeFinalRotation = (current, idx) => {
-    // Land chosen slice center at top (after BASE_OFFSET)
     const center = idx * SEG_DEG + SEG_DEG / 2;
     const toZero = (360 - (center % 360)) % 360;
     const extra = 5 + Math.floor(Math.random() * 3); // 5..7 spins
     return current + extra * 360 + toZero;
   };
 
-  const play = async (r) => {
-    try {
-      if (r?.current) {
-        r.current.currentTime = 0;
-        await r.current.play();
-      }
-    } catch {}
-  };
-  const stop = (r) => {
-    try {
-      if (r?.current) {
-        r.current.pause();
-        r.current.currentTime = 0;
-      }
-    } catch {}
-  };
+  const play = async (r) => { try { if (r?.current) { r.current.currentTime = 0; await r.current.play(); } } catch {} };
+  const stop = (r) => { try { if (r?.current) { r.current.pause(); r.current.currentTime = 0; } } catch {} };
 
   const handleSpin = async () => {
     if (spinning) return;
@@ -219,57 +200,53 @@ export default function App() {
         </header>
 
         <div className="wheel-wrap">
+          {/* Pointer */}
           <div className={`pointer ${lastWin && !spinning ? "pulse" : ""}`}>
             <div className="pointer-led" />
           </div>
 
+          {/* ROTATING wheel face */}
           <div
             className={`wheel ${spinning ? "motion" : ""}`}
-            style={{
-              background: wheelBackground,
-              transform: `rotate(${BASE_OFFSET + rotation}deg)`,
-            }}
+            style={{ background: wheelBackground, transform: `rotate(${BASE_OFFSET + rotation}deg)` }}
           >
-            {/* DOMINANT gold outer rim (2× thicker) */}
+            {/* Dominant gold outer rim */}
             <div className="outer-trim" aria-hidden />
             <div className="trim-gleam" aria-hidden />
             <div className="trim-studs" aria-hidden />
 
-            {/* Chrome inner ring divider */}
+            {/* Chrome inner divider */}
             <div className="inner-chrome" aria-hidden />
 
-            {/* (No per-slice noise/image overlays to avoid artifacts) */}
+            {/* Subtle face overlays (no images in slices) */}
             <div className="spokes" aria-hidden />
             <div className="specular" aria-hidden />
 
-            {/* Center hardware + YOUR LOGO on black puck */}
-            <div className="center-ring" aria-hidden />
-            <div className="center-cap" aria-hidden />
-            <img className="center-logo-img" src={CENTER_LOGO_SRC} alt="logo" />
-            <div className="center-gloss" aria-hidden />
-
-            {/* Labels: every slice has its own payout; winner gets subtle halo */}
+            {/* Per-slice labels (ride the wheel so they rotate with it) */}
             {labels.map(({ idx, text, angle, isMax }) => (
               <div
                 key={idx}
-                className={`slice-label ${isMax ? "is-max" : ""} ${
-                  lastWin && lastWin.index === idx ? "won" : ""
-                }`}
-                style={{
-                  transform: `rotate(${angle}deg) translate(0, -43%) rotate(${-angle}deg)`,
-                }}
+                className={`slice-label ${isMax ? "is-max" : ""} ${lastWin && lastWin.index === idx ? "won" : ""}`}
+                style={{ transform: `rotate(${angle}deg) translate(0, var(--labelRadius)) rotate(${-angle}deg)` }}
               >
                 {text}
               </div>
             ))}
+          </div>
+
+          {/* NON-rotating center stack (logo stays still) */}
+          <div className="center-stack" aria-hidden>
+            <div className="center-ring" />
+            <div className="center-cap" />
+            <img className="center-logo-img" src={CENTER_LOGO_SRC} alt="logo" />
+            <div className="center-gloss" />
           </div>
         </div>
 
         {lastWin && (
           <div className="result">
             Stopped on <b>#{lastWin.index + 1}</b> —{" "}
-            <span className={`pill ${lastWin.type === "max" ? "max" : ""}`}>{lastWin.label}</span> ⇒{" "}
-            <b>+{lastWin.amount}</b>
+            <span className={`pill ${lastWin.type === "max" ? "max" : ""}`}>{lastWin.label}</span> ⇒ <b>+{lastWin.amount}</b>
           </div>
         )}
       </div>
