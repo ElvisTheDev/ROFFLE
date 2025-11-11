@@ -39,11 +39,11 @@ body{
 }
 .spin:disabled{opacity:.7}
 
-/* Brand backdrop like your header (purple LL / teal UR) */
+/* Brand backdrop (soft glows) */
 .brand-bg{
   background:
-    radial-gradient(40% 60% at 12% 88%, rgba(124,92,255,.18), transparent 60%),
-    radial-gradient(36% 52% at 92% 10%, rgba(25,251,155,.18), transparent 58%),
+    radial-gradient(40% 60% at 12% 88%, rgba(124,92,255,.16), transparent 60%),
+    radial-gradient(36% 52% at 92% 10%, rgba(25,251,155,.16), transparent 58%),
     #000;
 }
 
@@ -53,7 +53,7 @@ body{
 /* Pointer */
 .pointer{
   position:absolute;top:-2px;left:50%;transform:translateX(-50%);
-  width:0;height:0;z-index:20;
+  width:0;height:0;z-index:30;
   border-left:12px solid transparent;border-right:12px solid transparent;border-bottom:18px solid #f5f7ff;
   filter:drop-shadow(0 0 10px rgba(255,255,255,.35));
 }
@@ -75,13 +75,14 @@ body{
     0 0 0 1px rgba(255,255,255,.12) inset,
     0 30px 70px rgba(0,0,0,.55);
 }
-.wheel.motion{filter:saturate(1.03) drop-shadow(0 0 30px rgba(255,215,130,.18))}
+.wheel.motion{filter:saturate(1.03) drop-shadow(0 0 36px rgba(255,215,130,.18))}
 
-/* ── Dominant gold outer rim (thick + studs) ── */
+/* ── DOMINANT GOLD OUTER RIM (≈ 2× thicker) ── */
 .outer-trim{
-  position:absolute;inset:-20px;border-radius:50%;z-index:16;pointer-events:none;
-  -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 26px), #000 calc(100% - 26px));
-          mask: radial-gradient(closest-side, transparent calc(100% - 26px), #000 calc(100% - 26px));
+  position:absolute;inset:-28px;border-radius:50%;z-index:26;pointer-events:none;
+  /* thickness ~ 40px */
+  -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 40px), #000 calc(100% - 40px));
+          mask: radial-gradient(closest-side, transparent calc(100% - 40px), #000 calc(100% - 40px));
   background:
     conic-gradient(from 0deg,
       var(--gold3) 0deg 30deg,
@@ -91,59 +92,54 @@ body{
       var(--gold3) 330deg 360deg
     );
   box-shadow:
-    0 10px 26px rgba(0,0,0,.55),
-    inset 0 0 12px rgba(255,255,255,.25);
+    0 12px 28px rgba(0,0,0,.6),
+    inset 0 0 16px rgba(255,255,255,.28);
 }
 .trim-gleam{
-  position:absolute;inset:-20px;border-radius:50%;z-index:17;pointer-events:none;
-  -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 26px), #000 calc(100% - 26px));
-          mask: radial-gradient(closest-side, transparent calc(100% - 26px), #000 calc(100% - 26px));
+  position:absolute;inset:-28px;border-radius:50%;z-index:27;pointer-events:none;
+  -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 40px), #000 calc(100% - 40px));
+          mask: radial-gradient(closest-side, transparent calc(100% - 40px), #000 calc(100% - 40px));
   background:
-    radial-gradient(70% 50% at 62% 12%, rgba(255,255,255,.30), transparent 60%),
-    radial-gradient(70% 50% at 22% 82%, rgba(255,255,255,.12), transparent 60%);
+    radial-gradient(70% 50% at 62% 12%, rgba(255,255,255,.33), transparent 60%),
+    radial-gradient(70% 50% at 22% 82%, rgba(255,255,255,.14), transparent 60%);
   mix-blend-mode:screen;
 }
 .trim-studs{
-  position:absolute;inset:-20px;border-radius:50%;z-index:18;pointer-events:none;
-  -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 26px), #000 calc(100% - 26px));
-          mask: radial-gradient(closest-side, transparent calc(100% - 26px), #000 calc(100% - 26px));
+  position:absolute;inset:-28px;border-radius:50%;z-index:28;pointer-events:none;
+  -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 40px), #000 calc(100% - 40px));
+          mask: radial-gradient(closest-side, transparent calc(100% - 40px), #000 calc(100% - 40px));
   background:
-    radial-gradient(circle, rgba(255,255,255,.9) 0 2px, rgba(255,255,255,0) 3px) center/16px 16px,
+    radial-gradient(circle, rgba(255,255,255,.95) 0 2px, rgba(255,255,255,0) 3px) center/18px 18px,
     repeating-conic-gradient(rgba(0,0,0,.25) 0deg 3deg, rgba(0,0,0,0) 3deg 14.4deg);
   mix-blend-mode:overlay;
 }
 
-/* Chrome inner ring (hairline divider) */
+/* Chrome inner ring (divider) */
 .inner-chrome{
-  position:absolute;inset:0;border-radius:50%;z-index:15;pointer-events:none;
+  position:absolute;inset:0;border-radius:50%;z-index:25;pointer-events:none;
   -webkit-mask: radial-gradient(closest-side, transparent calc(100% - 12px), #000 calc(100% - 12px));
           mask: radial-gradient(closest-side, transparent calc(100% - 12px), #000 calc(100% - 12px));
   background: linear-gradient(45deg, var(--chrome), var(--dark-chrome) 45%, var(--chrome) 80%);
   mix-blend-mode:overlay; opacity:.95;
 }
 
-/* Metallic face helpers (soft, to avoid stripiness) */
-.noise{
-  position:absolute;inset:0;border-radius:50%;z-index:3;pointer-events:none;
-  background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="140" height="140" viewBox="0 0 10 10"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="1" stitchTiles="stitch"/></filter><rect width="10" height="10" filter="url(%23n)" opacity="0.05"/></svg>');
-  mix-blend-mode:soft-light;
-}
+/* Face overlays (kept soft to avoid stripiness) */
 .spokes{
-  position:absolute;inset:0;border-radius:50%;z-index:4;pointer-events:none;
+  position:absolute;inset:0;border-radius:50%;z-index:5;pointer-events:none;
   background:
     repeating-conic-gradient(rgba(255,255,255,.12) 0deg .8deg, transparent .8deg 14.4deg),
     repeating-conic-gradient(rgba(0,0,0,.18) 0deg .22deg, transparent .22deg 14.4deg);
   mix-blend-mode:overlay;
 }
 .specular{
-  position:absolute;inset:0;border-radius:50%;z-index:5;pointer-events:none;
+  position:absolute;inset:0;border-radius:50%;z-index:6;pointer-events:none;
   background:
     radial-gradient(120% 80% at 20% 20%, rgba(255,255,255,.07), transparent 42%),
     radial-gradient(120% 80% at 78% 80%, rgba(255,255,255,.06), transparent 46%);
   mix-blend-mode:screen;
 }
 
-/* Center hub — black puck with your logo */
+/* Center hub — black puck + your logo */
 .center-ring{
   position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
   width:38%;aspect-ratio:1/1;border-radius:50%;
@@ -157,34 +153,33 @@ body{
   width:26%;aspect-ratio:1/1;border-radius:50%;
   background:
     radial-gradient(circle at 35% 35%, rgba(255,255,255,.18), transparent 48%),
-    linear-gradient(135deg, #0b0c0f, #121418, #0a0b0f); /* black puck */
+    linear-gradient(135deg, #0b0c0f, #121418, #0a0b0f);
   box-shadow:
     inset 0 2px 0 rgba(255,255,255,.15),
     inset 0 -4px 10px rgba(0,0,0,.6),
     0 6px 18px rgba(0,0,0,.45);
-  z-index:12;
+  z-index:22;
 }
 .center-logo-img{
   position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-  width:20%;aspect-ratio:1/1;border-radius:12px; /* logo aspect is square; adjust if needed */
-  object-fit:contain;
+  width:22%;aspect-ratio:1/1;object-fit:contain;
   filter: drop-shadow(0 4px 12px rgba(124,92,255,.35)) drop-shadow(0 2px 8px rgba(25,251,155,.25));
-  z-index:13;
+  z-index:23;
 }
 .center-gloss{
   position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-  width:30%;aspect-ratio:1/1;border-radius:50%;z-index:14;pointer-events:none;
+  width:30%;aspect-ratio:1/1;border-radius:50%;z-index:24;pointer-events:none;
   background: radial-gradient(closest-side, rgba(255,255,255,.08), transparent 70%);
 }
 
-/* Labels — winner gets subtle neon halo only */
+/* Labels — each wedge shows its payout; winner gets halo */
 .slice-label{
   position:absolute;top:50%;left:50%;
   width:88%;text-align:center;
   transform-origin:50% 50%;
   font-weight:900;font-size:12px;letter-spacing:.2px;
   color:#f3f6fc;
-  text-shadow:0 1px 0 rgba(0,0,0,.9), 0 0 5px rgba(255,255,255,.18);
+  text-shadow:0 1px 0 rgba(0,0,0,.9), 0 0 5px rgba(255,255,255,.16);
   z-index:10;
 }
 .slice-label.is-max{
@@ -199,7 +194,7 @@ body{
     0 1px 0 rgba(0,0,0,.95);
 }
 
-/* Result card */
+/* Result */
 .result{
   margin-top:6px;
   background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.04));
