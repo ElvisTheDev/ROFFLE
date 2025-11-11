@@ -3,38 +3,38 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 /**
  * 25-section SVG wheel with true per-slice 180° linear gradients.
  *
- * Colors per request:
+ * Colors:
  *  - Section 1 (MAX): linear gradient #43cda3 → #490e6d (top→bottom)
  *  - All other EVEN sections: BLACK gradient #404040 → #000000
- *  - All other ODD sections:  WHITE gradient #ffffff → #a8a8a8
+ *  - All other ODD  sections: WHITE gradient #ffffff → #a8a8a8
  *
- * Labels:
- *  - (No "+") Just numbers: 5, 10, 20, 50, 100, 1000
+ * Labels (no "+"):
+ *  - 5, 10, 20, 50, 100, 1000
  *  - WHITE text on black slices (even)
  *  - BLACK text on white slices (odd)
- *  - WHITE text on MAX (1000) + glow
+ *  - WHITE + glow on MAX (1000)
  *
  * Pointer: red with dark red outline.
  * Center logo: stays STILL (non-rotating).
- * Bug fix: chosen slice center lands at the TOP pointer.
+ * Bug fix: winner is computed from final rotation under the pointer.
  */
 
 const SEGMENTS_TOTAL = 25;
 const SEG_DEG = 360 / SEGMENTS_TOTAL; // 14.4°
-const START_OFFSET = -90; // rotate render only so 0° is at the top
+const START_OFFSET = -90; // render offset so 0° appears at TOP
 
 // Build payouts
 function buildSlots() {
   const arr = Array(SEGMENTS_TOTAL).fill(null);
 
   // Section 1: MAX
-  arr[0] = { amount: 1000, label: "1000", type: "max" };
+  arr[0] = { amount: 1000, label: "1000", type: "max", tone: "max" };
 
   const put = (idxs, amt) => {
     idxs.forEach((n) => {
       const i = n - 1;
       if (!arr[i]) arr[i] = { amount: amt, type: "flat" };
-      arr[i].label = String(amt); // <- no plus sign
+      arr[i].label = String(amt); // no "+" sign
     });
   };
 
@@ -44,22 +44,16 @@ function buildSlots() {
   put([17, 25], 50);
   put([21], 100);
 
-  // tones
+  // tones: even -> black, odd -> white; #1 is max
   for (let sec1 = 2; sec1 <= SEGMENTS_TOTAL; sec1++) {
     const i = sec1 - 1;
     if (!arr[i]) continue;
-    arr[i].tone = sec1 % 2 === 0 ? "black" : "white"; // even black, odd white
-  }
-  arr[0].tone = "max";
-
-  // safety labels
-  for (let i = 0; i < arr.length; i++) {
-    if (arr[i] && !arr[i].label) arr[i].label = String(arr[i].amount ?? "");
+    arr[i].tone = sec1 % 2 === 0 ? "black" : "white";
   }
   return arr;
 }
 
-// geometry helpers (angles measured from +X axis; we apply START_OFFSET at render)
+// geometry helpers (angles measured from +X axis; we apply START_OFFSET only at render)
 function polarToCartesian(cx, cy, r, aDeg) {
   const a = (aDeg * Math.PI) / 180;
   return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
@@ -71,8 +65,26 @@ function wedgePath(cx, cy, r, startDeg, endDeg) {
   return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y} Z`;
 }
 
+// Map the FINAL rotation to the index actually under the red pointer (TOP)
+function indexFromRotation(rotationDeg) {
+  // normalize to [0,360)
+  const rot = ((rotationDeg % 360) + 360) % 360;
+  // After render we apply START_OFFSET=-90°, so a slice whose CENTER is at 0° (right)
+  // will appear at TOP under the pointer. So find which center is closest to 0° AFTER rotation.
+  // The center angle before render is c_i = i*SEG_DEG + SEG_DEG/2.
+  // After rotation, displayed = c_i + START_OFFSET + rotation.
+  // We want displayed == -90° (TOP). Since START_OFFSET=-90°, condition reduces to:
+  //     c_i + rotation ≡ 0 (mod 360)
+  // -> c_i ≡ (360 - rot)
+  const target = (360 - rot) % 360; // angle where the center must be
+  // convert to index by removing the half-slice offset and dividing by slice size
+  let i = Math.round((target - SEG_DEG / 2) / SEG_DEG);
+  i = ((i % SEGMENTS_TOTAL) + SEGMENTS_TOTAL) % SEGMENTS_TOTAL;
+  return i;
+}
+
 const tg = window.Telegram?.WebApp;
-const CENTER_LOGO_SRC = "/logo.png"; // put your logo in /public/logo.png
+const CENTER_LOGO_SRC = "/logo.png"; // put your logo at /public/logo.png
 
 export default function App() {
   const slots = useMemo(buildSlots, []);
@@ -109,16 +121,13 @@ export default function App() {
     tg.MainButton.onClick(h); return () => tg.MainButton.offClick(h);
   }, [spinning]);
 
-  // choose win index
-  const chooseIndex = () => Math.floor(Math.random() * SEGMENTS_TOTAL);
-
-  // Compute rotation so the chosen slice CENTER hits 0° (right). We render with START_OFFSET=-90°, so 0° at render becomes TOP.
-  const computeFinalRotation = (current, idx) => {
-    const center = idx * SEG_DEG + SEG_DEG / 2; // no offset here
-    const toZero = (360 - (center % 360)) % 360; // land center at 0°
-    const extra = 5 + Math.floor(Math.random() * 3); // 5..7 spins
-    return current + extra * 360 + toZero;
-  };
+  // choose a visually nice random spin (we'll compute the winner from the rotation at the end)
+  function randomFinalRotation(current) {
+    const extra = 5 + Math.floor(Math.random() * 3); // 5..7 full spins
+    // also add a random intra-slice offset within ±20% of a slice to vary where the center crosses
+    const jitter = (Math.random() * 0.4 - 0.2) * SEG_DEG;
+    return current + extra * 360 + jitter;
+  }
 
   const play = async r => { try { if (r?.current) { r.current.currentTime = 0; await r.current.play(); } } catch {} };
   const stop = r => { try { if (r?.current) { r.current.pause(); r.current.currentTime = 0; } } catch {} };
@@ -128,13 +137,16 @@ export default function App() {
     setSpinning(true); setLastWin(null);
     tg?.HapticFeedback?.impactOccurred?.("medium");
     await play(clickSfx); await play(loopSfx);
-    const idx = chooseIndex();
-    const finalRot = computeFinalRotation(rotation, idx);
+
+    const finalRot = randomFinalRotation(rotation);
     requestAnimationFrame(() => setRotation(finalRot));
+
     const D = 4800;
     setTimeout(() => {
-      const win = slots[idx];
-      setLastWin({ index: idx, ...win });
+      // Compute winner from where the wheel *actually* stopped
+      const landedIndex = indexFromRotation(finalRot);
+      const win = slots[landedIndex];
+      setLastWin({ index: landedIndex, ...win });
       setBank(b => b + (win.amount || 0));
       stop(loopSfx); play(winSfx);
       tg?.HapticFeedback?.notificationOccurred?.("success");
@@ -149,7 +161,7 @@ export default function App() {
   const TRIM_W = 40;
   const pointerY = 36;
 
-  // Wedges (no pre-offset here!)
+  // Wedges (no baked offset)
   const wedges = useMemo(() => {
     return Array.from({ length: SEGMENTS_TOTAL }, (_, i) => {
       const start = i * SEG_DEG;
@@ -163,10 +175,8 @@ export default function App() {
 
       // text color rule
       const sec1 = i + 1;
-      let textFill = "#000";
-      if (sec1 === 1) textFill = "#fff";
-      else if (sec1 % 2 === 0) textFill = "#fff"; // even black slice
-      else textFill = "#000"; // odd white slice
+      const textFill =
+        sec1 === 1 ? "#ffffff" : (sec1 % 2 === 0 ? "#ffffff" : "#000000"); // MAX+even=white, odd=black
 
       return { i, sec1, start, end, mid, path, labelX: x, labelY: y, textFill };
     });
@@ -178,7 +188,7 @@ export default function App() {
       const s = slots[i];
       const text = s?.label || "";
       const isMax = s?.type === "max";
-      const rotate = mid + 90; // keep text upright along radius
+      const rotate = mid + 90; // keep upright along radius
       return { i, sec1, text, isMax, x: labelX, y: labelY, rotate, textFill };
     });
   }, [wedges, slots]);
@@ -246,14 +256,15 @@ export default function App() {
               {/* Strong white glow for MAX text */}
               <filter id="textGlow" x="-50%" y="-50%" width="200%" height="200%">
                 <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#ffffff" floodOpacity="1"/>
-                <feDropShadow dx="0" dy="0" stdDeviation="5" floodColor="#ffffff" floodOpacity=".7"/>
+                <feDropShadow dx="0" dy="0" stdDeviation="5" floodColor="#ffffff" floodOpacity=".8"/>
+                <feDropShadow dx="0" dy="0" stdDeviation="8" floodColor="#ffffff" floodOpacity=".6"/>
               </filter>
             </defs>
 
             {/* GOLD OUTER RIM */}
             <circle cx={cx} cy={cy} r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
 
-            {/* Rotating group: apply only START_OFFSET + runtime rotation here */}
+            {/* Rotating group: apply START_OFFSET + runtime rotation */}
             <g
               className={`rotor ${spinning ? "motion" : ""}`}
               style={{ transform: `rotate(${START_OFFSET + rotation}deg)`, transformOrigin: "500px 500px" }}
