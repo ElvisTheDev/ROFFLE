@@ -156,4 +156,53 @@ export default function App() {
         <header className="header">
           <div className="bank">💰 {bank}</div>
           <button className="spin" onClick={handleSpin} disabled={spinning}>
-            {spi
+            {spinning ? "Spinning..." : "Spin"}
+          </button>
+        </header>
+
+        <div className="wheel-wrap">
+          <div className={`pointer ${lastWin && !spinning ? "pulse" : ""}`}>
+            <div className="pointer-led" />
+          </div>
+
+          <div
+            className={`wheel ${spinning ? "motion" : ""}`}
+            style={{
+              background: wheelBackground,
+              transform: `rotate(${BASE_OFFSET + rotation}deg)`,
+            }}
+          >
+            {/* premium rings & overlays */}
+            <div className="outer-trim" aria-hidden />
+            <div className="trim-gleam" aria-hidden />
+            <div className="inner-chrome" aria-hidden />
+
+            <div className="noise" aria-hidden />
+            <div className="spokes" aria-hidden />
+            <div className="specular" aria-hidden />
+
+            <div className="center-ring" aria-hidden />
+            <div className="center-cap" aria-hidden />
+            <div className="center-gloss" aria-hidden />
+
+            {labels.map(({idx,text,angle,isMax})=>(
+              <div
+                key={idx}
+                className={`slice-label ${isMax ? "is-max" : ""} ${lastWin && lastWin.index===idx ? "won" : ""}`}
+                style={{ transform:`rotate(${angle}deg) translate(0, -43%) rotate(${-angle}deg)` }}
+              >
+                {text}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {lastWin && (
+          <div className="result">
+            Stopped on <b>#{lastWin.index+1}</b> — <span className={`pill ${lastWin.type==="max"?"max":""}`}>{lastWin.label}</span> ⇒ <b>+{lastWin.amount}</b>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
