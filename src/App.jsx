@@ -1,40 +1,56 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
 /**
- * 25-section SVG wheel with true per-slice 180° linear gradients.
- *
+ * 25-section SVG wheel. True per-slice 180° linear gradients.
  * Colors:
- *  - Section 1 (MAX): linear gradient #43cda3 → #490e6d (top→bottom)
- *  - All other EVEN sections: BLACK gradient #404040 → #000000
- *  - All other ODD  sections: WHITE gradient #ffffff → #a8a8a8
- *
- * Labels (no "+"):
- *  - 5, 10, 20, 50, 100, 1000
- *  - WHITE text on black slices (even)
- *  - BLACK text on white slices (odd)
- *  - WHITE + glow on MAX (1000)
- *
+ *  - #1 (MAX): #43cda3 → #490e6d
+ *  - Even (black): #404040 → #000000
+ *  - Odd  (white): #ffffff → #a8a8a8
+ * Labels: 5,10,20,50,100,1000 (no “+”)
+ * Text color: white on black, black on white, white on MAX.
  * Pointer: red with dark red outline.
- * Center logo: stays STILL (non-rotating).
- * Bug fix: winner is computed from final rotation under the pointer.
+ * Center logo: DOES NOT rotate.
+ * Randomness: crypto-secure random index, random spins (5–12), random intra-slice jitter, random duration (3.2–6.2s).
+ * Winner computed from final rotation under pointer.
  */
 
 const SEGMENTS_TOTAL = 25;
 const SEG_DEG = 360 / SEGMENTS_TOTAL; // 14.4°
-const START_OFFSET = -90; // render offset so 0° appears at TOP
+const START_OFFSET = -90; // render offset so 0° is at TOP
 
-// Build payouts
+// ---- Crypto-secure randomness helpers ----
+function randUint32() {
+  const a = new Uint32Array(1);
+  window.crypto.getRandomValues(a);
+  return a[0];
+}
+function randFloat() {
+  // 0 <= x < 1 with 32-bit precision
+  return randUint32() / 0xffffffff;
+}
+function randInt(min, maxInclusive) {
+  const span = maxInclusive - min + 1;
+  // unbiased rejection sampling
+  const limit = Math.floor(0xffffffff / span) * span;
+  let r;
+  do { r = randUint32(); } while (r >= limit);
+  return min + (r % span);
+}
+function randChoice(n) {
+  return randInt(0, n - 1);
+}
+
+// ---- Payout map ----
 function buildSlots() {
   const arr = Array(SEGMENTS_TOTAL).fill(null);
-
-  // Section 1: MAX
+  // #1 MAX
   arr[0] = { amount: 1000, label: "1000", type: "max", tone: "max" };
 
   const put = (idxs, amt) => {
     idxs.forEach((n) => {
       const i = n - 1;
       if (!arr[i]) arr[i] = { amount: amt, type: "flat" };
-      arr[i].label = String(amt); // no "+" sign
+      arr[i].label = String(amt);
     });
   };
 
@@ -44,7 +60,7 @@ function buildSlots() {
   put([17, 25], 50);
   put([21], 100);
 
-  // tones: even -> black, odd -> white; #1 is max
+  // tones: even -> black, odd -> white; #1 already set
   for (let sec1 = 2; sec1 <= SEGMENTS_TOTAL; sec1++) {
     const i = sec1 - 1;
     if (!arr[i]) continue;
@@ -53,7 +69,7 @@ function buildSlots() {
   return arr;
 }
 
-// geometry helpers (angles measured from +X axis; we apply START_OFFSET only at render)
+// ---- Geometry helpers (angles from +X; START_OFFSET only at render) ----
 function polarToCartesian(cx, cy, r, aDeg) {
   const a = (aDeg * Math.PI) / 180;
   return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
@@ -65,19 +81,11 @@ function wedgePath(cx, cy, r, startDeg, endDeg) {
   return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y} Z`;
 }
 
-// Map the FINAL rotation to the index actually under the red pointer (TOP)
+// Map FINAL rotation to the index under the TOP pointer
 function indexFromRotation(rotationDeg) {
-  // normalize to [0,360)
   const rot = ((rotationDeg % 360) + 360) % 360;
-  // After render we apply START_OFFSET=-90°, so a slice whose CENTER is at 0° (right)
-  // will appear at TOP under the pointer. So find which center is closest to 0° AFTER rotation.
-  // The center angle before render is c_i = i*SEG_DEG + SEG_DEG/2.
-  // After rotation, displayed = c_i + START_OFFSET + rotation.
-  // We want displayed == -90° (TOP). Since START_OFFSET=-90°, condition reduces to:
-  //     c_i + rotation ≡ 0 (mod 360)
-  // -> c_i ≡ (360 - rot)
-  const target = (360 - rot) % 360; // angle where the center must be
-  // convert to index by removing the half-slice offset and dividing by slice size
+  // c_i + rotation ≡ 0 (mod 360), with c_i = i*SEG_DEG + SEG_DEG/2
+  const target = (360 - rot) % 360;
   let i = Math.round((target - SEG_DEG / 2) / SEG_DEG);
   i = ((i % SEGMENTS_TOTAL) + SEGMENTS_TOTAL) % SEGMENTS_TOTAL;
   return i;
@@ -90,6 +98,7 @@ export default function App() {
   const slots = useMemo(buildSlots, []);
   const [spinning, setSpinning] = useState(false);
   const [rotation, setRotation] = useState(0); // degrees (we add START_OFFSET only at render)
+  const [spinDurationMs, setSpinDurationMs] = useState(4800);
   const [lastWin, setLastWin] = useState(null);
   const [bank, setBank] = useState(0);
   const [theme, setTheme] = useState({ bg: "#000", text: "#e8ecf2" });
@@ -121,12 +130,27 @@ export default function App() {
     tg.MainButton.onClick(h); return () => tg.MainButton.offClick(h);
   }, [spinning]);
 
-  // choose a visually nice random spin (we'll compute the winner from the rotation at the end)
-  function randomFinalRotation(current) {
-    const extra = 5 + Math.floor(Math.random() * 3); // 5..7 full spins
-    // also add a random intra-slice offset within ±20% of a slice to vary where the center crosses
-    const jitter = (Math.random() * 0.4 - 0.2) * SEG_DEG;
-    return current + extra * 360 + jitter;
+  // Compute a fully random final rotation
+  function computeRandomFinalRotation(current) {
+    // 1) choose a random target index uniformly
+    const idx = randChoice(SEGMENTS_TOTAL);
+
+    // 2) choose a random number of full spins (spin power)
+    const spins = randInt(5, 12); // 5..12 full turns (uniform)
+
+    // 3) add a random intra-slice jitter so it doesn't always land at the exact center
+    // keep within ±40% of slice so text stays legible under pointer
+    const jitter = (randFloat() * 0.8 - 0.4) * SEG_DEG;
+
+    // slice center angle (no offset)
+    const center = idx * SEG_DEG + SEG_DEG / 2 + jitter;
+
+    // amount to bring that center to 0°
+    const toZero = (360 - (center % 360) + 360) % 360;
+
+    const finalRot = current + spins * 360 + toZero;
+
+    return { finalRot, idxHint: idx }; // idxHint for debugging (we still calculate winner from finalRot)
   }
 
   const play = async r => { try { if (r?.current) { r.current.currentTime = 0; await r.current.play(); } } catch {} };
@@ -135,15 +159,19 @@ export default function App() {
   const handleSpin = async () => {
     if (spinning) return;
     setSpinning(true); setLastWin(null);
+
+    // randomize duration (3.2s–6.2s) to break timing patterns
+    const dur = randInt(3200, 6200);
+    setSpinDurationMs(dur);
+
     tg?.HapticFeedback?.impactOccurred?.("medium");
     await play(clickSfx); await play(loopSfx);
 
-    const finalRot = randomFinalRotation(rotation);
+    const { finalRot } = computeRandomFinalRotation(rotation);
     requestAnimationFrame(() => setRotation(finalRot));
 
-    const D = 4800;
     setTimeout(() => {
-      // Compute winner from where the wheel *actually* stopped
+      // Compute winner from where the wheel actually stopped
       const landedIndex = indexFromRotation(finalRot);
       const win = slots[landedIndex];
       setLastWin({ index: landedIndex, ...win });
@@ -151,7 +179,7 @@ export default function App() {
       stop(loopSfx); play(winSfx);
       tg?.HapticFeedback?.notificationOccurred?.("success");
       setSpinning(false);
-    }, D + 90);
+    }, dur + 120); // small buffer after transition
   };
 
   // SVG geometry
@@ -176,22 +204,30 @@ export default function App() {
       // text color rule
       const sec1 = i + 1;
       const textFill =
-        sec1 === 1 ? "#ffffff" : (sec1 % 2 === 0 ? "#ffffff" : "#000000"); // MAX+even=white, odd=black
+        sec1 === 1 ? "#ffffff" : (sec1 % 2 === 0 ? "#ffffff" : "#000000");
 
       return { i, sec1, start, end, mid, path, labelX: x, labelY: y, textFill };
     });
   }, []);
 
   // Labels
+  const slotsMemo = useMemo(() => slots, [slots]);
   const labels = useMemo(() => {
     return wedges.map(({ i, sec1, mid, labelX, labelY, textFill }) => {
-      const s = slots[i];
+      const s = slotsMemo[i];
       const text = s?.label || "";
       const isMax = s?.type === "max";
-      const rotate = mid + 90; // keep upright along radius
+      const rotate = mid + 90;
       return { i, sec1, text, isMax, x: labelX, y: labelY, rotate, textFill };
     });
-  }, [wedges, slots]);
+  }, [wedges, slotsMemo]);
+
+  // Inline transition with random duration
+  const rotorStyle = {
+    transform: `rotate(${START_OFFSET + rotation}deg)`,
+    transformOrigin: "500px 500px",
+    transition: `transform ${spinDurationMs}ms cubic-bezier(.12,.8,.12,1)`
+  };
 
   return (
     <div className="tg-app brand-bg" style={{ "--bg": theme.bg, "--text": theme.text }}>
@@ -253,22 +289,19 @@ export default function App() {
                 <stop offset="100%" stopColor="#7a5d19" />
               </linearGradient>
 
-              {/* Strong white glow for MAX text */}
+              {/* Dark purple glow for MAX text */}
               <filter id="textGlow" x="-50%" y="-50%" width="200%" height="200%">
-                <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#ffffff" floodOpacity="1"/>
-                <feDropShadow dx="0" dy="0" stdDeviation="5" floodColor="#ffffff" floodOpacity=".8"/>
-                <feDropShadow dx="0" dy="0" stdDeviation="8" floodColor="#ffffff" floodOpacity=".6"/>
+                <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#36125e" floodOpacity="1"/>
+                <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#36125e" floodOpacity=".85"/>
+                <feDropShadow dx="0" dy="0" stdDeviation="10" floodColor="#36125e" floodOpacity=".6"/>
               </filter>
             </defs>
 
             {/* GOLD OUTER RIM */}
             <circle cx={cx} cy={cy} r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
 
-            {/* Rotating group: apply START_OFFSET + runtime rotation */}
-            <g
-              className={`rotor ${spinning ? "motion" : ""}`}
-              style={{ transform: `rotate(${START_OFFSET + rotation}deg)`, transformOrigin: "500px 500px" }}
-            >
+            {/* Rotating group with RANDOM duration */}
+            <g className="rotor" style={rotorStyle}>
               {/* Slices */}
               {wedges.map(({ i, path }) => (
                 <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />
@@ -304,8 +337,7 @@ export default function App() {
 
         {lastWin && (
           <div className="result">
-            Stopped on <b>#{lastWin.index + 1}</b> —{" "}
-            <span className={`pill ${lastWin.type === "max" ? "max" : ""}`}>{lastWin.label}</span> ⇒ <b>+{lastWin.amount}</b>
+            Stopped on <b>#{lastWin.index + 1}</b> — <span className={`pill ${lastWin.type === "max" ? "max" : ""}`}>{lastWin.label}</span> ⇒ <b>{lastWin.amount}</b>
           </div>
         )}
       </div>
