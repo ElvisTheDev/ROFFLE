@@ -10,12 +10,7 @@ const BASE_CAP = 20;
 const BASE_REGEN_MS = 10 * 60 * 1000; // 10 minutes (non-additive!)
 const TICK_MS = 1000;
 
-/* Premium tiers
-   NOTE: naming per your earlier mapping
-   - plus  -> "$ROF Premium⚡️"  (green, ×2)
-   - pro   -> "$ROF Plus⭐️"     (purple, ×3)
-   - prem  -> "$ROF Pro👑"      (gold, ×5)
-*/
+/* Premium tiers (names per your mapping) */
 const TIERS = {
   free: { key: "free", name: "Free",              regenMult: 1, cap: 20,  prizeMult: 1,  inviteBonus: 0 },
   plus: { key: "plus", name: "$ROF Premium⚡️",   regenMult: 2, cap: 40,  prizeMult: 2,  inviteBonus: 50 },
@@ -92,15 +87,8 @@ const ROF_ICON_SRC    = "/rof-bn.png";
 /* ==================== WHEEL ==================== */
 const Wheel = React.memo(function Wheel({
   angleState, wedges, slots, cx, cy, R_TRIM, TRIM_W, R_FACE,
-  pointerBaseY, pointerTipY, prizeMult, tierKey
+  pointerBaseY, pointerTipY, prizeMult
 }){
-  // class for outline color based on tier
-  const outlineCls =
-    tierKey === "prem" ? "outline-gold"
-  : tierKey === "pro"  ? "outline-purple"
-  : tierKey === "plus" ? "outline-green"
-  : "outline-default";
-
   return (
     <svg className="wheel-svg" viewBox="0 0 1000 1000" aria-hidden>
       <defs>
@@ -151,12 +139,12 @@ const Wheel = React.memo(function Wheel({
           {/* Wedges */}
           {wedges.map(({i,path})=> <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />)}
 
-          {/* Labels (multiplied by prizeMult) */}
+          {/* Labels (multiplied by prizeMult) — NO tier outlines now */}
           {wedges.map(({i,mid,labelR})=>{
             const sec1 = i + 1;
             const isMax = sec1 === 1;
             const baseAmount = slots[i].amount || 0;
-            const shown = baseAmount * prizeMult; // <-- visual reflects tier multiplier
+            const shown = baseAmount * prizeMult; // visual reflects tier multiplier
 
             const textFill = sec1 === 1 ? "#fff" : (sec1 % 2 === 0 ? "#fff" : "#000");
             const textAngle = (mid + 270) % 360;
@@ -168,7 +156,7 @@ const Wheel = React.memo(function Wheel({
                   x={labelR}
                   y={0}
                   transform={flip ? `rotate(180 ${labelR} 0)` : ""}
-                  className={`slice-txt ${outlineCls} ${isMax ? "is-max" : ""}`}
+                  className={`slice-txt ${isMax ? "is-max" : ""}`}
                   textAnchor="middle"
                   dominantBaseline="middle"
                   fill={textFill}
@@ -232,11 +220,11 @@ function TierBadge({tierKey}){
   return <span className="badge pro">Pro👑</span>;
 }
 
-/* ======= Top100 (memo + hourly tick reduced to 60s) ======= */
-const TopScreen = React.memo(function TopScreen({ lbTab, tick }) {
+/* ======= Top100 (clickable tabs, 60s refresh) ======= */
+const TopScreen = React.memo(function TopScreen({ lbTab, tick, onTabChange }) {
   const topPlayers = useMemo(()=>{
     return [...DEMO_USERS].sort((a,b)=> b.balance - a.balance).slice(0,100);
-  },[tick]); // refresh only when tick updates (once per minute)
+  },[tick]);
 
   const topInvites = useMemo(()=>{
     return [...DEMO_USERS].sort((a,b)=> b.invites - a.invites).slice(0,100);
@@ -284,8 +272,18 @@ const TopScreen = React.memo(function TopScreen({ lbTab, tick }) {
   return (
     <div className="lb-wrap">
       <div className="lb-tabs">
-        <button className={`lb-tab ${lbTab==="players"?"on":""}`} disabled>Top Players</button>
-        <button className={`lb-tab ${lbTab==="invites"?"on":""}`} disabled>Top Invites</button>
+        <button
+          className={`lb-tab ${lbTab==="players"?"on":""}`}
+          onClick={()=>onTabChange("players")}
+        >
+          Top Players
+        </button>
+        <button
+          className={`lb-tab ${lbTab==="invites"?"on":""}`}
+          onClick={()=>onTabChange("invites")}
+        >
+          Top Invites
+        </button>
       </div>
 
       <div className="lb-head">
@@ -314,7 +312,7 @@ export default function App(){
   const spinCap = tier.cap;
   const prizeMult = tier.prizeMult;
 
-  /* Wheel (controlled by state to prevent reset) */
+  /* Wheel (controlled angle) */
   const rafRef = useRef(null);
   const animBusyRef = useRef(false);
   const [angleState, setAngleState] = useState(0);
@@ -333,7 +331,7 @@ export default function App(){
   const [booting,setBooting] = useState(true);
   const [showPremium, setShowPremium] = useState(false);
 
-  /* Leaderboard UI state */
+  /* Leaderboard UI */
   const [lbTab, setLbTab] = useState("players"); // 'players' | 'invites'
   const [lbTick, setLbTick] = useState(0);       // refresh once per minute
 
@@ -563,7 +561,7 @@ export default function App(){
     setTimeout(() => setToast(null), 1600);
   };
 
-  /* Premium modal (footer removed) */
+  /* Premium modal (restored footer + back; slide-up) */
   const PremiumModal = () => {
     const cards = [
       { t: TIERS.plus, bullets: [
@@ -596,7 +594,7 @@ export default function App(){
             <button className="modal-close" onClick={()=>setShowPremium(false)}>✕</button>
           </div>
 
-          <div className="modal-sub">Choose a tier</div>
+          <div className="modal-sub">Choose a tier (test price: <b>{TEST_PRICE_COINS} coin</b> each)</div>
 
           <div className="tier-grid">
             {cards.map(({t, bullets})=>{
@@ -622,6 +620,11 @@ export default function App(){
               );
             })}
           </div>
+
+          <div className="modal-foot">
+            <div className="mf-note">Payments are test-mode. Real payments & pricing coming soon.</div>
+            <button className="mf-back" onClick={()=>setShowPremium(false)}>Back</button>
+          </div>
         </div>
       </div>
     );
@@ -640,7 +643,6 @@ export default function App(){
           R_FACE={R_FACE}
           pointerBaseY={pointerBaseY} pointerTipY={pointerTipY}
           prizeMult={prizeMult}
-          tierKey={tierKey}
         />
         {/* center stack (doesn't spin) */}
         <div className="center-stack">
@@ -662,7 +664,13 @@ export default function App(){
   );
 
   const LootScreen = () => <div className="placeholder-card">🎁 Lootboxes coming soon…</div>;
-  const TopScreenContainer  = () => <TopScreen lbTab={lbTab} tick={lbTick} />;
+  const TopScreenContainer  = () => (
+    <TopScreen
+      lbTab={lbTab}
+      tick={lbTick}
+      onTabChange={(t)=>setLbTab(t)}
+    />
+  );
   const EarnScreen = () => <div className="placeholder-card">🚀 Earn coming soon…</div>;
   const TasksScreen= () => <div className="placeholder-card">🕹 Tasks coming soon…</div>;
 
