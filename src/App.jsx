@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 /* ================= CORE WHEEL CONSTANTS ================= */
 const SEGMENTS_TOTAL = 25;
 const SEG_DEG = 360 / SEGMENTS_TOTAL; // 14.4°
-const START_OFFSET = -90; // for visual pointer-at-top alignment
+const START_OFFSET = -90; // pointer at top
 
 /* Base (Free) spin settings */
 const BASE_CAP = 20;
@@ -29,12 +29,9 @@ function randChoice(n){ return randInt(0,n-1); }
 function buildSlots(){
   const arr = Array(SEGMENTS_TOTAL).fill(null);
   arr[0] = { amount: 100, label: "100", type: "max" };
-
   const put = (idxs, amt) => idxs.forEach(n => {
     const i = n-1; if(!arr[i]) arr[i] = { amount: amt }; arr[i].label = String(amt);
   });
-
-  // 1 -> 100 (already set)
   put([2,4,6,8,10,12,14,16,18,20,22,24], 1);
   put([3,7,11,15,19,23], 2);
   put([5,9,13], 5);
@@ -79,7 +76,7 @@ const CENTER_LOGO_SRC = "/logo.png";
 const BRAND_LOGO_SRC  = "/rof-lg.png";
 const ROF_ICON_SRC    = "/rof-bn.png";
 
-/* ==================== WHEEL (memo) ==================== */
+/* ==================== WHEEL ==================== */
 const Wheel = React.memo(function Wheel({
   rotorRef, wedges, slots, cx, cy, R_TRIM, TRIM_W, R_FACE,
   pointerBaseY, pointerTipY
@@ -123,11 +120,8 @@ const Wheel = React.memo(function Wheel({
       {/* gold trim */}
       <circle cx={cx} cy={cy} r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
 
-      {/* ROTOR — IMPORTANT: no SVG transform attribute; we drive CSS style.transform */}
-      <g className="rotor" ref={rotorRef} data-angle="0" />
-
-      {/* draw wedges & labels as children of rotor via <use>? simpler: overlay group */}
-      <g className="rotor-paint" pointerEvents="none">
+      {/* ✅ ROTOR: wedges & labels ARE children of this <g>. This is the group we rotate via CSS. */}
+      <g className="rotor" ref={rotorRef} data-angle="0">
         {wedges.map(({i,path})=> <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />)}
         {wedges.map(({i,x,y,mid})=>{
           const sec1=i+1;
@@ -150,7 +144,7 @@ const Wheel = React.memo(function Wheel({
         })}
       </g>
 
-      {/* POINTER */}
+      {/* POINTER stays separate (static) */}
       <polygon
         className="pointer"
         points={`${cx-18},${pointerBaseY} ${cx+18},${pointerBaseY} ${cx},${pointerTipY}`}
@@ -174,7 +168,7 @@ export default function App(){
   const rotorRef = useRef(null);
   const rafRef = useRef(null);
   const animBusyRef = useRef(false);
-  const currentAngleRef = useRef(0);   // visual angle 0..360 (before START_OFFSET)
+  const currentAngleRef = useRef(0);   // visual angle 0..360
   const calcRotRef = useRef(0);        // math angle (for payout)
 
   /* Spins/energy */
@@ -182,7 +176,7 @@ export default function App(){
   const [nextReadyAt, setNextReadyAt] = useState(null);
   const [nextInMs, setNextInMs] = useState(0);
 
-  /* UI state */
+  /* UI */
   const [spinning,setSpinning] = useState(false);
   const [toast,setToast] = useState(null);
   const [tab,setTab] = useState("play");
@@ -212,7 +206,7 @@ export default function App(){
       tg.expand();
       tg.MainButton.hide();
       tg.MainButton.disable?.();
-    }, 2000);
+    }, 1200);
     return ()=>clearTimeout(timer);
   },[]);
 
@@ -255,16 +249,16 @@ export default function App(){
     const norm = ((angle % 360) + 360) % 360;
     currentAngleRef.current = norm;
 
-    // write everywhere (CSS style, data, globals)—VERY STICKY
-    node.style.transformOrigin = `${cx}px ${cy}px`;
+    node.style.transformBox = "fill-box";            // crucial for SVG CSS transforms
+    node.style.transformOrigin = `${cx}px ${cy}px`;  // center of viewBox
     node.style.transform = `rotate(${START_OFFSET + norm}deg)`;
-    node.setAttribute("transform", ""); // ensure SVG attribute is empty and cannot conflict
+    node.setAttribute("transform", ""); // keep attribute empty to avoid conflicts
     node.dataset.angle = String(norm);
     try { localStorage.setItem("rof_visAngle", String(norm)); } catch {}
     try { window.__rofAngle = norm; } catch {}
   };
 
-  /* Restore last pose on mount (multiple fallbacks) */
+  /* Restore last pose on mount (fallback chain) */
   useEffect(()=>{
     let a = null;
     try {
@@ -382,7 +376,7 @@ export default function App(){
       calcRotRef.current = finalCalc;
 
       const finalVis = ((endVis % 360) + 360) % 360;
-      applyAngle(finalVis); // lock pose (CSS), and persist everywhere
+      applyAngle(finalVis); // lock pose
       try{
         localStorage.setItem("rof_calcRot", String(finalCalc));
       }catch{}
