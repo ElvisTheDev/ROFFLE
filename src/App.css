@@ -88,6 +88,11 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
   position:relative; width:100%; height:auto; pointer-events:none;
   filter: drop-shadow(0 26px 60px rgba(0,0,0,.55)); overflow:visible;
 }
+/* ✅ Make CSS transforms on SVG reliable */
+.wheel-svg .rotor{
+  transform-box: fill-box; /* important for transform-origin to be respected */
+  will-change: transform;
+}
 
 /* Pointer */
 .pointer{ fill:#e61a1a; stroke:#7a0f0f; stroke-width:6; stroke-linejoin:round; }
