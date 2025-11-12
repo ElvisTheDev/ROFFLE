@@ -1,175 +1,487 @@
-:root{
-  --gold1:#caa03a;
-  --gold2:#f3d077;
-  --gold3:#7a5d19;
-  --brand-purple:#7c5cff;
-  --brand-teal:#19FB9B;
+import React, { useEffect, useMemo, useRef, useState } from "react";
+
+/* ================= CORE WHEEL CONSTANTS ================= */
+const SEGMENTS_TOTAL = 25;
+const SEG_DEG = 360 / SEGMENTS_TOTAL; // 14.4°
+const START_OFFSET = -90; // show 0° at TOP (under the pointer)
+
+/* Spins/energy settings */
+const SPIN_CAP = 20;
+const REGEN_MS = 10 * 60 * 1000; // 10 minutes
+const TICK_MS = 1000;
+
+/* RNG helpers */
+function randUint32(){ const a=new Uint32Array(1); window.crypto.getRandomValues(a); return a[0]; }
+function randFloat(){ return randUint32()/0xffffffff; }
+function randInt(min,max){ const span=max-min+1; const limit=Math.floor(0xffffffff/span)*span; let r; do{ r=randUint32(); }while(r>=limit); return min+(r%span); }
+function randChoice(n){ return randInt(0,n-1); }
+
+/* Build payout map (your remapped values) */
+function buildSlots(){
+  const arr = Array(SEGMENTS_TOTAL).fill(null);
+  // Section 1: MAX (now 100)
+  arr[0] = { amount: 100, label: "100", type: "max", tone: "max" };
+
+  const put = (idxs, amt) => idxs.forEach(n => {
+    const i = n-1; if(!arr[i]) arr[i] = { amount: amt, type: "flat" }; arr[i].label = String(amt);
+  });
+
+  // old 5  → 1
+  put([2,4,6,8,10,12,14,16,18,20,22,24], 1);
+  // old 10 → 2
+  put([3,7,11,15,19,23], 2);
+  // old 20 → 5
+  put([5,9,13], 5);
+  // old 50 → 20
+  put([17,25], 20);
+  // old 100→ 50
+  put([21], 50);
+
+  for(let sec1=2; sec1<=SEGMENTS_TOTAL; sec1++){
+    const i=sec1-1; if(!arr[i]) continue; arr[i].tone = sec1%2===0 ? "black" : "white";
+  }
+  return arr;
 }
 
-/* Base */
-*{box-sizing:border-box}
-html,body,#root{height:100%}
-body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Segoe UI,Roboto,Arial; }
-.tg-app{ min-height:100%; display:flex; justify-content:center; }
-.compact{
-  width:min(100vw,520px);
-  padding:8px 10px 92px;
-  display:flex; flex-direction:column; min-height:100vh;
+/* Geometry helpers */
+function polarToCartesian(cx,cy,r,aDeg){ const a=(aDeg*Math.PI)/180; return {x:cx+r*Math.cos(a), y:cy+r*Math.sin(a)}; }
+function wedgePath(cx,cy,r,startDeg,endDeg){
+  const start = polarToCartesian(cx,cy,r,startDeg);
+  const end   = polarToCartesian(cx,cy,r,endDeg);
+  const large = endDeg-startDeg>180?1:0;
+  return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${large} 1 ${end.x} ${end.y} Z`;
 }
-.no-scroll{ overflow:hidden; }
-.flex-grow{ flex:1 1 auto; display:flex; flex-direction:column; }
-
-/* Background image */
-.bg-img{
-  background: url("/app-bg.png") center/cover no-repeat fixed, #000;
+function indexFromRotation(rotationDeg){
+  const rot = ((rotationDeg%360)+360)%360;
+  const target = (360-rot)%360;
+  let i = Math.round((target-SEG_DEG/2)/SEG_DEG);
+  i = ((i%SEGMENTS_TOTAL)+SEGMENTS_TOTAL)%SEGMENTS_TOTAL;
+  return i;
 }
 
-/* Splash (2s) */
-.splash{
-  position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
-  background:#000; z-index:9999;
-}
-.splash img{ width:96px; height:auto; margin-bottom:16px; filter: drop-shadow(0 8px 24px rgba(0,0,0,.6)); }
-.spinner{
-  width:28px; height:28px; border-radius:50%;
-  border:3px solid rgba(255,255,255,.15); border-top-color:#fff;
-  animation:spin 1s linear infinite;
-}
-@keyframes spin{ to { transform:rotate(360deg); } }
-
-/* Header */
-.header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:2px; min-height:44px; }
-.brand-logo{ height:34px; width:auto; display:block; filter: drop-shadow(0 4px 10px rgba(0,0,0,.5)); }
-.header-right{ min-width:34px }
-
-/* Balance block */
-.balance-block{ margin:18px auto 4px; text-align:center; }
-.balance-block.compacted{ margin:10px auto 0; }
-.bal-line1{ font-weight:600; color:#d3d6d7; font-size:14px; letter-spacing:.2px; margin-bottom:4px; }
-.bal-line2{ display:flex; align-items:center; justify-content:center; gap:8px; color:#fff; font-weight:900; font-size:26px; margin-bottom:6px; }
-.bal-icon{ width:24px; height:24px; object-fit:contain; }
-.bal-value{ font-variation-settings:"wght" 900; }
-
-/* Premium button */
-.btn-premium{
-  appearance:none; border:2px solid var(--gold1); color:#fff; background:#000;
-  padding:8px 14px; border-radius:12px; font-weight:800; cursor:pointer;
-  box-shadow:0 6px 18px rgba(202,160,58,.25), inset 0 0 0 1px rgba(255,255,255,.06);
-}
-.btn-premium:active{ transform:translateY(1px); }
-
-/* Wheel + pointer (compact) */
-.wheel-wrap{
-  position:relative; width:100%; aspect-ratio:1/1; margin:4px auto 8px; max-width:520px;
-  display:flex; align-items:center; justify-content:center;
-}
-.wheel-wrap.compact-no-scroll{ max-width:380px; }
-.wheel-svg{
-  position:relative; width:100%; height:auto; pointer-events:none;
-  filter: drop-shadow(0 26px 60px rgba(0,0,0,.55)); overflow:visible;
+/* Time formatting */
+function formatMs(ms){
+  if (!ms || ms <= 0) return "Ready";
+  const s = Math.ceil(ms/1000);
+  const m = Math.floor(s/60);
+  const r = s % 60;
+  const pad = (n)=> n<10 ? `0${n}` : `${n}`;
+  return `${m}:${pad(r)}`;
 }
 
-/* The red pointer inside SVG */
-.pointer{ fill:#e61a1a; stroke:#7a0f0f; stroke-width:6; stroke-linejoin:round; }
+const tg = window.Telegram?.WebApp;
+const CENTER_LOGO_SRC = "/logo.png";
+const BRAND_LOGO_SRC  = "/rof-lg.png";
+const ROF_ICON_SRC    = "/rof-bn.png";
 
-/* Center cap */
-.center-stack{ position:absolute; inset:0; display:block; z-index:50; pointer-events:none; }
-.center-ring{
-  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:36%; aspect-ratio:1/1; border-radius:50%;
-  box-shadow: 0 0 0 12px rgba(0,0,0,.45) inset, 0 0 0 2px rgba(255,255,255,.10) inset, 0 6px 18px rgba(0,0,0,.45);
-}
-.center-cap{
-  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:24%; aspect-ratio:1/1; border-radius:50%;
-  background: radial-gradient(circle at 35% 35%, rgba(255,255,255,.18), transparent 48%), linear-gradient(135deg,#0b0c0f,#121418,#0a0b0f);
-  box-shadow: inset 0 2px 0 rgba(255,255,255,.15), inset 0 -4px 10px rgba(0,0,0,.6), 0 6px 18px rgba(0,0,0,.45);
-}
-.center-logo-img{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:20%; aspect-ratio:1/1; object-fit:contain;
-  filter: drop-shadow(0 4px 12px rgba(124,92,255,.35)) drop-shadow(0 2px 8px rgba(25,251,155,.25)); }
-.center-gloss{
-  position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:28%; aspect-ratio:1/1; border-radius:50%;
-  background: radial-gradient(closest-side, rgba(255,255,255,.08), transparent 70%);
-}
+/* =========================================================
+   Pure, memoized wheel that never re-renders mid-spin
+   ========================================================= */
+const Wheel = React.memo(function Wheel({
+  rotorRef, wedges, cx, cy, R_TRIM, TRIM_W, R_FACE,
+  pointerBaseY, pointerTipY
+}){
+  return (
+    <svg className="wheel-svg" viewBox="0 0 1000 1000" aria-hidden>
+      <defs>
+        {Array.from({length:SEGMENTS_TOTAL}, (_,i)=>{
+          const sec1=i+1; const id=`grad-${i}`;
+          if(sec1===1) return (
+            <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#43cda3" />
+              <stop offset="100%" stopColor="#490e6d" />
+            </linearGradient>
+          );
+          else if(sec1%2===0) return (
+            <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#404040" />
+              <stop offset="100%" stopColor="#000000" />
+            </linearGradient>
+          );
+          else return (
+            <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#ffffff" />
+              <stop offset="100%" stopColor="#a8a8a8" />
+            </linearGradient>
+          );
+        })}
+        <linearGradient id="goldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#f6e19a" />
+          <stop offset="50%" stopColor="#caa03a" />
+          <stop offset="100%" stopColor="#7a5d19" />
+        </linearGradient>
+        <filter id="textGlow" x="-50%" y="-50%" width="200%" height="200%">
+          <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#36125e" floodOpacity="1"/>
+          <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#36125e" floodOpacity=".85"/>
+          <feDropShadow dx="0" dy="0" stdDeviation="10" floodColor="#36125e" floodOpacity=".6"/>
+        </filter>
+      </defs>
 
-/* Slice text */
-.slice-txt{ font: 900 26px/1.1 Inter, system-ui, Segoe UI, Roboto, Arial; paint-order:stroke fill; stroke:rgba(0,0,0,.25); stroke-width:2px; letter-spacing:.2px; }
-.slice-txt.is-max{ filter:url(#textGlow); }
+      {/* gold trim */}
+      <circle cx={cx} cy={cy} r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
 
-/* Rotor — animated via JS */
-.rotor{
-  transform-box: view-box;
-  transform-origin: 500px 500px;
-  will-change: transform;
-}
+      {/* ROTOR — controlled imperatively */}
+      <g className="rotor" ref={rotorRef}>
+        {wedges.map(({i,path})=> <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />)}
+        {wedges.map(({i,x,y,mid,textFill,isMax})=>(
+          <g key={`t${i}`} transform={`rotate(${mid+90} ${x} ${y})`}>
+            <text x={x} y={y} className={`slice-txt ${isMax?"is-max":""}`}
+                  textAnchor="middle" dominantBaseline="middle"
+                  fill={textFill} filter={isMax?"url(#textGlow)":undefined}>
+              {i===0 ? "100" : ( (i+1)%2===0 ? "" : "" )}{/* label set below anyway */}
+              {wedges[i].label}
+            </text>
+          </g>
+        ))}
+      </g>
 
-/* SPIN button */
-.spin-row{ display:flex; justify-content:center; margin-top:2px; margin-bottom:0; }
-.spin-row.tight{ margin-top:0; }
-.btn-spin{
-  padding:10px 18px; border-radius:14px; background:#000; color:#fff; font-weight:900;
-  display:flex; flex-direction:column; align-items:center; gap:2px; min-width:210px;
-  border:2px solid transparent;
-  background-image: linear-gradient(#000,#000), linear-gradient(180deg, #5ce1e6, #b50be5);
-  background-origin: border-box; background-clip: padding-box, border-box;
-  box-shadow: 0 8px 26px rgba(124,92,255,.25), 0 2px 10px rgba(92,225,230,.2);
-}
-.btn-spin:disabled{ opacity:.65 }
-.spin-count{ font-size:13px; color:#d3d6d7; font-weight:800; }
-.spin-count .muted{ font-weight:700; opacity:.85; }
-.spin-cta{ font-size:18px; line-height:1.05; }
-.spin-timer{ font-size:12px; color:#b9c0c5; }
+      {/* POINTER */}
+      <polygon
+        className="pointer"
+        points={`${cx-18},${pointerBaseY} ${cx+18},${pointerBaseY} ${cx},${pointerTipY}`}
+      />
+    </svg>
+  );
+}, () => true); // never re-render
 
-/* Fade-out toast */
-.toast-win{
-  position:fixed; left:50%; transform:translateX(-50%); bottom:86px; z-index:200;
-  background: rgba(0,0,0,.78); color:#fff; padding:9px 14px; border-radius:999px; font-weight:900;
-  border:1px solid rgba(255,255,255,.12);
-  animation: toastfade 1.6s ease forwards;
-}
-@keyframes toastfade{
-  0%{ opacity:0; transform:translate(-50%,10px); }
-  10%{ opacity:1; transform:translate(-50%,0); }
-  80%{ opacity:1; }
-  100%{ opacity:0; transform:translate(-50%,-10px); }
-}
+export default function App(){
+  const slots = useMemo(buildSlots, []);
 
-/* Bottom menu (emoji stacked over text) */
-.bottom-menu{
-  position:fixed; left:0; right:0; bottom:0; z-index:80; display:flex; justify-content:space-around; gap:8px;
-  padding:8px 10px 10px;
-  background: linear-gradient(180deg, rgba(0,0,0,.0), rgba(0,0,0,.68) 30%, rgba(0,0,0,.9));
-  backdrop-filter: blur(6px);
-  border-top:1px solid rgba(255,255,255,.08);
-}
-.menu-item{
-  flex:1 1 0; background:#0b0c0f; color:#fff; border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:6px 6px 8px; font-weight:800;
-  display:flex; flex-direction:column; align-items:center; gap:2px;
-}
-.menu-item.on{ border-color:#5ce1e6; box-shadow: inset 0 0 0 2px rgba(181,11,229,.45); }
-.mi-emoji{ display:block; font-size:16px; line-height:1; }
-.mi-text{ display:block; font-size:12px; }
+  /* Wheel angles */
+  const [calcRot, setCalcRot] = useState(0);     // math angle (can grow)
+  const [visAngle, setVisAngle] = useState(0);   // visual angle (0..360)
+  const rotorRef = useRef(null);
 
-/* Leaderboard UI */
-.leaderboard{ margin-top:8px; }
-.lb-tabs{ display:flex; gap:8px; justify-content:center; margin-bottom:8px; }
-.lb-tab{
-  background:#0b0c0f; color:#d3d6d7; border:1px solid rgba(255,255,255,.12); padding:6px 10px; border-radius:10px; font-weight:800;
-}
-.lb-tab.on{ color:#fff; border-color:#5ce1e6; }
-.lb-list{ display:flex; flex-direction:column; gap:8px; }
-.lb-row{
-  display:flex; align-items:center; gap:10px; padding:8px; border-radius:12px;
-  background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
-  border:1px solid rgba(255,255,255,.1);
-}
-.rank{ width:24px; text-align:center; font-weight:900; color:#a9b0b6; }
-.avatar{ width:34px; height:34px; border-radius:50%; border:1px solid rgba(255,255,255,.12); }
-.who .name{ font-weight:800; }
-.who .sub{ font-size:12px; color:#bfc5c9; }
+  /* Spins/energy (non-additive cooldown) */
+  const [spinsLeft, setSpinsLeft] = useState(SPIN_CAP);
+  const [nextReadyAt, setNextReadyAt] = useState(null); // timestamp (ms) when 1 spin will be credited
+  const [nextInMs, setNextInMs] = useState(0);
 
-/* Simple placeholders */
-.placeholder-card{
-  margin-top:8px;
-  background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
-  border:1px solid rgba(255,255,255,.1);
-  padding:14px; border-radius:12px; text-align:center; color:#d3d6d7; font-weight:700;
+  /* UI state */
+  const [spinning,setSpinning] = useState(false);
+  const [bank,setBank] = useState(0);
+  const [toast,setToast] = useState(null);
+  const [tab,setTab] = useState("play");
+  const [booting,setBooting] = useState(true);
+
+  /* Sounds */
+  const clickSfx = useRef(null), loopSfx = useRef(null), winSfx = useRef(null);
+  useEffect(()=>{
+    clickSfx.current = new Audio("/sounds/click.mp3"); clickSfx.current.preload="auto";
+    loopSfx.current  = new Audio("/sounds/roll_loop.mp3"); loopSfx.current.loop=true; loopSfx.current.preload="auto";
+    winSfx.current   = new Audio("/sounds/win.mp3"); winSfx.current.preload="auto";
+  },[]);
+
+  /* Telegram boot + 2s splash */
+  useEffect(()=>{
+    const timer = setTimeout(()=>{
+      setBooting(false);
+      if(!tg) return;
+      tg.ready();
+      tg.setHeaderColor("#000000");
+      tg.setBackgroundColor("#000000");
+      tg.expand();
+      tg.MainButton.hide();
+      tg.MainButton.disable?.();
+    }, 2000);
+    return ()=>clearTimeout(timer);
+  },[]);
+
+  /* Theme follow */
+  const [theme,setTheme] = useState({ bg:"#000", text:"#e8ecf2" });
+  useEffect(()=>{
+    if(!tg) return;
+    const sync = ()=> {
+      const p=tg.themeParams||{};
+      setTheme({ bg:p.bg_color||"#000", text:p.text_color||"#e8ecf2" });
+    };
+    sync(); tg.onEvent?.("themeChanged",sync);
+    return ()=>tg.offEvent?.("themeChanged",sync);
+  },[]);
+
+  /* ------------------- SIZES ------------------- */
+  const cx=500, cy=500;
+  const R_FACE = 440 * 0.74;
+  const R_TRIM = 470 * 0.74;
+  const TRIM_W = 40;
+
+  /* Pointer — tip on gold trim outer edge */
+  const trimOuter = R_TRIM + TRIM_W/2;
+  const pointerTipY  = cy - trimOuter + 2;
+  const pointerBaseY = pointerTipY - 26;
+
+  /* ------------------- WEDGES (static) ------------------- */
+  const wedges = useMemo(()=>{
+    return Array.from({length:SEGMENTS_TOTAL}, (_,i)=>{
+      const start=i*SEG_DEG; const end=start+SEG_DEG; const mid=(start+end)/2;
+      const path = wedgePath(cx,cy,R_FACE,start,end);
+      const labelR = 360*0.74;
+      const {x,y} = polarToCartesian(cx,cy,labelR,mid);
+      const sec1=i+1;
+      const textFill = sec1===1 ? "#fff" : (sec1%2===0 ? "#fff" : "#000");
+      return { i, mid, path, x, y, textFill, isMax: sec1===1, label: buildSlots()[i].label };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[]); // static
+
+  /* ================= IMPERATIVE ROTATION ================= */
+  const applyRotorAngle = (angleDeg, withTransition, durationMs = 0) => {
+    const node = rotorRef.current;
+    if (!node) return;
+    node.style.transformBox = "view-box";
+    node.style.transformOrigin = "500px 500px";
+    node.style.willChange = "transform";
+    node.style.transition = withTransition
+      ? `transform ${durationMs}ms cubic-bezier(.12,.8,.12,1)`
+      : "none";
+    node.style.transform = `rotate(${START_OFFSET + angleDeg}deg)`;
+  };
+
+  // Only set initial pose when Play tab appears and NOT spinning
+  useEffect(() => {
+    if (tab === "play" && !spinning && rotorRef.current) {
+      applyRotorAngle(visAngle, false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  /* ------------------- NON-ADDITIVE COOLDOWN TICKER ------------------- */
+  useEffect(()=>{
+    const tick = () => {
+      const now = Date.now();
+
+      if (spinsLeft >= SPIN_CAP) {
+        if (nextReadyAt !== null) setNextReadyAt(null);
+        setNextInMs(0);
+        return;
+      }
+
+      if (nextReadyAt == null) {
+        setNextReadyAt(now + REGEN_MS);
+        setNextInMs(REGEN_MS);
+        return;
+      }
+
+      const remaining = nextReadyAt - now;
+      setNextInMs(remaining > 0 ? remaining : 0);
+
+      if (remaining <= 0) {
+        setSpinsLeft(s => Math.min(SPIN_CAP, s + 1)); // +1 only
+        setNextReadyAt(prev => {
+          const after = (spinsLeft + 1);
+          return after < SPIN_CAP ? now + REGEN_MS : null;
+        });
+        setNextInMs( (spinsLeft + 1) < SPIN_CAP ? REGEN_MS : 0 );
+      }
+    };
+
+    const id = setInterval(tick, TICK_MS);
+    tick();
+    return ()=>clearInterval(id);
+  }, [spinsLeft, nextReadyAt]);
+
+  /* ------------------- SPIN HANDLER ------------------- */
+  const clickS = () => { try{ clickSfx.current.currentTime=0; clickSfx.current.play(); }catch{} };
+  const loopS  = () => { try{ loopSfx.current.currentTime=0; loopSfx.current.play(); }catch{} };
+  const stopL  = () => { try{ loopSfx.current.pause(); loopSfx.current.currentTime=0; }catch{} };
+  const winS   = () => { try{ winSfx.current.currentTime=0; winSfx.current.play(); }catch{} };
+
+  const handleSpin = () => {
+    if (spinning || spinsLeft <= 0) return;
+    setSpinning(true);
+    setToast(null);
+
+    // consume one spin
+    setSpinsLeft(v => Math.max(0, v - 1));
+    // start cooldown if we were at cap before spending
+    if (spinsLeft === SPIN_CAP) {
+      const now = Date.now();
+      setNextReadyAt(now + REGEN_MS);
+      setNextInMs(REGEN_MS);
+    }
+
+    const durationMs = randInt(3200, 6200);
+
+    clickS(); loopS();
+
+    const startVis = visAngle;
+
+    // choose random target
+    const idx = randChoice(SEGMENTS_TOTAL);
+    const spins = randInt(5, 12);
+    const jitter = (randFloat() * 0.8 - 0.4) * SEG_DEG;
+    const center = idx * SEG_DEG + SEG_DEG / 2 + jitter;
+    const toZero = (360 - (center % 360) + 360) % 360;
+
+    // final calculation angle (for payouts)
+    const finalCalc = calcRot + spins * 360 + toZero;
+    const endMod = ((finalCalc % 360) + 360) % 360;
+
+    // visual delta from current vis angle
+    let visualDelta = endMod - startVis;
+    if (visualDelta <= 0) visualDelta += 360;
+    const extraTurns = spins - 1;
+    visualDelta += extraTurns * 360;
+
+    const endVis = startVis + visualDelta;
+
+    // --- clean two-step transition (no interference) ---
+    applyRotorAngle(startVis, false);
+    // force layout
+    // eslint-disable-next-line no-unused-expressions
+    rotorRef.current?.getBoundingClientRect();
+    // animate
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        applyRotorAngle(endVis, true, durationMs);
+      });
+    });
+
+    // finish on transition end
+    let ended = false;
+    const onEnd = () => {
+      if (ended) return;
+      ended = true;
+      rotorRef.current?.removeEventListener("transitionend", onEnd);
+
+      setCalcRot(finalCalc);
+      setVisAngle(((endVis % 360) + 360) % 360);
+
+      stopL(); winS();
+
+      const landedIndex = indexFromRotation(finalCalc);
+      const win = slots[landedIndex];
+      setBank(b => b + (win.amount || 0));
+      setToast({ text: `+${win.amount} $ROF`, key: Date.now() });
+      setTimeout(() => setToast(null), 1600);
+
+      setSpinning(false);
+    };
+
+    rotorRef.current?.addEventListener("transitionend", onEnd);
+    // safety fallback
+    setTimeout(onEnd, durationMs + 1500);
+  };
+
+  /* ------------------- SCREENS ------------------- */
+  const PlayScreen = () => (
+    <>
+      <div className="wheel-wrap compact-no-scroll">
+        <Wheel
+          rotorRef={rotorRef}
+          wedges={wedges}
+          cx={cx} cy={cy}
+          R_TRIM={R_TRIM} TRIM_W={TRIM_W}
+          R_FACE={R_FACE}
+          pointerBaseY={pointerBaseY} pointerTipY={pointerTipY}
+        />
+        {/* static center cap (separate DOM so the rotor never re-mounts) */}
+        <div className="center-stack">
+          <div className="center-ring" />
+          <div className="center-cap" />
+          <img className="center-logo-img" src={CENTER_LOGO_SRC} alt="logo" />
+          <div className="center-gloss" />
+        </div>
+      </div>
+
+      {/* SPIN button — with non-additive cooldown */}
+      <div className="spin-row tight">
+        <button className="btn-spin" onClick={handleSpin} disabled={spinning || spinsLeft<=0}>
+          <span className="spin-count">{spinsLeft}/{SPIN_CAP} <span className="muted">Spins left</span></span>
+          <span className="spin-cta">{spinning ? "Spinning…" : "Spin"}</span>
+          <span className="spin-timer">{spinsLeft<SPIN_CAP ? `Next spin in ${formatMs(nextInMs)}` : "Ready"}</span>
+        </button>
+      </div>
+    </>
+  );
+
+  const LootScreen = () => <div className="placeholder-card">🎁 Lootboxes coming soon…</div>;
+
+  const TopScreen = () => {
+    const [subtab,setSubtab] = useState("holders");
+    const sample = Array.from({length:8}, (_,i)=>({
+      id:i+1,
+      name:`User ${i+1}`,
+      pic:`https://api.dicebear.com/7.x/thumbs/svg?seed=${i+1}`,
+      balance: Math.floor(Math.random()*5000)+200,
+      invites: Math.floor(Math.random()*200)
+    }));
+    const list = subtab==="holders"
+      ? [...sample].sort((a,b)=>b.balance-a.balance)
+      : [...sample].sort((a,b)=>b.invites-a.invites);
+    return (
+      <div className="leaderboard">
+        <div className="lb-tabs">
+          <button className={`lb-tab ${subtab==="holders"?"on":""}`} onClick={()=>setSubtab("holders")}>$ROF holders</button>
+          <button className={`lb-tab ${subtab==="invites"?"on":""}`} onClick={()=>setSubtab("invites")}>$ROF invites</button>
+        </div>
+        <div className="lb-list">
+          {list.map((u,idx)=>(
+            <div className="lb-row" key={u.id}>
+              <div className="rank">{idx+1}</div>
+              <img className="avatar" src={u.pic} alt="" />
+              <div className="who">
+                <div className="name">{u.name}</div>
+                <div className="sub">{subtab==="holders" ? `$ROF ${u.balance.toLocaleString()}` : `${u.invites} invited`}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const EarnScreen  = () => <div className="placeholder-card">🚀 Earn coming soon…</div>;
+  const TasksScreen = () => <div className="placeholder-card">🕹 Tasks coming soon…</div>;
+
+  const Menu = () => (
+    <nav className="bottom-menu">
+      <button className={`menu-item ${tab==="play"?"on":""}`}  onClick={()=>setTab("play")}><span className="mi-emoji">🎮</span><span className="mi-text">Play</span></button>
+      <button className={`menu-item ${tab==="loot"?"on":""}`}  onClick={()=>setTab("loot")}><span className="mi-emoji">🎁</span><span className="mi-text">Loot</span></button>
+      <button className={`menu-item ${tab==="top" ?"on":""}`}  onClick={()=>setTab("top")} ><span className="mi-emoji">🏆</span><span className="mi-text">Top100</span></button>
+      <button className={`menu-item ${tab==="earn"?"on":""}`}  onClick={()=>setTab("earn")}><span className="mi-emoji">🚀</span><span className="mi-text">Earn</span></button>
+      <button className={`menu-item ${tab==="tasks"?"on":""}`} onClick={()=>setTab("tasks")}><span className="mi-emoji">🕹</span><span className="mi-text">Tasks</span></button>
+    </nav>
+  );
+
+  return (
+    <div className="tg-app bg-img" style={{"--bg":theme.bg,"--text":theme.text}}>
+      {booting && (
+        <div className="splash">
+          <img src={BRAND_LOGO_SRC} alt="ROFFLE" />
+          <div className="spinner"></div>
+        </div>
+      )}
+
+      {!booting && (
+        <div className="compact no-scroll">
+          <header className="header">
+            <img src={BRAND_LOGO_SRC} alt="ROFFLE" className="brand-logo" />
+            <div className="header-right" />
+          </header>
+
+          <section className="balance-block compacted">
+            <div className="bal-line1">Your $ROF Balance:</div>
+            <div className="bal-line2">
+              <img className="bal-icon" src={ROF_ICON_SRC} alt="$ROF" />
+              <span className="bal-value">{bank}</span>
+            </div>
+            <button className="btn-premium" onClick={()=>alert("Premium modal will go here.")}>👑 Go $ROF Premium</button>
+          </section>
+
+          <div className="screen flex-grow">
+            {tab==="play"   && <PlayScreen />}
+            {tab==="loot"   && <LootScreen />}
+            {tab==="top"    && <TopScreen />}
+            {tab==="earn"   && <EarnScreen />}
+            {tab==="tasks"  && <TasksScreen />}
+          </div>
+
+          {toast && <div key={toast.key} className="toast-win">{toast.text}</div>}
+
+          <Menu />
+        </div>
+      )}
+    </div>
+  );
 }
