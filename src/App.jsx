@@ -28,15 +28,21 @@ function randChoice(n){ return randInt(0,n-1); }
 /* Payouts (base values before multiplier) */
 function buildSlots(){
   const arr = Array(SEGMENTS_TOTAL).fill(null);
+  // Section 1 -> 100 (MAX)
   arr[0] = { amount: 100, label: "100", type: "max" };
 
   const put = (idxs, amt) => idxs.forEach(n => {
     const i = n-1; if(!arr[i]) arr[i] = { amount: amt }; arr[i].label = String(amt);
   });
+  // Even positions (2,4,...,24) -> 1
   put([2,4,6,8,10,12,14,16,18,20,22,24], 1);
+  // 3,7,11,15,19,23 -> 2
   put([3,7,11,15,19,23], 2);
+  // 5,9,13 -> 5
   put([5,9,13], 5);
+  // 17,25 -> 20
   put([17,25], 20);
+  // 21 -> 50
   put([21], 50);
 
   return arr;
@@ -195,6 +201,44 @@ function TierBadge({tierKey}){
   return <span className="badge pro">Pro👑</span>;
 }
 
+/* --------- Earn helpers (no-backend demo) --------- */
+function getTGUser(){
+  const u = window.Telegram?.WebApp?.initDataUnsafe?.user;
+  if (!u) return null;
+  return {
+    id: u.id,
+    name: [u.first_name, u.last_name].filter(Boolean).join(" ") || u.username || `User ${u.id}`,
+    username: u.username ? `@${u.username}` : "",
+    photo: u.photo_url || "",
+  };
+}
+function getOrCreateMyRefCode(){
+  try{
+    const tgUser = getTGUser();
+    const key = "rof_ref_code";
+    let code = localStorage.getItem(key);
+    if (!code) {
+      // Prefer Telegram user id → deterministic code; fallback to random
+      const seed = tgUser?.id ? String(tgUser.id) : String(Math.floor(Math.random()*1e10));
+      code = Number.parseInt(seed,10).toString(36);
+      localStorage.setItem(key, code);
+    }
+    return code;
+  }catch{ return Math.floor(Math.random()*1e9).toString(36); }
+}
+function readReferrals(){
+  try { return JSON.parse(localStorage.getItem("rof_referrals")||"[]"); } catch { return []; }
+}
+function writeReferrals(arr){
+  try { localStorage.setItem("rof_referrals", JSON.stringify(arr)); } catch {}
+}
+function addReferralRow(row){
+  const arr = readReferrals();
+  arr.unshift(row);
+  writeReferrals(arr.slice(0,500)); // keep reasonable cap
+}
+
+/* ==================== Top100 Screen ==================== */
 const TopScreen = React.memo(function TopScreen({ lbTab, tick, onTabChange }) {
   const topPlayers = useMemo(()=>[...DEMO_USERS].sort((a,b)=> b.balance - a.balance).slice(0,100),[tick]);
   const topInvites = useMemo(()=>[...DEMO_USERS].sort((a,b)=> b.invites - a.invites).slice(0,100),[tick]);
@@ -264,36 +308,42 @@ export default function App(){
   const slots = useMemo(buildSlots, []);
   const [bank,setBank] = useState(0);
 
+  /* Premium state */
   const [tierKey, setTierKey] = useState("free"); // "free" | "plus" | "pro" | "prem"
   const tier = TIERS[tierKey];
   const regenMs = Math.floor(BASE_REGEN_MS / tier.regenMult);
   const spinCap = tier.cap;
   const prizeMult = tier.prizeMult;
 
+  /* Wheel (controlled angle) */
   const rafRef = useRef(null);
   const animBusyRef = useRef(false);
   const [angleState, setAngleState] = useState(0);
   const currentAngleRef = useRef(0);
   const calcRotRef = useRef(0);
 
+  /* Spins/energy */
   const [spinsLeft, setSpinsLeft] = useState(BASE_CAP);
   const [nextReadyAt, setNextReadyAt] = useState(null);
   const [nextInMs, setNextInMs] = useState(0);
 
+  /* UI */
   const [spinning,setSpinning] = useState(false);
   const [toast,setToast] = useState(null);
   const [tab,setTab] = useState("play");
   const [booting,setBooting] = useState(true);
   const [showPremium, setShowPremium] = useState(false);
 
+  /* Leaderboard UI */
   const [lbTab, setLbTab] = useState("players");
   const [lbTick, setLbTick] = useState(0);
 
-  useEffect(()=>{
-    const id = setInterval(()=> setLbTick(t => t+1), 60000);
-    return ()=> clearInterval(id);
-  },[]);
+  /* Earn / referrals */
+  const [myRefCode,setMyRefCode] = useState("");
+  const [myRefLink,setMyRefLink] = useState("");
+  const [referrals,setReferrals] = useState(readReferrals());
 
+  /* Splash */
   useEffect(()=>{
     const timer = setTimeout(()=>{
       setBooting(false);
@@ -309,6 +359,7 @@ export default function App(){
     return ()=>clearTimeout(timer);
   },[]);
 
+  /* Theme follow */
   const [theme,setTheme] = useState({ bg:"#000", text:"#e8ecf2" });
   useEffect(()=>{
     const tg = window.Telegram?.WebApp;
@@ -321,6 +372,7 @@ export default function App(){
     return ()=>tg.offEvent?.("themeChanged",sync);
   },[]);
 
+  /* Sizes */
   const cx=500, cy=500;
   const R_FACE = 440 * 0.74;
   const R_TRIM = 470 * 0.74;
@@ -330,6 +382,7 @@ export default function App(){
   const pointerTipY  = cy - trimOuter + 2;
   const pointerBaseY = pointerTipY - 26;
 
+  /* Wedges */
   const wedges = useMemo(()=>{
     return Array.from({length:SEGMENTS_TOTAL}, (_,i)=>{
       const start=i*SEG_DEG; const end=start+SEG_DEG; const mid=(start+end)/2;
@@ -338,6 +391,7 @@ export default function App(){
     });
   },[]);
 
+  /* Angle setters */
   const applyAngle = (angle) => {
     const norm = ((angle % 360) + 360) % 360;
     currentAngleRef.current = norm;
@@ -346,6 +400,7 @@ export default function App(){
     try { window.__rofAngle = norm; } catch {}
   };
 
+  /* Restore last pose on mount */
   useEffect(()=>{
     let a = null;
     try {
@@ -365,8 +420,11 @@ export default function App(){
     }catch{}
   },[]);
 
+  /* Cancel RAF on unmount */
   useEffect(()=>()=>{ if(rafRef.current) cancelAnimationFrame(rafRef.current); },[]);
 
+  /* RAF tween */
+  function easeOutCubic(t){ return 1 - Math.pow(1 - t, 3); }
   const animateRotation = (from, to, durationMs, onDone) => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     animBusyRef.current = true;
@@ -383,8 +441,15 @@ export default function App(){
     rafRef.current = requestAnimationFrame(step);
   };
 
+  /* Top100 refresh once per minute */
   useEffect(()=>{
-    if (showPremium) return; // pause ticker while modal open
+    const id = setInterval(()=> setLbTick(t => t+1), 60000);
+    return ()=> clearInterval(id);
+  },[]);
+
+  /* Non-additive cooldown ticker — pauses while Premium modal open */
+  useEffect(()=>{
+    if (showPremium) return;
     const tick = () => {
       const now = Date.now();
       setSpinsLeft(s => Math.min(s, spinCap));
@@ -417,6 +482,7 @@ export default function App(){
     return ()=>clearInterval(id);
   }, [spinsLeft, nextReadyAt, regenMs, spinCap, showPremium]);
 
+  /* Spin */
   const handleSpin = () => {
     if (spinning || animBusyRef.current || spinsLeft <= 0) return;
 
@@ -472,6 +538,7 @@ export default function App(){
     });
   };
 
+  /* Premium purchase */
   const canAfford = (price) => bank >= price;
   const buyTier = (key) => {
     if (key === tierKey) return;
@@ -491,6 +558,72 @@ export default function App(){
     setTimeout(() => setToast(null), 1600);
   };
 
+  /* ===== Earn: referral code + link + claim handling (client-side demo) ===== */
+  useEffect(()=>{
+    const code = getOrCreateMyRefCode();
+    setMyRefCode(code);
+    const origin = window.location.origin;
+    const path = window.location.pathname.replace(/\/+$/,"");
+    const link = `${origin}${path}?ref=${encodeURIComponent(code)}`;
+    setMyRefLink(link);
+  },[]);
+
+  useEffect(()=>{
+    // If app opened via ?ref=... give the invitee bonus ONCE.
+    try{
+      const params = new URLSearchParams(window.location.search);
+      const ref = params.get("ref");
+      if (!ref) return;
+      const already = localStorage.getItem("rof_ref_claimed");
+      const myCode = localStorage.getItem("rof_ref_code");
+      if (already === "1") return;
+      if (myCode && ref === myCode) return; // ignore self-ref
+
+      // Reward the invitee (this user)
+      setBank(b => b + 200);
+      setSpinsLeft(s => Math.min(spinCap, s + 20));
+      setToast({ text: `+200 $ROF & +20 spins (invite)`, key: Date.now() });
+      setTimeout(() => setToast(null), 1600);
+
+      localStorage.setItem("rof_ref_claimed", "1");
+      localStorage.setItem("rof_referred_by", ref);
+
+      // Record a local row so user sees "who invited them" in list
+      const u = getTGUser();
+      const row = {
+        id: `joined-${Date.now()}`,
+        name: u?.name || "You (joined)",
+        username: u?.username || "",
+        photo: u?.photo || "",
+        tier: "free",
+        when: new Date().toISOString(),
+        note: `Joined via ${ref}`,
+      };
+      addReferralRow(row);
+      setReferrals(readReferrals());
+
+      // NOTE: To also credit the INVITER remotely:
+      // call your backend endpoint here with { refCode: ref, joinedUser: u }
+      // Example:
+      // fetch('/api/ref-joined', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ref, user:u })})
+      //   .catch(()=>{});
+    }catch{}
+    // eslint-disable-next-line
+  }, [spinCap]);
+
+  /* Earn UI actions */
+  const copyLink = async ()=>{
+    try{ await navigator.clipboard.writeText(myRefLink); setToast({text:"Copied link", key:Date.now()}); setTimeout(()=>setToast(null),1200);}catch{}
+  };
+  const shareLink = ()=>{
+    const text = `Spin & win on ROFFLE — we both get +20 spins & +200 $ROF:\n${myRefLink}`;
+    const tg = window.Telegram?.WebApp;
+    if (tg?.openTelegramLink) tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(myRefLink)}&text=${encodeURIComponent(text)}`);
+    else if (navigator.share) navigator.share({ title:"ROFFLE", text, url:myRefLink }).catch(()=>{});
+    else window.open(`https://t.me/share/url?url=${encodeURIComponent(myRefLink)}&text=${encodeURIComponent(text)}`,'_blank');
+  };
+
+  /* Premium modal (unchanged visuals from last step) */
   const PremiumModal = () => {
     const cards = [
       { t: TIERS.plus, bullets: [
@@ -539,8 +672,6 @@ export default function App(){
                       {bullets.map((b,idx)=><li key={idx}>{b}</li>)}
                     </ul>
                     <div className="tc-price">Price: {TEST_PRICE_COINS} coin</div>
-
-                    {/* BUY BUTTON → RIGHT SIDE */}
                     <div className="tc-actions">
                       <button
                         className="tc-buy gradient-outline-btn"
@@ -565,6 +696,7 @@ export default function App(){
     );
   };
 
+  /* Screens */
   const PlayScreen = () => (
     <>
       <div className="wheel-wrap compact-no-scroll">
@@ -597,10 +729,80 @@ export default function App(){
   );
 
   const LootScreen = () => <div className="placeholder-card">🎁 Lootboxes coming soon…</div>;
+
+  /* ===== Earn Screen ===== */
+  const EarnScreen = () => {
+    const invitedCount = referrals.length;
+    const estBonus = invitedCount * 200;
+    return (
+      <div className="earn-wrap">
+        <div className="card gradient-border">
+          <div className="card-head">
+            <div className="card-title">Invite friends</div>
+            <div className="reward-pill">🎁 Both get <b>+20 spins</b> & <b>+200 $ROF</b></div>
+          </div>
+
+          <div className="ref-link-box">
+            <input className="ref-input" value={myRefLink} readOnly />
+            <div className="ref-actions">
+              <button className="btn small gradient-outline-btn" onClick={copyLink}>Copy</button>
+              <button className="btn small gradient-outline-btn" onClick={shareLink}>Share</button>
+            </div>
+          </div>
+
+          <div className="stats-row">
+            <div className="statbox">
+              <div className="stat-h">Invited</div>
+              <div className="stat-v">{invitedCount}</div>
+            </div>
+            <div className="statbox">
+              <div className="stat-h">Coins earned*</div>
+              <div className="stat-v">{estBonus}</div>
+            </div>
+          </div>
+          <div className="disclaimer">*Inviter rewards require a backend to credit automatically.</div>
+        </div>
+
+        <div className="card list-card gradient-border">
+          <div className="card-title">Recent sign-ups via your link</div>
+          <div className="ref-list">
+            {referrals.length === 0 && (
+              <div className="empty">No referrals yet. Share your link to start earning!</div>
+            )}
+            {referrals.map((r,i)=>(
+              <div key={r.id || i} className="ref-row">
+                <Avatar name={r.name || "User"} photo={r.photo || ""} />
+                <div className="ref-meta">
+                  <div className="ref-name">{r.name || "User"}</div>
+                  <div className="ref-sub">
+                    <TierBadge tierKey={r.tier || "free"} />
+                    {r.username && <span className="ref-username">{r.username}</span>}
+                  </div>
+                </div>
+                <div className="ref-when">{formatDate(r.when)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  function Avatar({name, photo}){
+    if (photo) return <img className="lb-avatar" src={photo} alt={name} />;
+    const bg = randomItem(DEMO_AVATAR_COLORS);
+    return <div className="lb-avatar fallback" style={{ background: bg }}>{initials(name)}</div>;
+  }
+  function formatDate(iso){
+    try{
+      const d = new Date(iso);
+      return d.toLocaleDateString(undefined, { year:"numeric", month:"short", day:"numeric" });
+    }catch{return "";}
+  }
+
   const TopScreenContainer  = () => (
     <TopScreen lbTab={lbTab} tick={lbTick} onTabChange={(t)=>setLbTab(t)} />
   );
-  const EarnScreen = () => <div className="placeholder-card">🚀 Earn coming soon…</div>;
   const TasksScreen= () => <div className="placeholder-card">🕹 Tasks coming soon…</div>;
 
   const Menu = () => (
@@ -613,11 +815,12 @@ export default function App(){
     </nav>
   );
 
+  /* Badge mapping for current status (header) */
   const statusBadge = (() => {
     if (tierKey === "free") return { cls: "free", text: "No status" };
     if (tierKey === "plus") return { cls: "premium", text: "Premium⚡️" };
     if (tierKey === "pro")  return { cls: "plus",    text: "Plus⭐️" };
-    return { cls: "pro", text: "Pro👑" };
+    return { cls: "pro", text: "Pro👑" }; // prem
   })();
 
   return (
