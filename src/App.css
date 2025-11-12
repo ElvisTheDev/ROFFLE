@@ -50,7 +50,7 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
 }
 .btn-premium:active{ transform:translateY(1px); }
 
-/* Status badges (also reused in leaderboard) */
+/* Status badges */
 .badge{
   display:inline-flex; align-items:center; justify-content:center;
   font-weight:900; font-size:11px; letter-spacing:.3px;
@@ -110,18 +110,15 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
   background: radial-gradient(closest-side, rgba(255,255,255,.08), transparent 70%);
 }
 
-/* Wheel numbers (outline color per tier) */
+/* Slice text — outlines removed (only subtle dark stroke for legibility) */
 .slice-txt{
   font: 900 26px/1.1 Inter, system-ui, Segoe UI, Roboto, Arial;
   paint-order: stroke fill;
-  stroke-width: 3px; /* stronger to make colored outline visible */
+  stroke: rgba(0,0,0,.25);
+  stroke-width: 2px;
   letter-spacing:.2px;
 }
 .slice-txt.is-max{ filter:url(#textGlow); }
-.slice-txt.outline-default{ stroke: rgba(0,0,0,.25); }
-.slice-txt.outline-green { stroke: var(--brand-teal); }
-.slice-txt.outline-purple{ stroke: var(--brand-purple); }
-.slice-txt.outline-gold  { stroke: var(--gold2); }
 
 /* SPIN button */
 .spin-row{ display:flex; justify-content:center; margin-top:2px; margin-bottom:0; }
@@ -178,14 +175,14 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
   padding:14px; border-radius:12px; text-align:center; color:#d3d6d7; font-weight:700;
 }
 
-/* Modal */
+/* Modal: slide up from bottom */
 .modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.65); backdrop-filter: blur(4px); display:flex; align-items:flex-end; justify-content:center; z-index:9999; }
 .modal{
   width:100%; max-width:520px; background:#0b0c0f; border-top-left-radius:16px; border-top-right-radius:16px;
   border:1px solid rgba(255,255,255,.1); box-shadow:0 -12px 40px rgba(0,0,0,.45);
-  padding:14px 12px 12px; animation:slideup .2s ease-out;
+  padding:14px 12px 12px; animation:slideup .22s ease-out;
 }
-@keyframes slideup{ from{ transform:translateY(16px); opacity:.7 } to{ transform:translateY(0); opacity:1 } }
+@keyframes slideup{ from{ transform:translateY(18px); opacity:.7 } to{ transform:translateY(0); opacity:1 } }
 .modal-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
 .mh-left{ display:flex; align-items:center; gap:8px; }
 .mh-icon{ font-size:18px }
@@ -209,6 +206,9 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
 .tc-list{ margin:0; padding-left:16px; color:#c9d0d6; font-size:12px; }
 .tc-list li{ margin:2px 0; }
 .tc-price{ font-weight:800; font-size:12px; color:#d3d6d7; }
+.modal-foot{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.mf-note{ color:#98a0a6; font-size:12px; }
+.mf-back{ appearance:none; background:#111318; color:#fff; border:1px solid rgba(255,255,255,.12); padding:8px 12px; border-radius:10px; font-weight:800; }
 
 /* ==================== Leaderboard ==================== */
 .lb-wrap{ margin-top:10px; display:flex; flex-direction:column; gap:8px; }
@@ -217,7 +217,7 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
   flex:1 1 0; max-width:220px;
   background:#0b0c0f; color:#fff;
   border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:10px 12px;
-  font-weight:900;
+  font-weight:900; cursor:pointer;
 }
 .lb-tab.on{
   border-color:#5ce1e6;
