@@ -10,12 +10,12 @@ const BASE_CAP = 20;
 const BASE_REGEN_MS = 10 * 60 * 1000; // 10 minutes (non-additive!)
 const TICK_MS = 1000;
 
-/* Premium tiers (names/badges per your mapping) */
+/* Premium tiers */
 const TIERS = {
-  free: { key: "free", name: "Free", regenMult: 1, cap: 20, prizeMult: 1, inviteBonus: 0, badge: "" },
-  plus: { key: "plus", name: "$ROF Premium⚡️", regenMult: 2, cap: 40, prizeMult: 2, inviteBonus: 50, badge: "PREMIUM" },
-  pro:  { key: "pro",  name: "$ROF Plus⭐️",    regenMult: 3, cap: 60, prizeMult: 3, inviteBonus: 75, badge: "PLUS" },
-  prem: { key: "prem", name: "$ROF Pro👑",      regenMult: 5, cap: 100, prizeMult: 5, inviteBonus: 100, badge: "PRO" },
+  free: { key: "free", name: "Free", regenMult: 1, cap: 20, prizeMult: 1, inviteBonus: 0 },
+  plus: { key: "plus", name: "$ROF Premium⚡️", regenMult: 2, cap: 40, prizeMult: 2, inviteBonus: 50 },
+  pro:  { key: "pro",  name: "$ROF Plus⭐️",    regenMult: 3, cap: 60, prizeMult: 3, inviteBonus: 75 },
+  prem: { key: "prem", name: "$ROF Pro👑",      regenMult: 5, cap: 100, prizeMult: 5, inviteBonus: 100 },
 };
 const TEST_PRICE_COINS = 1;
 
@@ -58,7 +58,7 @@ function wedgePathLocal(r,startDeg,endDeg){
   return `M 0 0 L ${start.x} ${start.y} A ${r} ${r} 0 ${large} 1 ${end.x} ${end.y} Z`;
 }
 function indexFromRotation(rotationDeg){
-  // rotationDeg is our math angle (0 at pointer-top), growing clockwise
+  // rotationDeg is our math angle (0 at pointer-top), clockwise
   const rot = ((rotationDeg%360)+360)%360;
   const target = (360-rot)%360; // top-aligned
   let i = Math.round((target-SEG_DEG/2)/SEG_DEG);
@@ -87,7 +87,7 @@ const ROF_ICON_SRC    = "/rof-bn.png";
 
 /* ==================== WHEEL (SVG centered via translate) ==================== */
 const Wheel = React.memo(function Wheel({
-  rotorRef, wedges, slots, cx, cy, R_TRIM, TRIM_W, R_FACE,
+  rotorRef, angleState, wedges, slots, cx, cy, R_TRIM, TRIM_W, R_FACE,
   pointerBaseY, pointerTipY
 }){
   return (
@@ -131,25 +131,33 @@ const Wheel = React.memo(function Wheel({
         {/* Gold outer trim (centered circle) */}
         <circle r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
 
-        {/* ROTOR: rotate around 0,0 — the true center */}
-        <g className="rotor" ref={rotorRef} data-angle="0" transform={`rotate(${START_OFFSET})`}>
+        {/* ROTOR: rotate around 0,0 — controlled by React state */}
+        <g
+          className="rotor"
+          ref={rotorRef}
+          data-angle={angleState}
+          transform={`rotate(${START_OFFSET + angleState})`}
+        >
+          {/* Wedges */}
           {wedges.map(({i,path})=> <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />)}
 
-          {/* Labels: upright and centered on each wedge */}
-          {wedges.map(({i,mid,labelPos})=>{
+          {/* Labels: compute at x-axis and rotate group only (no double-rotate) */}
+          {wedges.map(({i,mid,labelR})=>{
             const sec1 = i + 1;
             const textFill = sec1 === 1 ? "#fff" : (sec1 % 2 === 0 ? "#fff" : "#000");
             const isMax = sec1 === 1;
-            const { x, y } = labelPos;
-            // Flip text if it would be upside down (>90° & <270°), then rotate by wedge angle
+
+            // text base position on x-axis (r,0), rotate the group by mid
+            // if angle would be upside-down, flip 180° around its point
             const textAngle = (mid + 270) % 360;
             const flip = textAngle > 90 && textAngle < 270;
+
             return (
               <g key={`t${i}`} transform={`rotate(${mid})`}>
                 <text
-                  x={x}
-                  y={y}
-                  transform={flip ? `rotate(180 ${x} ${y})` : ""}
+                  x={labelR}
+                  y={0}
+                  transform={flip ? `rotate(180 ${labelR} 0)` : ""}
                   className={`slice-txt ${isMax ? "is-max" : ""}`}
                   textAnchor="middle"
                   dominantBaseline="middle"
@@ -184,11 +192,12 @@ export default function App(){
   const spinCap = tier.cap;
   const prizeMult = tier.prizeMult;
 
-  /* Wheel — SVG transform-driven */
+  /* Wheel — controlled angle state to avoid React overwriting */
   const rotorRef = useRef(null);
   const rafRef = useRef(null);
   const animBusyRef = useRef(false);
-  const currentAngleRef = useRef(0);   // visual angle (0..360) relative to rotor (no START_OFFSET)
+  const [angleState, setAngleState] = useState(0); // <-- React now owns the transform
+  const currentAngleRef = useRef(0);   // mirror of angleState
   const calcRotRef = useRef(0);        // math angle for payout
 
   /* Spins/energy */
@@ -227,7 +236,7 @@ export default function App(){
       tg.expand();
       tg.MainButton.hide();
       tg.MainButton.disable?.();
-    }, 1200);
+    }, 800);
     return ()=>clearTimeout(timer);
   },[]);
 
@@ -246,9 +255,10 @@ export default function App(){
 
   /* Sizes (viewBox center is 500,500, but wheel itself is local (0,0) and translated) */
   const cx=500, cy=500;
-  const R_FACE = 440 * 0.74;
-  const R_TRIM = 470 * 0.74;
-  const TRIM_W = 40;
+  const R_FACE = 440 * 0.74;      // wedge radius
+  const R_TRIM = 470 * 0.74;      // gold trim radius
+  const TRIM_W = 40;              // gold trim width
+  const LABEL_R = 360 * 0.74;     // label radius (kept inside wedges)
   const trimOuter = R_TRIM + TRIM_W/2;
   const pointerTipY  = cy - trimOuter + 2;
   const pointerBaseY = pointerTipY - 26;
@@ -258,24 +268,15 @@ export default function App(){
     return Array.from({length:SEGMENTS_TOTAL}, (_,i)=>{
       const start=i*SEG_DEG; const end=start+SEG_DEG; const mid=(start+end)/2;
       const path = wedgePathLocal(R_FACE, start, end);
-      const labelR = 360*0.74;
-      const labelPos = polarToCartesianLocal(labelR, mid);
-      return { i, mid, path, labelPos };
+      return { i, mid, path, labelR: LABEL_R };
     });
   },[]);
 
-  /* --- Rotor angle write (SVG transform attribute around 0,0) --- */
+  /* Angle write — React state owns it to prevent reset */
   const applyAngle = (angle) => {
-    const node = rotorRef.current;
-    if (!node) return;
-
     const norm = ((angle % 360) + 360) % 360;
     currentAngleRef.current = norm;
-
-    node.removeAttribute("style"); // no CSS transforms
-    node.setAttribute("transform", `rotate(${START_OFFSET + norm})`);
-
-    node.dataset.angle = String(norm);
+    setAngleState(norm); // React controls the transform!
     try { localStorage.setItem("rof_visAngle", String(norm)); } catch {}
     try { window.__rofAngle = norm; } catch {}
   };
@@ -290,14 +291,8 @@ export default function App(){
     if (a == null || Number.isNaN(a)) {
       try { if (typeof window.__rofAngle === "number") a = window.__rofAngle; } catch {}
     }
-    if (a == null || Number.isNaN(a)) {
-      const node = rotorRef.current;
-      if (node?.dataset?.angle) {
-        const da = parseFloat(node.dataset.angle);
-        if (!Number.isNaN(da)) a = da;
-      }
-    }
     if (a == null || Number.isNaN(a)) a = 0;
+
     applyAngle(a);
 
     try{
@@ -310,7 +305,7 @@ export default function App(){
   /* Cancel RAF on unmount */
   useEffect(()=>()=>{ if(rafRef.current) cancelAnimationFrame(rafRef.current); },[]);
 
-  /* RAF tween (no React state) */
+  /* RAF tween */
   const animateRotation = (from, to, durationMs, onDone) => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     animBusyRef.current = true;
@@ -319,7 +314,7 @@ export default function App(){
       const t = Math.min(1, (now - start) / durationMs);
       const eased = easeOutCubic(t);
       const angle = from + (to - from) * eased;
-      applyAngle(angle); // write SVG transform each frame
+      applyAngle(angle); // update state each frame
       if (t < 1) rafRef.current = requestAnimationFrame(step);
       else { animBusyRef.current = false; onDone?.(); }
     };
@@ -401,7 +396,7 @@ export default function App(){
       const finalVis = ((endVis % 360) + 360) % 360;
       applyAngle(finalVis); // lock pose
 
-      // ✅ persist both values so next launch starts where we stopped
+      // persist both angles so next spin/restores start from here
       try {
         localStorage.setItem("rof_visAngle", String(finalVis));
         localStorage.setItem("rof_calcRot", String(finalCalc));
@@ -483,17 +478,17 @@ export default function App(){
                     <div className="tc-name">{t.name}</div>
                     {active && <div className="tc-active">Active</div>}
                   </div>
-                    <ul className="tc-list">
-                      {bullets.map((b,idx)=><li key={idx}>{b}</li>)}
-                    </ul>
-                    <div className="tc-price">Price: {TEST_PRICE_COINS} coin</div>
-                    <button
-                      className="tc-buy"
-                      disabled={active || !canAfford(TEST_PRICE_COINS)}
-                      onClick={()=>buyTier(t.key)}
-                    >
-                      {active ? "Current Plan" : `Buy ${t.name}`}
-                    </button>
+                  <ul className="tc-list">
+                    {bullets.map((b,idx)=><li key={idx}>{b}</li>)}
+                  </ul>
+                  <div className="tc-price">Price: {TEST_PRICE_COINS} coin</div>
+                  <button
+                    className="tc-buy"
+                    disabled={active || !canAfford(TEST_PRICE_COINS)}
+                    onClick={()=>buyTier(t.key)}
+                  >
+                    {active ? "Current Plan" : `Buy ${t.name}`}
+                  </button>
                 </div>
               );
             })}
@@ -514,6 +509,7 @@ export default function App(){
       <div className="wheel-wrap compact-no-scroll">
         <Wheel
           rotorRef={rotorRef}
+          angleState={angleState}
           wedges={wedges}
           slots={slots}
           cx={cx} cy={cy}
