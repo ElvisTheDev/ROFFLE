@@ -46,28 +46,23 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
 .balance-block{ margin:18px auto 4px; text-align:center; }
 .balance-block.compacted{ margin:10px auto 0; }
 .bal-line1{ font-weight:600; color:#d3d6d7; font-size:14px; letter-spacing:.2px; margin-bottom:4px; }
-.bal-line1 .tier-badge.inline{ margin-left:8px; vertical-align:middle; }
-.bal-line2{ display:flex; align-items:center; justify-content:center; gap:8px; color:#fff; font-weight:900; font-size:26px; margin-bottom:6px; }
+.bal-line2{ display:flex; align-items:center; justify-content:center; gap:8px; color:#fff; font-weight:900; font-size:26px; margin-bottom:8px; }
 .bal-icon{ width:24px; height:24px; object-fit:contain; }
 .bal-value{ font-variation-settings:"wght" 900; }
 
-/* Premium badge */
-.tier-badge{
-  display:inline-flex; align-items:center; justify-content:center; font-weight:900; font-size:10px;
-  padding:2px 6px; border-radius:999px; margin-left:6px; letter-spacing:.3px;
-  border:1px solid rgba(255,255,255,.16);
+/* Premium row (button + status) */
+.premium-row{
+  display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap;
 }
-.tier-badge.plus{ background:linear-gradient(180deg, rgba(25,251,155,.14), rgba(25,251,155,.08)); color:#19FB9B; }
-.tier-badge.pro{ background:linear-gradient(180deg, rgba(124,92,255,.16), rgba(124,92,255,.08)); color:#b9a8ff; border-color:rgba(124,92,255,.35); }
-.tier-badge.prem{ background:linear-gradient(180deg, rgba(250,214,120,.18), rgba(250,214,120,.10)); color:#ffd86a; border-color:rgba(250,214,120,.45); }
-
-/* Premium button */
 .btn-premium{
   appearance:none; border:2px solid var(--gold1); color:#fff; background:#000;
   padding:8px 14px; border-radius:12px; font-weight:800; cursor:pointer;
   box-shadow:0 6px 18px rgba(202,160,58,.25), inset 0 0 0 1px rgba(255,255,255,.06);
 }
 .btn-premium:active{ transform:translateY(1px); }
+.status-line{ font-weight:800; font-size:13px; }
+.status-line.free{ color:#9aa2a8; }    /* grey "No Status" */
+.status-line.on b{ color:#ffffff; }
 
 /* Wheel + pointer (compact) */
 .wheel-wrap{
@@ -151,7 +146,7 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
   flex:1 1 0; background:#0b0c0f; color:#fff; border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:6px 6px 8px; font-weight:800;
   display:flex; flex-direction:column; align-items:center; gap:2px;
 }
-.menu-item.on{ border-color:#5ce1e6; box-shadow: inset 0 0 0 2px rgba(181,11,229,.45); }
+.menu-item.on{ border-color:#5ce1e6; box-shadow: inset 0 0 0 2px rgba(181,11,229,.35); }
 .mi-emoji{ display:block; font-size:16px; line-height:1; }
 .mi-text{ display:block; font-size:12px; }
 
