@@ -67,7 +67,7 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
   background:linear-gradient(180deg, rgba(25,251,155,.16), rgba(25,251,155,.08));
   border-color:rgba(25,251,155,.35);
 }
-.badge.plus{ /* blue for Plus⭐️ */
+.badge.plus{ /* blue/purple for Plus⭐️ */
   color:#b9a8ff;
   background:linear-gradient(180deg, rgba(124,92,255,.18), rgba(124,92,255,.10));
   border-color:rgba(124,92,255,.4);
@@ -88,7 +88,6 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
   position:relative; width:100%; height:auto; pointer-events:none;
   filter: drop-shadow(0 26px 60px rgba(0,0,0,.55)); overflow:visible;
 }
-/* No CSS transforms on .rotor — rotation uses SVG attribute via React state */
 
 /* Pointer */
 .pointer{ fill:#e61a1a; stroke:#7a0f0f; stroke-width:6; stroke-linejoin:round; }
@@ -111,9 +110,18 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
   background: radial-gradient(closest-side, rgba(255,255,255,.08), transparent 70%);
 }
 
-/* Slice text */
-.slice-txt{ font: 900 26px/1.1 Inter, system-ui, Segoe UI, Roboto, Arial; paint-order:stroke fill; stroke:rgba(0,0,0,.25); stroke-width:2px; letter-spacing:.2px; }
+/* Wheel numbers (outline color per tier) */
+.slice-txt{
+  font: 900 26px/1.1 Inter, system-ui, Segoe UI, Roboto, Arial;
+  paint-order: stroke fill;
+  stroke-width: 3px; /* stronger to make colored outline visible */
+  letter-spacing:.2px;
+}
 .slice-txt.is-max{ filter:url(#textGlow); }
+.slice-txt.outline-default{ stroke: rgba(0,0,0,.25); }
+.slice-txt.outline-green { stroke: var(--brand-teal); }
+.slice-txt.outline-purple{ stroke: var(--brand-purple); }
+.slice-txt.outline-gold  { stroke: var(--gold2); }
 
 /* SPIN button */
 .spin-row{ display:flex; justify-content:center; margin-top:2px; margin-bottom:0; }
@@ -200,30 +208,16 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
 .tc-active{ font-size:11px; padding:2px 6px; border-radius:999px; border:1px solid rgba(255,255,255,.14); color:#5ce1e6; }
 .tc-list{ margin:0; padding-left:16px; color:#c9d0d6; font-size:12px; }
 .tc-list li{ margin:2px 0; }
-.tc-price{ font-weight:800; font-size:12px; color:#d3d0d6; }
-.tc-buy{
-  appearance:none; background:#000; color:#fff; font-weight:900; border-radius:12px; padding:8px 10px; cursor:pointer;
-  border:2px solid transparent; background-image: linear-gradient(#000,#000), linear-gradient(180deg, #5ce1e6, #b50be5);
-  background-origin: border-box; background-clip: padding-box, border-box;
-}
-.tc-buy:disabled{ opacity:.6; cursor:not-allowed; }
-.modal-foot{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
-.mf-note{ color:#98a0a6; font-size:12px; }
-.mf-back{ appearance:none; background:#111318; color:#fff; border:1px solid rgba(255,255,255,.12); padding:8px 12px; border-radius:10px; font-weight:800; }
+.tc-price{ font-weight:800; font-size:12px; color:#d3d6d7; }
 
 /* ==================== Leaderboard ==================== */
-.lb-wrap{
-  margin-top:10px;
-  display:flex; flex-direction:column; gap:8px;
-}
-.lb-tabs{
-  display:flex; gap:8px; justify-content:center;
-}
+.lb-wrap{ margin-top:10px; display:flex; flex-direction:column; gap:8px; }
+.lb-tabs{ display:flex; gap:8px; justify-content:center; }
 .lb-tab{
   flex:1 1 0; max-width:220px;
   background:#0b0c0f; color:#fff;
   border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:10px 12px;
-  font-weight:900; cursor:pointer;
+  font-weight:900;
 }
 .lb-tab.on{
   border-color:#5ce1e6;
@@ -247,26 +241,16 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
   border:1px solid rgba(255,255,255,.12);
   border-radius:12px; padding:8px 10px;
 }
-.lb-left{
-  display:flex; align-items:center; gap:10px; min-width:0;
-}
-.lb-rank{
-  font-weight:900; width:28px; text-align:right; color:#d3d6d7;
-}
+.lb-left{ display:flex; align-items:center; gap:10px; min-width:0; }
+.lb-rank{ font-weight:900; width:28px; text-align:right; color:#d3d6d7; }
 .lb-avatar{
   width:36px; height:36px; border-radius:50%; object-fit:cover;
   border:1px solid rgba(255,255,255,.18);
-  background:#1a1d24;
-  display:block;
+  background:#1a1d24; display:block;
 }
-.lb-avatar.fallback{
-  display:flex; align-items:center; justify-content:center;
-  color:#000; font-weight:900;
-}
+.lb-avatar.fallback{ display:flex; align-items:center; justify-content:center; color:#000; font-weight:900; }
 .lb-namebox{ min-width:0; display:flex; flex-direction:column; gap:2px; }
-.lb-name{
-  font-weight:900; font-size:14px; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px;
-}
+.lb-name{ font-weight:900; font-size:14px; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px; }
 .lb-meta{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
 .lb-username{ color:#9aa3aa; font-size:12px; }
 
@@ -277,6 +261,6 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
 .lb-invites{ font-weight:900; }
 .lb-invites-lbl{ color:#9aa3aa; font-weight:800; font-size:12px; }
 
-/* Scrollbar (nice on Android/iOS webviews) */
+/* Scrollbar */
 .lb-list::-webkit-scrollbar{ width:6px; }
 .lb-list::-webkit-scrollbar-thumb{ background:rgba(255,255,255,.15); border-radius:999px; }
