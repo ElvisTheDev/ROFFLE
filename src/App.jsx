@@ -54,11 +54,9 @@ function wedgePathLocal(r,startDeg,endDeg){
   const start = polarToCartesianLocal(r,startDeg);
   const end   = polarToCartesianLocal(r,endDeg);
   const large = endDeg-startDeg>180?1:0;
-  // Origin at (0,0)
   return `M 0 0 L ${start.x} ${start.y} A ${r} ${r} 0 ${large} 1 ${end.x} ${end.y} Z`;
 }
 function indexFromRotation(rotationDeg){
-  // rotationDeg is our math angle (0 at pointer-top), clockwise
   const rot = ((rotationDeg%360)+360)%360;
   const target = (360-rot)%360; // top-aligned
   let i = Math.round((target-SEG_DEG/2)/SEG_DEG);
@@ -85,6 +83,7 @@ const BRAND_LOGO_SRC  = "/rof-lg.png";
 const ROF_ICON_SRC    = "/rof-bn.png";
 
 /* ==================== WHEEL ==================== */
+const SEGMENTS_TOTAL_CONST = SEGMENTS_TOTAL;
 const Wheel = React.memo(function Wheel({
   angleState, wedges, slots, cx, cy, R_TRIM, TRIM_W, R_FACE,
   pointerBaseY, pointerTipY, prizeMult
@@ -92,7 +91,7 @@ const Wheel = React.memo(function Wheel({
   return (
     <svg className="wheel-svg" viewBox="0 0 1000 1000" aria-hidden>
       <defs>
-        {Array.from({length:SEGMENTS_TOTAL}, (_,i)=>{
+        {Array.from({length:SEGMENTS_TOTAL_CONST}, (_,i)=>{
           const sec1=i+1; const id=`grad-${i}`;
           if(sec1===1) return (
             <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
@@ -139,12 +138,12 @@ const Wheel = React.memo(function Wheel({
           {/* Wedges */}
           {wedges.map(({i,path})=> <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />)}
 
-          {/* Labels (multiplied by prizeMult) — NO tier outlines now */}
+          {/* Labels (multiplied by prizeMult) — clean stroke only */}
           {wedges.map(({i,mid,labelR})=>{
             const sec1 = i + 1;
             const isMax = sec1 === 1;
             const baseAmount = slots[i].amount || 0;
-            const shown = baseAmount * prizeMult; // visual reflects tier multiplier
+            const shown = baseAmount * prizeMult;
 
             const textFill = sec1 === 1 ? "#fff" : (sec1 % 2 === 0 ? "#fff" : "#000");
             const textAngle = (mid + 270) % 360;
@@ -332,26 +331,14 @@ export default function App(){
   const [showPremium, setShowPremium] = useState(false);
 
   /* Leaderboard UI */
-  const [lbTab, setLbTab] = useState("players"); // 'players' | 'invites'
-  const [lbTick, setLbTick] = useState(0);       // refresh once per minute
+  const [lbTab, setLbTab] = useState("players");
+  const [lbTick, setLbTick] = useState(0); // refresh once per minute
 
   // 60-second refresh for leaderboard only
   useEffect(()=>{
     const id = setInterval(()=> setLbTick(t => t+1), 60000);
     return ()=> clearInterval(id);
   },[]);
-
-  /* Sounds */
-  const clickSfx = useRef(null), loopSfx = useRef(null), winSfx = useRef(null);
-  useEffect(()=>{
-    clickSfx.current = new Audio("/sounds/click.mp3"); clickSfx.current.preload="auto";
-    loopSfx.current  = new Audio("/sounds/roll_loop.mp3"); loopSfx.current.loop=true; loopSfx.current.preload="auto";
-    winSfx.current   = new Audio("/sounds/win.mp3"); winSfx.current.preload="auto";
-  },[]);
-  const clickS = () => { try{ clickSfx.current.currentTime=0; clickSfx.current.play(); }catch{} };
-  const loopS  = () => { try{ loopSfx.current.currentTime=0; loopSfx.current.play(); }catch{} };
-  const stopL  = () => { try{ loopSfx.current.pause(); loopSfx.current.currentTime=0; }catch{} };
-  const winS   = () => { try{ winSfx.current.currentTime=0; winSfx.current.play(); }catch{} };
 
   /* Splash */
   useEffect(()=>{
@@ -450,8 +437,9 @@ export default function App(){
     rafRef.current = requestAnimationFrame(step);
   };
 
-  /* Non-additive cooldown ticker (still 1s, but Top100 is decoupled) */
+  /* Non-additive cooldown ticker — PAUSED while Premium modal is open */
   useEffect(()=>{
+    if (showPremium) return; // pause ticker to avoid layout flicker
     const tick = () => {
       const now = Date.now();
       setSpinsLeft(s => Math.min(s, spinCap));
@@ -482,7 +470,7 @@ export default function App(){
     const id = setInterval(tick, TICK_MS);
     tick();
     return ()=>clearInterval(id);
-  }, [spinsLeft, nextReadyAt, regenMs, spinCap]);
+  }, [spinsLeft, nextReadyAt, regenMs, spinCap, showPremium]);
 
   /* Spin */
   const handleSpin = () => {
@@ -500,7 +488,6 @@ export default function App(){
 
     const startVis = currentAngleRef.current;
 
-    // random target index & motion
     const idx = randChoice(SEGMENTS_TOTAL);
     const spins = randInt(5, 12);
     const jitter = (randFloat() * 0.8 - 0.4) * SEG_DEG;
@@ -522,7 +509,7 @@ export default function App(){
       calcRotRef.current = finalCalc;
 
       const finalVis = ((endVis % 360) + 360) % 360;
-      applyAngle(finalVis); // lock pose
+      applyAngle(finalVis);
 
       try {
         localStorage.setItem("rof_visAngle", String(finalVis));
@@ -561,7 +548,7 @@ export default function App(){
     setTimeout(() => setToast(null), 1600);
   };
 
-  /* Premium modal (restored footer + back; slide-up) */
+  /* Premium modal (slide-up, gradient borders) */
   const PremiumModal = () => {
     const cards = [
       { t: TIERS.plus, bullets: [
@@ -594,36 +581,38 @@ export default function App(){
             <button className="modal-close" onClick={()=>setShowPremium(false)}>✕</button>
           </div>
 
-          <div className="modal-sub">Choose a tier (test price: <b>{TEST_PRICE_COINS} coin</b> each)</div>
+          <div className="modal-body">
+            <div className="modal-sub">Choose a tier (test price: <b>{TEST_PRICE_COINS} coin</b> each)</div>
 
-          <div className="tier-grid">
-            {cards.map(({t, bullets})=>{
-              const active = t.key === tierKey;
-              return (
-                <div key={t.key} className={`tier-card ${active?"active":""}`}>
-                  <div className="tc-top">
-                    <div className="tc-name">{t.name}</div>
-                    {active && <div className="tc-active">Active</div>}
+            <div className="tier-grid">
+              {cards.map(({t, bullets})=>{
+                const active = t.key === tierKey;
+                return (
+                  <div key={t.key} className={`tier-card gradient-border ${active?"active":""}`}>
+                    <div className="tc-top">
+                      <div className="tc-name">{t.name}</div>
+                      {active && <div className="tc-active">Active</div>}
+                    </div>
+                    <ul className="tc-list">
+                      {bullets.map((b,idx)=><li key={idx}>{b}</li>)}
+                    </ul>
+                    <div className="tc-price">Price: {TEST_PRICE_COINS} coin</div>
+                    <button
+                      className="tc-buy gradient-outline-btn"
+                      disabled={active || !canAfford(TEST_PRICE_COINS)}
+                      onClick={()=>buyTier(t.key)}
+                    >
+                      {active ? "Current Plan" : `Buy ${t.name}`}
+                    </button>
                   </div>
-                  <ul className="tc-list">
-                    {bullets.map((b,idx)=><li key={idx}>{b}</li>)}
-                  </ul>
-                  <div className="tc-price">Price: {TEST_PRICE_COINS} coin</div>
-                  <button
-                    className="tc-buy"
-                    disabled={active || !canAfford(TEST_PRICE_COINS)}
-                    onClick={()=>buyTier(t.key)}
-                  >
-                    {active ? "Current Plan" : `Buy ${t.name}`}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
 
-          <div className="modal-foot">
-            <div className="mf-note">Payments are test-mode. Real payments & pricing coming soon.</div>
-            <button className="mf-back" onClick={()=>setShowPremium(false)}>Back</button>
+            <div className="modal-foot">
+              <div className="mf-note">Payments are test-mode. Real payments & pricing coming soon.</div>
+              <button className="mf-back" onClick={()=>setShowPremium(false)}>Back</button>
+            </div>
           </div>
         </div>
       </div>
@@ -693,7 +682,8 @@ export default function App(){
   })();
 
   return (
-    <div className="tg-app bg-img" style={{"--bg":theme.bg,"--text":theme.text}}>
+    <div className={`tg-app bg-img ${showPremium ? "modal-open" : ""}`} style={{"--bg":theme.bg,"--text":theme.text}}>
+      {/* Splash */}
       {booting && (
         <div className="splash">
           <img src={BRAND_LOGO_SRC} alt="ROFFLE" />
