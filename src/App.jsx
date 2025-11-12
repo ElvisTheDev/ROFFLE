@@ -16,7 +16,7 @@ function randFloat(){ return randUint32()/0xffffffff; }
 function randInt(min,max){ const span=max-min+1; const limit=Math.floor(0xffffffff/span)*span; let r; do{ r=randUint32(); }while(r>=limit); return min+(r%span); }
 function randChoice(n){ return randInt(0,n-1); }
 
-/* Build payout map (with your remapped values) */
+/* Build payout map (your remapped values) */
 function buildSlots(){
   const arr = Array(SEGMENTS_TOTAL).fill(null);
   // Section 1: MAX (now 100)
@@ -73,6 +73,76 @@ const tg = window.Telegram?.WebApp;
 const CENTER_LOGO_SRC = "/logo.png";
 const BRAND_LOGO_SRC  = "/rof-lg.png";
 const ROF_ICON_SRC    = "/rof-bn.png";
+
+/* =========================================================
+   Pure, memoized wheel that never re-renders mid-spin
+   ========================================================= */
+const Wheel = React.memo(function Wheel({
+  rotorRef, wedges, cx, cy, R_TRIM, TRIM_W, R_FACE,
+  pointerBaseY, pointerTipY
+}){
+  return (
+    <svg className="wheel-svg" viewBox="0 0 1000 1000" aria-hidden>
+      <defs>
+        {Array.from({length:SEGMENTS_TOTAL}, (_,i)=>{
+          const sec1=i+1; const id=`grad-${i}`;
+          if(sec1===1) return (
+            <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#43cda3" />
+              <stop offset="100%" stopColor="#490e6d" />
+            </linearGradient>
+          );
+          else if(sec1%2===0) return (
+            <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#404040" />
+              <stop offset="100%" stopColor="#000000" />
+            </linearGradient>
+          );
+          else return (
+            <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#ffffff" />
+              <stop offset="100%" stopColor="#a8a8a8" />
+            </linearGradient>
+          );
+        })}
+        <linearGradient id="goldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#f6e19a" />
+          <stop offset="50%" stopColor="#caa03a" />
+          <stop offset="100%" stopColor="#7a5d19" />
+        </linearGradient>
+        <filter id="textGlow" x="-50%" y="-50%" width="200%" height="200%">
+          <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#36125e" floodOpacity="1"/>
+          <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#36125e" floodOpacity=".85"/>
+          <feDropShadow dx="0" dy="0" stdDeviation="10" floodColor="#36125e" floodOpacity=".6"/>
+        </filter>
+      </defs>
+
+      {/* gold trim */}
+      <circle cx={cx} cy={cy} r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
+
+      {/* ROTOR — controlled imperatively */}
+      <g className="rotor" ref={rotorRef}>
+        {wedges.map(({i,path})=> <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />)}
+        {wedges.map(({i,x,y,mid,textFill,isMax})=>(
+          <g key={`t${i}`} transform={`rotate(${mid+90} ${x} ${y})`}>
+            <text x={x} y={y} className={`slice-txt ${isMax?"is-max":""}`}
+                  textAnchor="middle" dominantBaseline="middle"
+                  fill={textFill} filter={isMax?"url(#textGlow)":undefined}>
+              {i===0 ? "100" : ( (i+1)%2===0 ? "" : "" )}{/* label set below anyway */}
+              {wedges[i].label}
+            </text>
+          </g>
+        ))}
+      </g>
+
+      {/* POINTER */}
+      <polygon
+        className="pointer"
+        points={`${cx-18},${pointerBaseY} ${cx+18},${pointerBaseY} ${cx},${pointerTipY}`}
+      />
+    </svg>
+  );
+}, () => true); // never re-render
 
 export default function App(){
   const slots = useMemo(buildSlots, []);
@@ -140,7 +210,7 @@ export default function App(){
   const pointerTipY  = cy - trimOuter + 2;
   const pointerBaseY = pointerTipY - 26;
 
-  /* ------------------- WEDGES ------------------- */
+  /* ------------------- WEDGES (static) ------------------- */
   const wedges = useMemo(()=>{
     return Array.from({length:SEGMENTS_TOTAL}, (_,i)=>{
       const start=i*SEG_DEG; const end=start+SEG_DEG; const mid=(start+end)/2;
@@ -149,11 +219,12 @@ export default function App(){
       const {x,y} = polarToCartesian(cx,cy,labelR,mid);
       const sec1=i+1;
       const textFill = sec1===1 ? "#fff" : (sec1%2===0 ? "#fff" : "#000");
-      return { i, mid, path, x, y, textFill, isMax: sec1===1 };
+      return { i, mid, path, x, y, textFill, isMax: sec1===1, label: buildSlots()[i].label };
     });
-  },[]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[]); // static
 
-  /* ================= IMPERATIVE ROTATION (NO MID-SPIN INTERFERENCE) ================= */
+  /* ================= IMPERATIVE ROTATION ================= */
   const applyRotorAngle = (angleDeg, withTransition, durationMs = 0) => {
     const node = rotorRef.current;
     if (!node) return;
@@ -166,7 +237,7 @@ export default function App(){
     node.style.transform = `rotate(${START_OFFSET + angleDeg}deg)`;
   };
 
-  // Set rotor to last visual angle when Play tab shows (only when NOT spinning)
+  // Only set initial pose when Play tab appears and NOT spinning
   useEffect(() => {
     if (tab === "play" && !spinning && rotorRef.current) {
       applyRotorAngle(visAngle, false);
@@ -195,9 +266,7 @@ export default function App(){
       setNextInMs(remaining > 0 ? remaining : 0);
 
       if (remaining <= 0) {
-        // grant exactly 1 spin
-        setSpinsLeft(s => Math.min(SPIN_CAP, s + 1));
-        // if still below cap, schedule another single cooldown
+        setSpinsLeft(s => Math.min(SPIN_CAP, s + 1)); // +1 only
         setNextReadyAt(prev => {
           const after = (spinsLeft + 1);
           return after < SPIN_CAP ? now + REGEN_MS : null;
@@ -212,10 +281,12 @@ export default function App(){
   }, [spinsLeft, nextReadyAt]);
 
   /* ------------------- SPIN HANDLER ------------------- */
-  const playSfx = async r => { try{ if(r?.current){ r.current.currentTime=0; await r.current.play(); } }catch{} };
-  const stopSfx = r => { try{ if(r?.current){ r.current.pause(); r.current.currentTime=0; } }catch{} };
+  const clickS = () => { try{ clickSfx.current.currentTime=0; clickSfx.current.play(); }catch{} };
+  const loopS  = () => { try{ loopSfx.current.currentTime=0; loopSfx.current.play(); }catch{} };
+  const stopL  = () => { try{ loopSfx.current.pause(); loopSfx.current.currentTime=0; }catch{} };
+  const winS   = () => { try{ winSfx.current.currentTime=0; winSfx.current.play(); }catch{} };
 
-  const handleSpin = async () => {
+  const handleSpin = () => {
     if (spinning || spinsLeft <= 0) return;
     setSpinning(true);
     setToast(null);
@@ -231,10 +302,8 @@ export default function App(){
 
     const durationMs = randInt(3200, 6200);
 
-    await playSfx(clickSfx);
-    await playSfx(loopSfx);
+    clickS(); loopS();
 
-    // BEGIN: Animation sequence — no other effect will overwrite transform
     const startVis = visAngle;
 
     // choose random target
@@ -256,13 +325,12 @@ export default function App(){
 
     const endVis = startVis + visualDelta;
 
-    // 1) set start with transition OFF, force reflow
+    // --- clean two-step transition (no interference) ---
     applyRotorAngle(startVis, false);
-    // force layout so the browser acknowledges the "no-transition" state
-    // before we apply the animated state.
+    // force layout
     // eslint-disable-next-line no-unused-expressions
     rotorRef.current?.getBoundingClientRect();
-    // 2) animate to end using the SAME duration we just picked
+    // animate
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         applyRotorAngle(endVis, true, durationMs);
@@ -279,7 +347,7 @@ export default function App(){
       setCalcRot(finalCalc);
       setVisAngle(((endVis % 360) + 360) % 360);
 
-      stopSfx(loopSfx); playSfx(winSfx);
+      stopL(); winS();
 
       const landedIndex = indexFromRotation(finalCalc);
       const win = slots[landedIndex];
@@ -288,80 +356,26 @@ export default function App(){
       setTimeout(() => setToast(null), 1600);
 
       setSpinning(false);
-      // leave rotor exactly where it ended; no snap-back, no re-apply.
     };
 
     rotorRef.current?.addEventListener("transitionend", onEnd);
-    // generous fallback
+    // safety fallback
     setTimeout(onEnd, durationMs + 1500);
   };
 
   /* ------------------- SCREENS ------------------- */
   const PlayScreen = () => (
     <>
-      {/* WHEEL */}
       <div className="wheel-wrap compact-no-scroll">
-        {/* wheel (pointer lives INSIDE this SVG) */}
-        <svg className="wheel-svg" viewBox="0 0 1000 1000" aria-hidden>
-          <defs>
-            {Array.from({length:SEGMENTS_TOTAL}, (_,i)=>{
-              const sec1=i+1; const id=`grad-${i}`;
-              if(sec1===1) return (
-                <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#43cda3" />
-                  <stop offset="100%" stopColor="#490e6d" />
-                </linearGradient>
-              );
-              else if(sec1%2===0) return (
-                <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#404040" />
-                  <stop offset="100%" stopColor="#000000" />
-                </linearGradient>
-              );
-              else return (
-                <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#ffffff" />
-                  <stop offset="100%" stopColor="#a8a8a8" />
-                </linearGradient>
-              );
-            })}
-            <linearGradient id="goldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#f6e19a" />
-              <stop offset="50%" stopColor="#caa03a" />
-              <stop offset="100%" stopColor="#7a5d19" />
-            </linearGradient>
-            <filter id="textGlow" x="-50%" y="-50%" width="200%" height="200%">
-              <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#36125e" floodOpacity="1"/>
-              <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#36125e" floodOpacity=".85"/>
-              <feDropShadow dx="0" dy="0" stdDeviation="10" floodColor="#36125e" floodOpacity=".6"/>
-            </filter>
-          </defs>
-
-          {/* gold trim */}
-          <circle cx={cx} cy={cy} r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
-
-          {/* ROTOR — controlled imperatively */}
-          <g className="rotor" ref={rotorRef}>
-            {wedges.map(({i,path})=> <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />)}
-            {wedges.map(({i,x,y,mid,textFill,isMax})=>(
-              <g key={`t${i}`} transform={`rotate(${mid+90} ${x} ${y})`}>
-                <text x={x} y={y} className={`slice-txt ${isMax?"is-max":""}`}
-                      textAnchor="middle" dominantBaseline="middle"
-                      fill={textFill} filter={isMax?"url(#textGlow)":undefined}>
-                  {slots[i].label}
-                </text>
-              </g>
-            ))}
-          </g>
-
-          {/* POINTER */}
-          <polygon
-            className="pointer"
-            points={`${cx-18},${pointerBaseY} ${cx+18},${pointerBaseY} ${cx},${pointerTipY}`}
-          />
-        </svg>
-
-        {/* static center cap */}
+        <Wheel
+          rotorRef={rotorRef}
+          wedges={wedges}
+          cx={cx} cy={cy}
+          R_TRIM={R_TRIM} TRIM_W={TRIM_W}
+          R_FACE={R_FACE}
+          pointerBaseY={pointerBaseY} pointerTipY={pointerTipY}
+        />
+        {/* static center cap (separate DOM so the rotor never re-mounts) */}
         <div className="center-stack">
           <div className="center-ring" />
           <div className="center-cap" />
@@ -381,9 +395,7 @@ export default function App(){
     </>
   );
 
-  const LootScreen = () => (
-    <div className="placeholder-card">🎁 Lootboxes coming soon…</div>
-  );
+  const LootScreen = () => <div className="placeholder-card">🎁 Lootboxes coming soon…</div>;
 
   const TopScreen = () => {
     const [subtab,setSubtab] = useState("holders");
@@ -422,7 +434,6 @@ export default function App(){
   const EarnScreen  = () => <div className="placeholder-card">🚀 Earn coming soon…</div>;
   const TasksScreen = () => <div className="placeholder-card">🕹 Tasks coming soon…</div>;
 
-  /* Menu (emoji stacked over text) */
   const Menu = () => (
     <nav className="bottom-menu">
       <button className={`menu-item ${tab==="play"?"on":""}`}  onClick={()=>setTab("play")}><span className="mi-emoji">🎮</span><span className="mi-text">Play</span></button>
