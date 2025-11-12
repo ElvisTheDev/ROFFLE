@@ -13,7 +13,7 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
 .tg-app{ min-height:100%; display:flex; justify-content:center; }
 .compact{
   width:min(100vw,520px);
-  padding:8px 10px 92px;  /* slightly tighter to avoid scroll */
+  padding:8px 10px 92px;
   display:flex; flex-direction:column; min-height:100vh;
 }
 .no-scroll{ overflow:hidden; }
@@ -58,12 +58,12 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
 }
 .btn-premium:active{ transform:translateY(1px); }
 
-/* Wheel + pointer (tighter to prevent scroll) */
+/* Wheel + pointer (compact) */
 .wheel-wrap{
   position:relative; width:100%; aspect-ratio:1/1; margin:4px auto 8px; max-width:520px;
   display:flex; align-items:center; justify-content:center;
 }
-.wheel-wrap.compact-no-scroll{ max-width:380px; } /* smaller to fit screen without scroll */
+.wheel-wrap.compact-no-scroll{ max-width:380px; }
 .wheel-svg{
   position:relative; width:100%; height:auto; pointer-events:none;
   filter: drop-shadow(0 26px 60px rgba(0,0,0,.55)); overflow:visible;
@@ -101,7 +101,7 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
   will-change: transform;
 }
 
-/* SPIN button (moved up, multi-line content) */
+/* SPIN button (with non-additive cooldown info) */
 .spin-row{ display:flex; justify-content:center; margin-top:2px; margin-bottom:0; }
 .spin-row.tight{ margin-top:0; }
 .btn-spin{
@@ -132,7 +132,7 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
   100%{ opacity:0; transform:translate(-50%,-10px); }
 }
 
-/* Bottom menu (emoji on top) */
+/* Bottom menu (emoji stacked over text) */
 .bottom-menu{
   position:fixed; left:0; right:0; bottom:0; z-index:80; display:flex; justify-content:space-around; gap:8px;
   padding:8px 10px 10px;
