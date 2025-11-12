@@ -1,311 +1,333 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-// ====== wheel constants (unchanged functional logic) ======
+/* ================= CORE WHEEL CONSTANTS (unchanged mechanics) ================= */
 const SEGMENTS_TOTAL = 25;
 const SEG_DEG = 360 / SEGMENTS_TOTAL; // 14.4°
 const START_OFFSET = -90; // render offset so 0° appears at TOP
 
-function randUint32() {
-  const a = new Uint32Array(1);
-  window.crypto.getRandomValues(a);
-  return a[0];
-}
-function randFloat() { return randUint32() / 0xffffffff; }
-function randInt(min, maxInclusive) {
-  const span = maxInclusive - min + 1;
-  const limit = Math.floor(0xffffffff / span) * span;
-  let r; do { r = randUint32(); } while (r >= limit);
-  return min + (r % span);
-}
-function randChoice(n) { return randInt(0, n - 1); }
+function randUint32(){ const a=new Uint32Array(1); window.crypto.getRandomValues(a); return a[0]; }
+function randFloat(){ return randUint32()/0xffffffff; }
+function randInt(min,max){ const span=max-min+1; const limit=Math.floor(0xffffffff/span)*span; let r; do{ r=randUint32(); }while(r>=limit); return min+(r%span); }
+function randChoice(n){ return randInt(0,n-1); }
 
-function buildSlots() {
+function buildSlots(){
   const arr = Array(SEGMENTS_TOTAL).fill(null);
   arr[0] = { amount: 1000, label: "1000", type: "max", tone: "max" };
   const put = (idxs, amt) => idxs.forEach(n => {
-    const i = n - 1;
-    if (!arr[i]) arr[i] = { amount: amt, type: "flat" };
-    arr[i].label = String(amt);
+    const i = n-1; if(!arr[i]) arr[i] = { amount: amt, type: "flat" }; arr[i].label = String(amt);
   });
   put([2,4,6,8,10,12,14,16,18,20,22,24], 5);
   put([3,7,11,15,19,23], 10);
   put([5,9,13], 20);
   put([17,25], 50);
   put([21], 100);
-  for (let sec1 = 2; sec1 <= SEGMENTS_TOTAL; sec1++) {
-    const i = sec1 - 1;
-    if (!arr[i]) continue;
-    arr[i].tone = sec1 % 2 === 0 ? "black" : "white";
+  for(let sec1=2; sec1<=SEGMENTS_TOTAL; sec1++){
+    const i=sec1-1; if(!arr[i]) continue; arr[i].tone = sec1%2===0 ? "black" : "white";
   }
   return arr;
 }
 
-function polarToCartesian(cx, cy, r, aDeg) {
-  const a = (aDeg * Math.PI) / 180;
-  return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
+function polarToCartesian(cx,cy,r,aDeg){ const a=(aDeg*Math.PI)/180; return {x:cx+r*Math.cos(a), y:cy+r*Math.sin(a)}; }
+function wedgePath(cx,cy,r,startDeg,endDeg){
+  const start = polarToCartesian(cx,cy,r,startDeg);
+  const end   = polarToCartesian(cx,cy,r,endDeg);
+  const large = endDeg-startDeg>180?1:0;
+  return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${large} 1 ${end.x} ${end.y} Z`;
 }
-function wedgePath(cx, cy, r, startDeg, endDeg) {
-  const start = polarToCartesian(cx, cy, r, startDeg);
-  const end = polarToCartesian(cx, cy, r, endDeg);
-  const largeArc = endDeg - startDeg > 180 ? 1 : 0;
-  return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${largeArc} 1 ${end.x} ${end.y} Z`;
-}
-function indexFromRotation(rotationDeg) {
-  const rot = ((rotationDeg % 360) + 360) % 360;
-  const target = (360 - rot) % 360;
-  let i = Math.round((target - SEG_DEG / 2) / SEG_DEG);
-  i = ((i % SEGMENTS_TOTAL) + SEGMENTS_TOTAL) % SEGMENTS_TOTAL;
+function indexFromRotation(rotationDeg){
+  const rot = ((rotationDeg%360)+360)%360;
+  const target = (360-rot)%360;
+  let i = Math.round((target-SEG_DEG/2)/SEG_DEG);
+  i = ((i%SEGMENTS_TOTAL)+SEGMENTS_TOTAL)%SEGMENTS_TOTAL;
   return i;
 }
 
 const tg = window.Telegram?.WebApp;
-const CENTER_LOGO_SRC = "/logo.png";      // your central cap logo (already used before)
-const BRAND_LOGO_SRC  = "/rof-lg.png";    // header logo (provided)
-const ROF_ICON_SRC    = "/rof-bn.png";    // small icon next to balance
+const CENTER_LOGO_SRC = "/logo.png";
+const BRAND_LOGO_SRC  = "/rof-lg.png";
+const ROF_ICON_SRC    = "/rof-bn.png";
 
-export default function App() {
-  const slots = React.useMemo(buildSlots, []);
-  const [spinning, setSpinning] = useState(false);
-  const [rotation, setRotation] = useState(0);
-  const [spinDurationMs, setSpinDurationMs] = useState(4800);
-  const [lastWin, setLastWin] = useState(null);
-  const [bank, setBank] = useState(0);
-  const [theme, setTheme] = useState({ bg: "#000", text: "#e8ecf2" });
-  const [premiumOpen, setPremiumOpen] = useState(false);
+/* =============================== APP =============================== */
+export default function App(){
+  const slots = useMemo(buildSlots, []);
+  const [spinning,setSpinning] = useState(false);
+  const [rotation,setRotation] = useState(0);
+  const [spinDurationMs,setSpinDurationMs] = useState(4800);
+  const [bank,setBank] = useState(0);
+
+  // toast (fade-out text) after win
+  const [toast,setToast] = useState(null);
+
+  // tabs
+  const [tab,setTab] = useState("play"); // play | loot | top | earn | tasks
+
+  // splash (2s loading) — we call tg.ready() after splash to mimic Telegram loader
+  const [booting,setBooting] = useState(true);
 
   // sounds
   const clickSfx = useRef(null), loopSfx = useRef(null), winSfx = useRef(null);
-  useEffect(() => {
-    clickSfx.current = new Audio("/sounds/click.mp3"); clickSfx.current.preload = "auto";
-    loopSfx.current = new Audio("/sounds/roll_loop.mp3"); loopSfx.current.loop = true; loopSfx.current.preload = "auto";
-    winSfx.current = new Audio("/sounds/win.mp3"); winSfx.current.preload = "auto";
-  }, []);
+  useEffect(()=>{
+    clickSfx.current = new Audio("/sounds/click.mp3"); clickSfx.current.preload="auto";
+    loopSfx.current  = new Audio("/sounds/roll_loop.mp3"); loopSfx.current.loop=true; loopSfx.current.preload="auto";
+    winSfx.current   = new Audio("/sounds/win.mp3"); winSfx.current.preload="auto";
+  },[]);
 
-  // Telegram boot
-  useEffect(() => {
-    if (!tg) return;
-    tg.ready();
-    tg.setHeaderColor("#000000");
-    tg.setBackgroundColor("#000000");
-    tg.expand();
-    // Hide Telegram MainButton since we use our own bottom menu
-    tg.MainButton.hide();
-    tg.MainButton.disable?.();
-    const sync = () => {
-      const p = tg.themeParams || {};
-      setTheme({ bg: p.bg_color || "#000", text: p.text_color || "#e8ecf2" });
+  // Telegram boot + splash
+  useEffect(()=>{
+    const timer = setTimeout(()=>{
+      setBooting(false);
+      if(!tg) return;
+      tg.ready();            // signal “loaded” after 2s
+      tg.setHeaderColor("#000000");
+      tg.setBackgroundColor("#000000");
+      tg.expand();
+      tg.MainButton.hide();  // we use our own buttons
+      tg.MainButton.disable?.();
+    }, 2000); // 2 seconds splash
+    return ()=>clearTimeout(timer);
+  },[]);
+
+  // theme follow (optional)
+  const [theme,setTheme] = useState({ bg:"#000", text:"#e8ecf2" });
+  useEffect(()=>{
+    if(!tg) return;
+    const sync = ()=> {
+      const p=tg.themeParams||{};
+      setTheme({ bg:p.bg_color||"#000", text:p.text_color||"#e8ecf2" });
     };
-    sync();
-    tg.onEvent?.("themeChanged", sync);
-    return () => tg.offEvent?.("themeChanged", sync);
-  }, []);
+    sync(); tg.onEvent?.("themeChanged",sync);
+    return ()=>tg.offEvent?.("themeChanged",sync);
+  },[]);
 
-  // spin helpers
-  function computeRandomFinalRotation(current) {
+  /* ------------------- SPIN LOGIC ------------------- */
+  function computeRandomFinalRotation(current){
     const idx = randChoice(SEGMENTS_TOTAL);
-    const spins = randInt(5, 12);
-    const jitter = (randFloat() * 0.8 - 0.4) * SEG_DEG;
-    const center = idx * SEG_DEG + SEG_DEG / 2 + jitter;
-    const toZero = (360 - (center % 360) + 360) % 360;
-    const finalRot = current + spins * 360 + toZero;
+    const spins = randInt(5,12);
+    const jitter = (randFloat()*0.8-0.4)*SEG_DEG;
+    const center = idx*SEG_DEG + SEG_DEG/2 + jitter;
+    const toZero = (360 - (center%360) + 360) % 360;
+    const finalRot = current + spins*360 + toZero;
     return { finalRot };
   }
-  const play = async r => { try { if (r?.current) { r.current.currentTime = 0; await r.current.play(); } } catch {} };
-  const stop = r => { try { if (r?.current) { r.current.pause(); r.current.currentTime = 0; } } catch {} };
+  const play = async r => { try{ if(r?.current){ r.current.currentTime=0; await r.current.play(); } }catch{} };
+  const stop = r => { try{ if(r?.current){ r.current.pause(); r.current.currentTime=0; } }catch{} };
 
-  const handleSpin = async () => {
-    if (spinning) return;
-    setSpinning(true); setLastWin(null);
-    const dur = randInt(3200, 6200);
+  const handleSpin = async ()=>{
+    if(spinning) return;
+    setSpinning(true);
+    const dur = randInt(3200,6200);
     setSpinDurationMs(dur);
     await play(clickSfx); await play(loopSfx);
     const { finalRot } = computeRandomFinalRotation(rotation);
-    requestAnimationFrame(() => setRotation(finalRot));
-    setTimeout(() => {
+    requestAnimationFrame(()=>setRotation(finalRot));
+    setTimeout(()=>{
       const landedIndex = indexFromRotation(finalRot);
       const win = slots[landedIndex];
-      setLastWin({ index: landedIndex, ...win });
-      setBank(b => b + (win.amount || 0));
+      setBank(b=>b+(win.amount||0));
       stop(loopSfx); play(winSfx);
+      // show toast (fade-out)
+      setToast({ text: `+${win.amount} $ROF`, key: Date.now() });
+      setTimeout(()=>setToast(null), 1600);
       setSpinning(false);
-    }, dur + 120);
+    }, dur+120);
   };
 
-  // SVG geometry
-  const cx = 500, cy = 500;
-  const R_FACE = 440;
-  const R_TRIM = 470;
-  const TRIM_W = 40;
+  /* ------------------- WHEEL GEOMETRY ------------------- */
+  const cx=500, cy=500;
+  const R_FACE = 440 * 0.8;   // 20% smaller
+  const R_TRIM = 470 * 0.8;
+  const TRIM_W = 40;          // keep chunky gold rim
   const pointerY = 36;
 
-  const wedges = useMemo(() => {
-    return Array.from({ length: SEGMENTS_TOTAL }, (_, i) => {
-      const start = i * SEG_DEG;
-      const end = start + SEG_DEG;
-      const mid = (start + end) / 2;
-      const path = wedgePath(cx, cy, R_FACE, start, end);
-      const labelR = 360;
-      const { x, y } = polarToCartesian(cx, cy, labelR, mid);
-      const sec1 = i + 1;
-      const textFill = sec1 === 1 ? "#ffffff" : (sec1 % 2 === 0 ? "#ffffff" : "#000000");
-      return { i, sec1, start, end, mid, path, labelX: x, labelY: y, textFill };
+  const wedges = useMemo(()=>{
+    return Array.from({length:SEGMENTS_TOTAL}, (_,i)=>{
+      const start=i*SEG_DEG; const end=start+SEG_DEG; const mid=(start+end)/2;
+      const path = wedgePath(cx,cy,R_FACE,start,end);
+      const labelR = 360*0.8;
+      const {x,y} = polarToCartesian(cx,cy,labelR,mid);
+      const sec1=i+1;
+      const textFill = sec1===1 ? "#fff" : (sec1%2===0 ? "#fff" : "#000");
+      return { i, start, end, mid, path, x, y, textFill, isMax: sec1===1 };
     });
-  }, []);
-  const labels = useMemo(() => {
-    return wedges.map(({ i, mid, labelX, labelY, textFill }) => {
-      const s = slots[i];
-      const text = s?.label || "";
-      const isMax = s?.type === "max";
-      const rotate = mid + 90;
-      return { i, text, isMax, x: labelX, y: labelY, rotate, textFill };
-    });
-  }, [wedges, slots]);
-
+  },[]);
   const rotorStyle = {
     transform: `rotate(${START_OFFSET + rotation}deg)`,
     transformOrigin: "500px 500px",
     transition: `transform ${spinDurationMs}ms cubic-bezier(.12,.8,.12,1)`
   };
 
-  return (
-    <div className="tg-app brand-bg" style={{ "--bg": theme.bg, "--text": theme.text }}>
-      <div className="compact">
+  /* ------------------- SCREENS ------------------- */
+  const PlayScreen = () => (
+    <>
+      {/* WHEEL */}
+      <div className="wheel-wrap small">
+        {/* pointer */}
+        <svg className="pointer-svg" viewBox="0 0 1000 80" aria-hidden>
+          <polygon
+            points={`${cx-18},${pointerY} ${cx+18},${pointerY} ${cx},${pointerY+26}`}
+            fill="#e61a1a" stroke="#7a0f0f" strokeWidth="6" strokeLinejoin="round"
+          />
+        </svg>
 
-        {/* HEADER with brand logo (replaces old balance chip) */}
-        <header className="header">
-          <img src={BRAND_LOGO_SRC} alt="ROFFLE" className="brand-logo" />
-          {/* right side kept flexible for future icons */}
-          <div className="header-right" />
-        </header>
+        {/* wheel */}
+        <svg className="wheel-svg" viewBox="0 0 1000 1000" aria-hidden>
+          <defs>
+            {Array.from({length:SEGMENTS_TOTAL}, (_,i)=>{
+              const sec1=i+1; const id=`grad-${i}`;
+              if(sec1===1) return (
+                <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="#43cda3" />
+                  <stop offset="100%" stopColor="#490e6d" />
+                </linearGradient>
+              );
+              else if(sec1%2===0) return (
+                <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="#404040" />
+                  <stop offset="100%" stopColor="#000000" />
+                </linearGradient>
+              );
+              else return (
+                <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stopColor="#ffffff" />
+                  <stop offset="100%" stopColor="#a8a8a8" />
+                </linearGradient>
+              );
+            })}
+            <linearGradient id="goldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#f6e19a" />
+              <stop offset="50%" stopColor="#caa03a" />
+              <stop offset="100%" stopColor="#7a5d19" />
+            </linearGradient>
+            <filter id="textGlow" x="-50%" y="-50%" width="200%" height="200%">
+              <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#36125e" floodOpacity="1"/>
+              <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#36125e" floodOpacity=".85"/>
+              <feDropShadow dx="0" dy="0" stdDeviation="10" floodColor="#36125e" floodOpacity=".6"/>
+            </filter>
+          </defs>
 
-        {/* Centered Balance Block */}
-        <section className="balance-block">
-          <div className="bal-line1">Your $ROF Balance:</div>
-          <div className="bal-line2">
-            <img className="bal-icon" src={ROF_ICON_SRC} alt="$ROF" />
-            <span className="bal-value">{bank}</span>
-          </div>
-          <button className="btn-premium" onClick={() => setPremiumOpen(true)}>👑 Go $ROF Premium</button>
-        </section>
+          <circle cx={cx} cy={cy} r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
+          <g className="rotor" style={rotorStyle}>
+            {wedges.map(({i,path})=> <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />)}
+            {wedges.map(({i,x,y,mid,textFill,isMax})=>(
+              <g key={`t${i}`} transform={`rotate(${mid+90} ${x} ${y})`}>
+                <text x={x} y={y} className={`slice-txt ${isMax?"is-max":""}`}
+                      textAnchor="middle" dominantBaseline="middle"
+                      fill={textFill} filter={isMax?"url(#textGlow)":undefined}>
+                  {slots[i].label}
+                </text>
+              </g>
+            ))}
+          </g>
+        </svg>
 
-        {/* WHEEL */}
-        <div className="wheel-wrap">
-          {/* Pointer – red */}
-          <svg className="pointer-svg" viewBox="0 0 1000 80" aria-hidden>
-            <polygon
-              points={`${cx-18},${pointerY} ${cx+18},${pointerY} ${cx},${pointerY+26}`}
-              fill="#e61a1a"
-              stroke="#7a0f0f"
-              strokeWidth="6"
-              strokeLinejoin="round"
-            />
-          </svg>
-
-          <svg className="wheel-svg" viewBox="0 0 1000 1000" aria-hidden>
-            <defs>
-              {Array.from({ length: SEGMENTS_TOTAL }, (_, i) => {
-                const sec1 = i + 1;
-                const id = `grad-${i}`;
-                if (sec1 === 1) {
-                  return (
-                    <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%" stopColor="#43cda3" />
-                      <stop offset="100%" stopColor="#490e6d" />
-                    </linearGradient>
-                  );
-                } else if (sec1 % 2 === 0) {
-                  return (
-                    <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%" stopColor="#404040" />
-                      <stop offset="100%" stopColor="#000000" />
-                    </linearGradient>
-                  );
-                } else {
-                  return (
-                    <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%" stopColor="#ffffff" />
-                      <stop offset="100%" stopColor="#a8a8a8" />
-                    </linearGradient>
-                  );
-                }
-              })}
-              <linearGradient id="goldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="#f6e19a" />
-                <stop offset="50%" stopColor="#caa03a" />
-                <stop offset="100%" stopColor="#7a5d19" />
-              </linearGradient>
-              {/* dark purple glow for 1000 */}
-              <filter id="textGlow" x="-50%" y="-50%" width="200%" height="200%">
-                <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#36125e" floodOpacity="1"/>
-                <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#36125e" floodOpacity=".85"/>
-                <feDropShadow dx="0" dy="0" stdDeviation="10" floodColor="#36125e" floodOpacity=".6"/>
-              </filter>
-            </defs>
-
-            <circle cx={cx} cy={cy} r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
-
-            <g className="rotor" style={rotorStyle}>
-              {wedges.map(({ i, path }) => (
-                <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />
-              ))}
-              {labels.map(({ i, text, isMax, x, y, rotate, textFill }) => (
-                <g key={`t${i}`} transform={`rotate(${rotate} ${x} ${y})`}>
-                  <text
-                    x={x}
-                    y={y}
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    className={`slice-txt ${isMax ? "is-max" : ""}`}
-                    fill={textFill}
-                    filter={isMax ? "url(#textGlow)" : undefined}
-                  >
-                    {text}
-                  </text>
-                </g>
-              ))}
-            </g>
-          </svg>
-
-          {/* NON-rotating center */}
-          <div className="center-stack">
-            <div className="center-ring" />
-            <div className="center-cap" />
-            <img className="center-logo-img" src={CENTER_LOGO_SRC} alt="logo" />
-            <div className="center-gloss" />
-          </div>
+        {/* center cap stays still */}
+        <div className="center-stack">
+          <div className="center-ring" />
+          <div className="center-cap" />
+          <img className="center-logo-img" src={CENTER_LOGO_SRC} alt="logo" />
+          <div className="center-gloss" />
         </div>
+      </div>
 
-        {lastWin && (
-          <div className="result">
-            Stopped on <b>#{lastWin.index + 1}</b> —{" "}
-            <span className={`pill ${lastWin.type === "max" ? "max" : ""}`}>{lastWin.label}</span> ⇒ <b>{lastWin.amount}</b>
-          </div>
-        )}
+      {/* SPIN button (10px under wheel) */}
+      <div className="spin-row">
+        <button className="btn-spin" onClick={handleSpin} disabled={spinning}>
+          {spinning ? "Spinning…" : "Spin"}
+        </button>
+      </div>
+    </>
+  );
 
-        {/* BOTTOM MENU (replaces Spin button) */}
-        <nav className="bottom-menu">
-          <button className="menu-item" onClick={handleSpin} disabled={spinning}>
-            🎮 Play
-          </button>
-        </nav>
+  const LootScreen = () => (
+    <div className="placeholder-card">🎁 Lootboxes coming soon…</div>
+  );
 
-        {/* PREMIUM MODAL */}
-        {premiumOpen && (
-          <div className="modal-backdrop" onClick={() => setPremiumOpen(false)}>
-            <div className="modal" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-head">👑 $ROF Premium</div>
-              <div className="modal-body">
-                {/* Empty for now per request */}
-                <p style={{opacity:.7}}>Coming soon…</p>
-              </div>
-              <div className="modal-actions">
-                <button className="btn-back" onClick={() => setPremiumOpen(false)}>Back</button>
+  const TopScreen = () => {
+    const [tab,setTab] = useState("holders"); // holders | invites
+    // demo data placeholders
+    const sample = Array.from({length:8}, (_,i)=>({
+      id:i+1,
+      name:`User ${i+1}`,
+      pic:`https://api.dicebear.com/7.x/thumbs/svg?seed=${i+1}`,
+      balance: Math.floor(Math.random()*5000)+200,
+      invites: Math.floor(Math.random()*200)
+    }));
+    const list = tab==="holders"
+      ? [...sample].sort((a,b)=>b.balance-a.balance)
+      : [...sample].sort((a,b)=>b.invites-a.invites);
+
+    return (
+      <div className="leaderboard">
+        <div className="lb-tabs">
+          <button className={`lb-tab ${tab==="holders"?"on":""}`} onClick={()=>setTab("holders")}>$ROF holders</button>
+          <button className={`lb-tab ${tab==="invites"?"on":""}`} onClick={()=>setTab("invites")}>$ROF invites</button>
+        </div>
+        <div className="lb-list">
+          {list.map((u,idx)=>(
+            <div className="lb-row" key={u.id}>
+              <div className="rank">{idx+1}</div>
+              <img className="avatar" src={u.pic} alt="" />
+              <div className="who">
+                <div className="name">{u.name}</div>
+                <div className="sub">{tab==="holders" ? `$ROF ${u.balance.toLocaleString()}` : `${u.invites} invited`}</div>
               </div>
             </div>
-          </div>
-        )}
-
+          ))}
+        </div>
       </div>
+    );
+  };
+
+  const EarnScreen  = () => <div className="placeholder-card">🚀 Earn coming soon…</div>;
+  const TasksScreen = () => <div className="placeholder-card">🕹 Tasks coming soon…</div>;
+
+  /* ------------------- HEADER + BALANCE ------------------- */
+  return (
+    <div className="tg-app bg-img" style={{"--bg":theme.bg,"--text":theme.text}}>
+      {/* Splash (2s) */}
+      {booting && (
+        <div className="splash">
+          <img src={BRAND_LOGO_SRC} alt="ROFFLE" />
+          <div className="spinner"></div>
+        </div>
+      )}
+
+      {!booting && (
+        <div className="compact">
+          <header className="header">
+            <img src={BRAND_LOGO_SRC} alt="ROFFLE" className="brand-logo" />
+            <div className="header-right" />
+          </header>
+
+          <section className="balance-block">
+            <div className="bal-line1">Your $ROF Balance:</div>
+            <div className="bal-line2">
+              <img className="bal-icon" src={ROF_ICON_SRC} alt="$ROF" />
+              <span className="bal-value">{bank}</span>
+            </div>
+            <button className="btn-premium" onClick={()=>alert("Premium modal will go here.")}>👑 Go $ROF Premium</button>
+          </section>
+
+          {/* SCREENS */}
+          {tab==="play"   && <PlayScreen />}
+          {tab==="loot"   && <LootScreen />}
+          {tab==="top"    && <TopScreen />}
+          {tab==="earn"   && <EarnScreen />}
+          {tab==="tasks"  && <TasksScreen />}
+
+          {/* Fade-out toast */}
+          {toast && <div key={toast.key} className="toast-win">{toast.text}</div>}
+
+          {/* Bottom menu (navigation only) */}
+          <nav className="bottom-menu">
+            <button className={`menu-item ${tab==="play"?"on":""}`} onClick={()=>setTab("play")}>🎮 Play</button>
+            <button className={`menu-item ${tab==="loot"?"on":""}`} onClick={()=>setTab("loot")}>🎁 Loot</button>
+            <button className={`menu-item ${tab==="top" ?"on":""}`} onClick={()=>setTab("top")}>🏆 Top100</button>
+            <button className={`menu-item ${tab==="earn"?"on":""}`} onClick={()=>setTab("earn")}>🚀 Earn</button>
+            <button className={`menu-item ${tab==="tasks"?"on":""}`} onClick={()=>setTab("tasks")}>🕹 Tasks</button>
+          </nav>
+        </div>
+      )}
     </div>
   );
 }
