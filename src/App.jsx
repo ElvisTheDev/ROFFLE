@@ -16,7 +16,7 @@ function randFloat(){ return randUint32()/0xffffffff; }
 function randInt(min,max){ const span=max-min+1; const limit=Math.floor(0xffffffff/span)*span; let r; do{ r=randUint32(); }while(r>=limit); return min+(r%span); }
 function randChoice(n){ return randInt(0,n-1); }
 
-/* Build payout map (remapped values) */
+/* Build payout map (with your remapped values) */
 function buildSlots(){
   const arr = Array(SEGMENTS_TOTAL).fill(null);
   // Section 1: MAX (now 100)
@@ -153,7 +153,7 @@ export default function App(){
     });
   },[]);
 
-  /* ================= IMPERATIVE ROTATION (duration-safe) ================= */
+  /* ================= IMPERATIVE ROTATION (NO MID-SPIN INTERFERENCE) ================= */
   const applyRotorAngle = (angleDeg, withTransition, durationMs = 0) => {
     const node = rotorRef.current;
     if (!node) return;
@@ -166,11 +166,13 @@ export default function App(){
     node.style.transform = `rotate(${START_OFFSET + angleDeg}deg)`;
   };
 
-  // Keep rotor at last visual angle when Play tab shows or visAngle changes
+  // Set rotor to last visual angle when Play tab shows (only when NOT spinning)
   useEffect(() => {
-    if (tab === "play" && rotorRef.current) applyRotorAngle(visAngle, false);
+    if (tab === "play" && !spinning && rotorRef.current) {
+      applyRotorAngle(visAngle, false);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, visAngle]);
+  }, [tab]);
 
   /* ------------------- NON-ADDITIVE COOLDOWN TICKER ------------------- */
   useEffect(()=>{
@@ -178,13 +180,11 @@ export default function App(){
       const now = Date.now();
 
       if (spinsLeft >= SPIN_CAP) {
-        // full: no cooldown running
         if (nextReadyAt !== null) setNextReadyAt(null);
         setNextInMs(0);
         return;
       }
 
-      // ensure we have a cooldown scheduled
       if (nextReadyAt == null) {
         setNextReadyAt(now + REGEN_MS);
         setNextInMs(REGEN_MS);
@@ -197,9 +197,9 @@ export default function App(){
       if (remaining <= 0) {
         // grant exactly 1 spin
         setSpinsLeft(s => Math.min(SPIN_CAP, s + 1));
-        // if still below cap, schedule the next single cooldown; otherwise clear it
+        // if still below cap, schedule another single cooldown
         setNextReadyAt(prev => {
-          const after = (spinsLeft + 1); // note: spinsLeft from closure; safe enough for UI pacing
+          const after = (spinsLeft + 1);
           return after < SPIN_CAP ? now + REGEN_MS : null;
         });
         setNextInMs( (spinsLeft + 1) < SPIN_CAP ? REGEN_MS : 0 );
@@ -234,6 +234,7 @@ export default function App(){
     await playSfx(clickSfx);
     await playSfx(loopSfx);
 
+    // BEGIN: Animation sequence — no other effect will overwrite transform
     const startVis = visAngle;
 
     // choose random target
@@ -257,9 +258,16 @@ export default function App(){
 
     // 1) set start with transition OFF, force reflow
     applyRotorAngle(startVis, false);
+    // force layout so the browser acknowledges the "no-transition" state
+    // before we apply the animated state.
+    // eslint-disable-next-line no-unused-expressions
     rotorRef.current?.getBoundingClientRect();
     // 2) animate to end using the SAME duration we just picked
-    requestAnimationFrame(() => applyRotorAngle(endVis, true, durationMs));
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        applyRotorAngle(endVis, true, durationMs);
+      });
+    });
 
     // finish on transition end
     let ended = false;
@@ -280,6 +288,7 @@ export default function App(){
       setTimeout(() => setToast(null), 1600);
 
       setSpinning(false);
+      // leave rotor exactly where it ended; no snap-back, no re-apply.
     };
 
     rotorRef.current?.addEventListener("transitionend", onEnd);
@@ -361,7 +370,7 @@ export default function App(){
         </div>
       </div>
 
-      {/* SPIN button — raised, with non-additive cooldown */}
+      {/* SPIN button — with non-additive cooldown */}
       <div className="spin-row tight">
         <button className="btn-spin" onClick={handleSpin} disabled={spinning || spinsLeft<=0}>
           <span className="spin-count">{spinsLeft}/{SPIN_CAP} <span className="muted">Spins left</span></span>
