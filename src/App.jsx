@@ -112,7 +112,7 @@ const Wheel = React.memo(function Wheel({
       {/* gold trim */}
       <circle cx={cx} cy={cy} r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
 
-      {/* ROTOR — we will update its SVG attribute `transform` imperatively via RAF */}
+      {/* ROTOR — we update its SVG attribute `transform` via RAF */}
       <g className="rotor" ref={rotorRef} transform={`rotate(${START_OFFSET} ${cx} ${cy})`}>
         {wedges.map(({i,path})=> <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />)}
         {wedges.map(({i,x,y,mid})=>{
@@ -129,7 +129,7 @@ const Wheel = React.memo(function Wheel({
                 fill={textFill}
                 filter={isMax?"url(#textGlow)":undefined}
               >
-                {slots[i].label /* <-- only once; fixes 100100 */}
+                {slots[i].label}
               </text>
             </g>
           );
@@ -152,6 +152,7 @@ export default function App(){
   /* Wheel angles */
   const [calcRot, setCalcRot] = useState(0);     // math angle (can grow)
   const [visAngle, setVisAngle] = useState(0);   // visual angle (0..360)
+  const visAngleRef = useRef(0);                 // <- keep the exact last pose
   const rotorRef = useRef(null);
   const rafRef = useRef(null);                   // current RAF id
   const animBusyRef = useRef(false);             // prevent concurrent anim
@@ -232,15 +233,15 @@ export default function App(){
   const setRotorAngle = (angle) => {
     const node = rotorRef.current;
     if (!node) return;
-    // rotate(angle, cx, cy)
     node.setAttribute("transform", `rotate(${START_OFFSET + angle} ${cx} ${cy})`);
   };
 
-  // apply current angle when Play tab shows and not spinning
-  useEffect(()=>{
-    if (tab==="play" && !spinning) setRotorAngle(visAngle);
+  // Keep the rotor exactly at the last finished angle; never snap back.
+  useEffect(() => {
+    visAngleRef.current = visAngle;
+    if (!spinning) setRotorAngle(visAngle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
+  }, [visAngle, spinning]);
 
   // cancel animation on unmount
   useEffect(()=>()=>{ if(rafRef.current) cancelAnimationFrame(rafRef.current); },[]);
@@ -316,7 +317,8 @@ export default function App(){
 
     clickS(); loopS();
 
-    const startVis = visAngle;
+    // ALWAYS start from the exact last angle
+    const startVis = visAngleRef.current;
 
     // pick target
     const idx = randChoice(SEGMENTS_TOTAL);
@@ -340,7 +342,7 @@ export default function App(){
 
       setCalcRot(finalCalc);
       const finalVis = ((endVis % 360) + 360) % 360;
-      setVisAngle(finalVis);          // keep exact end pose
+      setVisAngle(finalVis);          // keep exact end pose (and visAngleRef syncs via effect)
 
       const landedIndex = indexFromRotation(finalCalc);
       const win = slots[landedIndex];
