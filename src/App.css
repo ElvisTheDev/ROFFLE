@@ -53,7 +53,7 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
 
 /* Wheel + pointer */
 .wheel-wrap{ position:relative; width:100%; aspect-ratio:1/1; margin:6px auto 12px; max-width:520px; }
-.wheel-wrap.small{ max-width: 416px; } /* ~20% smaller area */
+.wheel-wrap.small{ max-width: 416px; } /* 20% smaller */
 .pointer-svg{ position:absolute; left:0; right:0; margin:0 auto; top:0; width:100%; height:auto; z-index:40; pointer-events:none; }
 .wheel-svg{ position:absolute; inset:0; z-index:10; pointer-events:none; filter: drop-shadow(0 30px 70px rgba(0,0,0,.55)); overflow:visible; }
 .center-stack{ position:absolute; inset:0; display:block; z-index:50; pointer-events:none; }
@@ -77,14 +77,14 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
 .slice-txt{ font: 900 28px/1.1 Inter, system-ui, Segoe UI, Roboto, Arial; paint-order:stroke fill; stroke:rgba(0,0,0,.25); stroke-width:2px; letter-spacing:.2px; }
 .slice-txt.is-max{ filter:url(#textGlow); }
 
-/* Ensure SVG group rotates from the SVG viewBox center */
+/* Rotor — we animate this group via JS */
 .rotor{
   transform-box: view-box;
   transform-origin: 500px 500px;
   will-change: transform;
 }
 
-/* SPIN button (10px below wheel) */
+/* SPIN button */
 .spin-row{ display:flex; justify-content:center; margin-top:10px; margin-bottom:6px; }
 .btn-spin{
   padding:14px 28px; font-weight:900; color:#fff; background:#000; border-radius:14px;
@@ -95,7 +95,7 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
 }
 .btn-spin:disabled{ opacity:.7 }
 
-/* Fade-out toast after win */
+/* Fade-out toast */
 .toast-win{
   position:fixed; left:50%; transform:translateX(-50%); bottom:110px; z-index:200;
   background: rgba(0,0,0,.75); color:#fff; padding:10px 16px; border-radius:999px; font-weight:900;
@@ -109,7 +109,7 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
   100%{ opacity:0; transform:translate(-50%,-10px); }
 }
 
-/* Bottom menu (navigation only) */
+/* Bottom menu */
 .bottom-menu{
   position:fixed; left:0; right:0; bottom:0; z-index:80; display:flex; justify-content:space-around; gap:8px;
   padding:10px 12px 12px;
