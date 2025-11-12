@@ -42,6 +42,20 @@ function indexFromRotation(rotationDeg){
   return i;
 }
 
+// read current rotation angle (in deg) from the rotor's computed matrix
+function getCurrentAngleDeg(node){
+  if(!node) return 0;
+  const t = getComputedStyle(node).transform;
+  if(!t || t === "none") return 0;
+  // matrix(a,b,c,d,tx,ty) => angle = atan2(b, a)
+  const m = t.match(/matrix\(([-0-9.,\s]+)\)/);
+  if(!m) return 0;
+  const [a, b] = m[1].split(",").map(x => parseFloat(x.trim()));
+  const angle = Math.atan2(b, a) * (180/Math.PI);
+  // Our transform also includes START_OFFSET; subtract it to get the pure rotor angle
+  return ((angle - START_OFFSET) % 360 + 360) % 360;
+}
+
 const tg = window.Telegram?.WebApp;
 const CENTER_LOGO_SRC = "/logo.png";
 const BRAND_LOGO_SRC  = "/rof-lg.png";
@@ -50,9 +64,8 @@ const ROF_ICON_SRC    = "/rof-bn.png";
 export default function App(){
   const slots = useMemo(buildSlots, []);
 
-  // angles: calcRot for math/payouts; visRot for clamped display after spin
+  // calcRot for math/payouts (bounded internally), rotorRef for the visual transform
   const [calcRot, setCalcRot] = useState(0);
-  const [visRot,  setVisRot]  = useState(0);
   const rotorRef = useRef(null);
 
   const [spinning,setSpinning] = useState(false);
@@ -117,9 +130,7 @@ export default function App(){
     });
   },[]);
 
-  /* ================= IMPERATIVE ROTATION =================
-     We control the <g class="rotor"> transform directly for maximum reliability.
-  ======================================================== */
+  /* ================= IMPERATIVE ROTATION ================= */
   const applyRotorAngle = (angleDeg, withTransition) => {
     const node = rotorRef.current;
     if (!node) return;
@@ -131,6 +142,12 @@ export default function App(){
       : "none";
     node.style.transform = `rotate(${START_OFFSET + angleDeg}deg)`;
   };
+
+  // init rotor at 0deg
+  useEffect(() => {
+    applyRotorAngle(0, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const play = async r => { try{ if(r?.current){ r.current.currentTime=0; await r.current.play(); } }catch{} };
   const stop = r => { try{ if(r?.current){ r.current.pause(); r.current.currentTime=0; } }catch{} };
@@ -146,60 +163,63 @@ export default function App(){
     await play(clickSfx);
     await play(loopSfx);
 
-    // random target
+    // --- read current visual angle from DOM so we continue from where we left off
+    const currentVis = getCurrentAngleDeg(rotorRef.current); // 0..360 without START_OFFSET
+    const calcBaseMod = ((calcRot % 360) + 360) % 360;
+
+    // choose random target
     const idx = randChoice(SEGMENTS_TOTAL);
     const spins = randInt(5, 12);
     const jitter = (randFloat() * 0.8 - 0.4) * SEG_DEG;
     const center = idx * SEG_DEG + SEG_DEG / 2 + jitter;
     const toZero = (360 - (center % 360) + 360) % 360;
 
-    // final calc angle (for payouts)
+    // final calculation angle (for payouts)
     const finalCalc = calcRot + spins * 360 + toZero;
-
-    // visual delta (bounded) to guarantee animation
-    const calcBaseMod = ((calcRot % 360) + 360) % 360;
     const endMod = ((finalCalc % 360) + 360) % 360;
-    let visualDelta = endMod - calcBaseMod;
-    if (visualDelta <= 0) visualDelta += 360; // ensure forward
-    const extraTurns = spins - 1;             // show multiple spins visually
+
+    // visual delta derived from CURRENT VISUAL angle (not calcRot), so it never resets
+    let visualDelta = endMod - currentVis;
+    if (visualDelta <= 0) visualDelta += 360;
+    const extraTurns = spins - 1;
     visualDelta += extraTurns * 360;
 
-    const startVis = calcBaseMod;
+    const startVis = currentVis;
     const endVis   = startVis + visualDelta;
 
-    // 1) Set start angle with transition OFF
+    // 1) set start with transition OFF, force reflow
     applyRotorAngle(startVis, false);
-    // 2) Force reflow so the browser commits the start frame
-    // eslint-disable-next-line no-unused-expressions
-    rotorRef.current && rotorRef.current.getBoundingClientRect();
-    // 3) Next frame: enable transition and set the end angle
-    requestAnimationFrame(() => {
-      applyRotorAngle(endVis, true);
-    });
+    rotorRef.current?.getBoundingClientRect();
+    // 2) animate to end
+    requestAnimationFrame(() => applyRotorAngle(endVis, true));
 
-    // Use transitionend for reliability; fallback to timeout
+    // finish on transition end (single-shot)
     let ended = false;
     const onEnd = () => {
       if (ended) return;
       ended = true;
-      rotorRef.current && rotorRef.current.removeEventListener("transitionend", onEnd);
+      rotorRef.current?.removeEventListener("transitionend", onEnd);
 
-      setCalcRot(finalCalc);
-      setVisRot(endMod); // clamp visual for next spin (in case UI needs it)
-      applyRotorAngle(endMod, false); // snap to small angle (no transition)
+      setCalcRot(finalCalc); // update payout angle (bounded in our math use)
+
+      // leave the rotor EXACTLY where it visually ended (endVis).
+      // No modulo snap -> no visible reset.
+      // (If you ever want to modulo-reduce invisibly, do it in the next frame with the same visual angle.)
+
+      stop(loopSfx); play(winSfx);
 
       const landedIndex = indexFromRotation(finalCalc);
       const win = slots[landedIndex];
       setBank(b => b + (win.amount || 0));
-      stop(loopSfx); play(winSfx);
       setToast({ text: `+${win.amount} $ROF`, key: Date.now() });
       setTimeout(() => setToast(null), 1600);
+
       setSpinning(false);
     };
 
-    rotorRef.current && rotorRef.current.addEventListener("transitionend", onEnd);
-    // fallback timeout (in case transitionend is missed)
-    setTimeout(onEnd, dur + 120);
+    rotorRef.current?.addEventListener("transitionend", onEnd);
+    // generous fallback (only if transitionend is missed)
+    setTimeout(onEnd, dur + 1500);
   };
 
   /* ------------------- SCREENS ------------------- */
@@ -210,7 +230,7 @@ export default function App(){
         {/* pointer */}
         <svg className="pointer-svg" viewBox="0 0 1000 80" aria-hidden>
           <polygon
-            points={`${cx-18},${36} ${cx+18},${36} ${cx},${62}`}
+            points={`${cx-18},${pointerY} ${cx+18},${pointerY} ${cx},${pointerY+26}`}
             fill="#e61a1a" stroke="#7a0f0f" strokeWidth="6" strokeLinejoin="round"
           />
         </svg>
@@ -301,7 +321,7 @@ export default function App(){
     }));
     const list = subtab==="holders"
       ? [...sample].sort((a,b)=>b.balance-a.balance)
-      : [...sample].sort((a,b)=>b.invites-a.invites);
+      : [...sample].sort((a,b)=>b.invites-a-invites);
     return (
       <div className="leaderboard">
         <div className="lb-tabs">
@@ -326,12 +346,6 @@ export default function App(){
 
   const EarnScreen  = () => <div className="placeholder-card">🚀 Earn coming soon…</div>;
   const TasksScreen = () => <div className="placeholder-card">🕹 Tasks coming soon…</div>;
-
-  // Initialize the rotor to current visRot (so it doesn't jump on first render)
-  useEffect(() => {
-    applyRotorAngle(visRot, false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   return (
     <div className="tg-app bg-img" style={{"--bg":theme.bg,"--text":theme.text}}>
@@ -369,7 +383,7 @@ export default function App(){
           {/* Fade-out toast */}
           {toast && <div key={toast.key} className="toast-win">{toast.text}</div>}
 
-          {/* Bottom nav (navigation only) */}
+          {/* Bottom nav */}
           <nav className="bottom-menu">
             <button className={`menu-item ${tab==="play"?"on":""}`}  onClick={()=>setTab("play")}>🎮 Play</button>
             <button className={`menu-item ${tab==="loot"?"on":""}`}  onClick={()=>setTab("loot")}>🎁 Loot</button>
