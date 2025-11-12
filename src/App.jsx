@@ -3,14 +3,14 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 /* ================= CORE WHEEL CONSTANTS ================= */
 const SEGMENTS_TOTAL = 25;
 const SEG_DEG = 360 / SEGMENTS_TOTAL; // 14.4°
-const START_OFFSET = -90; // pointer at top
+const START_OFFSET = -90; // keep pointer at top
 
 /* Base (Free) spin settings */
 const BASE_CAP = 20;
 const BASE_REGEN_MS = 10 * 60 * 1000; // 10 minutes (non-additive!)
 const TICK_MS = 1000;
 
-/* Premium tiers — functions unchanged; display names/badges per request */
+/* Premium tiers (names/badges per your mapping) */
 const TIERS = {
   free: { key: "free", name: "Free", regenMult: 1, cap: 20, prizeMult: 1, inviteBonus: 0, badge: "" },
   plus: { key: "plus", name: "$ROF Premium⚡️", regenMult: 2, cap: 40, prizeMult: 2, inviteBonus: 50, badge: "PREMIUM" },
@@ -19,7 +19,7 @@ const TIERS = {
 };
 const TEST_PRICE_COINS = 1;
 
-/* RNG helpers */
+/* RNG helpers (cryptographically strong) */
 function randUint32(){ const a=new Uint32Array(1); window.crypto.getRandomValues(a); return a[0]; }
 function randFloat(){ return randUint32()/0xffffffff; }
 function randInt(min,max){ const span=max-min+1; const limit=Math.floor(0xffffffff/span)*span; let r; do{ r=randUint32(); }while(r>=limit); return min+(r%span); }
@@ -28,15 +28,23 @@ function randChoice(n){ return randInt(0,n-1); }
 /* Payouts (your remap) */
 function buildSlots(){
   const arr = Array(SEGMENTS_TOTAL).fill(null);
+  // Section 1 -> 100 (MAX)
   arr[0] = { amount: 100, label: "100", type: "max" };
+
   const put = (idxs, amt) => idxs.forEach(n => {
     const i = n-1; if(!arr[i]) arr[i] = { amount: amt }; arr[i].label = String(amt);
   });
+  // Even positions (2,4,...,24) -> 1
   put([2,4,6,8,10,12,14,16,18,20,22,24], 1);
+  // 3,7,11,15,19,23 -> 2
   put([3,7,11,15,19,23], 2);
+  // 5,9,13 -> 5
   put([5,9,13], 5);
+  // 17,25 -> 20
   put([17,25], 20);
+  // 21 -> 50
   put([21], 50);
+
   return arr;
 }
 
@@ -76,7 +84,7 @@ const CENTER_LOGO_SRC = "/logo.png";
 const BRAND_LOGO_SRC  = "/rof-lg.png";
 const ROF_ICON_SRC    = "/rof-bn.png";
 
-/* ==================== WHEEL ==================== */
+/* ==================== WHEEL (SVG) ==================== */
 const Wheel = React.memo(function Wheel({
   rotorRef, wedges, slots, cx, cy, R_TRIM, TRIM_W, R_FACE,
   pointerBaseY, pointerTipY
@@ -117,10 +125,10 @@ const Wheel = React.memo(function Wheel({
         </filter>
       </defs>
 
-      {/* gold trim */}
+      {/* Gold outer trim */}
       <circle cx={cx} cy={cy} r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
 
-      {/* ✅ ROTOR: wedges & labels ARE children of this <g>. This is the group we rotate via CSS. */}
+      {/* ROTOR: everything inside rotates via SVG attribute transform */}
       <g className="rotor" ref={rotorRef} data-angle="0">
         {wedges.map(({i,path})=> <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />)}
         {wedges.map(({i,x,y,mid})=>{
@@ -144,7 +152,7 @@ const Wheel = React.memo(function Wheel({
         })}
       </g>
 
-      {/* POINTER stays separate (static) */}
+      {/* Static pointer */}
       <polygon
         className="pointer"
         points={`${cx-18},${pointerBaseY} ${cx+18},${pointerBaseY} ${cx},${pointerTipY}`}
@@ -164,12 +172,12 @@ export default function App(){
   const spinCap = tier.cap;
   const prizeMult = tier.prizeMult;
 
-  /* Wheel — fully DOM-driven */
+  /* Wheel — SVG transform-driven */
   const rotorRef = useRef(null);
   const rafRef = useRef(null);
   const animBusyRef = useRef(false);
-  const currentAngleRef = useRef(0);   // visual angle 0..360
-  const calcRotRef = useRef(0);        // math angle (for payout)
+  const currentAngleRef = useRef(0);   // visual angle (0..360)
+  const calcRotRef = useRef(0);        // math angle for payout
 
   /* Spins/energy */
   const [spinsLeft, setSpinsLeft] = useState(BASE_CAP);
@@ -242,23 +250,25 @@ export default function App(){
     });
   },[]);
 
-  /* --- Rotor angle write (CSS transform, no SVG attribute) --- */
+  /* --- Rotor angle write (SVG transform attribute with explicit center) --- */
   const applyAngle = (angle) => {
     const node = rotorRef.current;
     if (!node) return;
+
     const norm = ((angle % 360) + 360) % 360;
     currentAngleRef.current = norm;
 
-    node.style.transformBox = "fill-box";            // crucial for SVG CSS transforms
-    node.style.transformOrigin = `${cx}px ${cy}px`;  // center of viewBox
-    node.style.transform = `rotate(${START_OFFSET + norm}deg)`;
-    node.setAttribute("transform", ""); // keep attribute empty to avoid conflicts
+    // ✅ Use SVG transform attribute with explicit pivot (cx, cy). No CSS transforms.
+    node.removeAttribute("style"); // strip any leftover CSS transform props if any
+    node.setAttribute("transform", `rotate(${START_OFFSET + norm} ${cx} ${cy})`);
+
+    // Persist last pose
     node.dataset.angle = String(norm);
     try { localStorage.setItem("rof_visAngle", String(norm)); } catch {}
     try { window.__rofAngle = norm; } catch {}
   };
 
-  /* Restore last pose on mount (fallback chain) */
+  /* Restore last pose on mount (belt & braces fallbacks) */
   useEffect(()=>{
     let a = null;
     try {
@@ -298,7 +308,7 @@ export default function App(){
       const t = Math.min(1, (now - start) / durationMs);
       const eased = easeOutCubic(t);
       const angle = from + (to - from) * eased;
-      applyAngle(angle);
+      applyAngle(angle); // ✅ write SVG transform each frame
       if (t < 1) rafRef.current = requestAnimationFrame(step);
       else { animBusyRef.current = false; onDone?.(); }
     };
@@ -356,6 +366,7 @@ export default function App(){
 
     const startVis = currentAngleRef.current;
 
+    // random target index & motion profile
     const idx = randChoice(SEGMENTS_TOTAL);
     const spins = randInt(5, 12);
     const jitter = (randFloat() * 0.8 - 0.4) * SEG_DEG;
@@ -370,13 +381,14 @@ export default function App(){
     const extraTurns = spins - 1;
     visualDelta += extraTurns * 360;
     const endVis = startVis + visualDelta;
+
     const durationMs = randInt(3200, 6200);
 
     animateRotation(startVis, endVis, durationMs, () => {
       calcRotRef.current = finalCalc;
 
       const finalVis = ((endVis % 360) + 360) % 360;
-      applyAngle(finalVis); // lock pose
+      applyAngle(finalVis); // lock pose and persist
       try{
         localStorage.setItem("rof_calcRot", String(finalCalc));
       }catch{}
