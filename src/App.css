@@ -11,7 +11,7 @@
 html,body,#root{height:100%}
 body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Segoe UI,Roboto,Arial; }
 .tg-app{ min-height:100%; display:flex; justify-content:center; }
-.tg-app.modal-open{ height:100vh; overflow:hidden; } /* lock layout when modal open */
+.tg-app.modal-open{ height:100vh; overflow:hidden; }
 .compact{
   width:min(100vw,520px);
   padding:8px 10px 92px;
@@ -42,6 +42,17 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
 .bal-icon{ width:24px; height:24px; object-fit:contain; }
 .bal-value{ font-variation-settings:"wght" 900; }
 
+/* Premium row (button + badge) */
+.premium-row{ display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap; }
+
+/* 👑 Go $ROF Premium — black background + gold outline (as before) */
+.btn-premium{
+  appearance:none; border:2px solid var(--gold1); color:#fff; background:#000;
+  padding:8px 14px; border-radius:12px; font-weight:800; cursor:pointer;
+  box-shadow:0 6px 18px rgba(202,160,58,.25), inset 0 0 0 1px rgba(255,255,255,.06);
+}
+.btn-premium:active{ transform:translateY(1px); }
+
 /* Status badges */
 .badge{
   display:inline-flex; align-items:center; justify-content:center;
@@ -69,7 +80,7 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
 /* Center cap (HTML overlay) */
 .center-stack{ position:absolute; inset:0; display:block; z-index:50; pointer-events:none; }
 .center-ring{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:36%; aspect-ratio:1/1; border-radius:50%; box-shadow: 0 0 0 12px rgba(0,0,0,.45) inset, 0 0 0 2px rgba(255,255,255,.10) inset, 0 6px 18px rgba(0,0,0,.45); }
-.center-cap{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:24%; aspect-ratio:1/1; border-radius:50%; background: radial-gradient(circle at 35% 35%, rgba(255,255,255,.18), transparent 48%), linear-gradient(135deg,#0b0c0f,#121418,#0a0b0f); box-shadow: inset 0 2px 0 rgba(255,255,255,.15), inset 0 -4px 10px rgba(0,0,0,.6), 0 6px 18px rgba(0,0,0,.45); }
+.center-cap{ position:absolute; left:50%; top:50%; transform:translate(-50%, -50%); width:24%; aspect-ratio:1/1; border-radius:50%; background: radial-gradient(circle at 35% 35%, rgba(255,255,255,.18), transparent 48%), linear-gradient(135deg,#0b0c0f,#121418,#0a0b0f); box-shadow: inset 0 2px 0 rgba(255,255,255,.15), inset 0 -4px 10px rgba(0,0,0,.6), 0 6px 18px rgba(0,0,0,.45); }
 .center-logo-img{ position:absolute; left:50%; top:50%; transform:translate(-50%, -50%); width:20%; aspect-ratio:1/1; object-fit:contain; filter: drop-shadow(0 4px 12px rgba(124,92,255,.35)) drop-shadow(0 2px 8px rgba(92,225,230,.25)); }
 .center-gloss{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:28%; aspect-ratio:1/1; border-radius:50%; background: radial-gradient(closest-side, rgba(255,255,255,.08), transparent 70%); }
 
@@ -147,7 +158,7 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
 }
 .modal{
   width:100%; max-width:520px;
-  max-height:80vh; /* <= fixes content pushing / flicker */
+  max-height:80vh;
   background:#0b0c0f;
   border-top-left-radius:16px; border-top-right-radius:16px;
   border:1px solid rgba(255,255,255,.08);
@@ -167,7 +178,7 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
   border-radius:10px; font-weight:900; padding:4px 8px; cursor:pointer;
 }
 
-/* scrollable body prevents height “bouncing” */
+/* scrollable body */
 .modal-body{
   flex:1 1 auto;
   overflow:auto;
@@ -197,6 +208,9 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
 .tc-list{ margin:0; padding-left:16px; color:#c9d0d6; font-size:12px; }
 .tc-list li{ margin:2px 0; }
 .tc-price{ font-weight:800; font-size:12px; color:#d3d6d7; }
+
+/* BUY BUTTON aligned to the RIGHT */
+.tc-actions{ display:flex; justify-content:flex-end; margin-top:8px; }
 
 /* Buttons with gradient outline on black */
 .gradient-outline-btn{
