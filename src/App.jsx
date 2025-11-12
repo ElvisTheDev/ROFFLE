@@ -7,8 +7,8 @@ const START_OFFSET = -90; // show 0° at TOP (under the pointer)
 
 /* Spins/energy settings */
 const SPIN_CAP = 20;
-const REGEN_MS = 10 * 60 * 1000; // 10 minutes in ms
-const TICK_MS = 1000; // UI update cadence
+const REGEN_MS = 10 * 60 * 1000; // 10 minutes
+const TICK_MS = 1000;
 
 /* RNG helpers */
 function randUint32(){ const a=new Uint32Array(1); window.crypto.getRandomValues(a); return a[0]; }
@@ -16,40 +16,27 @@ function randFloat(){ return randUint32()/0xffffffff; }
 function randInt(min,max){ const span=max-min+1; const limit=Math.floor(0xffffffff/span)*span; let r; do{ r=randUint32(); }while(r>=limit); return min+(r%span); }
 function randChoice(n){ return randInt(0,n-1); }
 
-/* Build payout map (with your new values) */
+/* Build payout map (remapped values) */
 function buildSlots(){
   const arr = Array(SEGMENTS_TOTAL).fill(null);
-  // Section 1: MAX WIN (now 100)
+  // Section 1: MAX (now 100)
   arr[0] = { amount: 100, label: "100", type: "max", tone: "max" };
 
   const put = (idxs, amt) => idxs.forEach(n => {
     const i = n-1; if(!arr[i]) arr[i] = { amount: amt, type: "flat" }; arr[i].label = String(amt);
   });
 
-  // Old → New remap:
   // old 5  → 1
-  // old 10 → 2
-  // old 20 → 5
-  // old 50 → 20
-  // old 100→ 50
-  // old 1000→ 100 (set above)
-
-  // old 5 were: 2,4,6,8,10,12,14,16,18,20,22,24 → now 1
   put([2,4,6,8,10,12,14,16,18,20,22,24], 1);
-
-  // old 10 were: 3,7,11,15,19,23 → now 2
+  // old 10 → 2
   put([3,7,11,15,19,23], 2);
-
-  // old 20 were: 5,9,13 → now 5
+  // old 20 → 5
   put([5,9,13], 5);
-
-  // old 50 were: 17,25 → now 20
+  // old 50 → 20
   put([17,25], 20);
-
-  // old 100 was: 21 → now 50
+  // old 100→ 50
   put([21], 50);
 
-  // Tone (for text color logic)
   for(let sec1=2; sec1<=SEGMENTS_TOTAL; sec1++){
     const i=sec1-1; if(!arr[i]) continue; arr[i].tone = sec1%2===0 ? "black" : "white";
   }
@@ -74,7 +61,7 @@ function indexFromRotation(rotationDeg){
 
 /* Time formatting */
 function formatMs(ms){
-  if (ms <= 0) return "Ready";
+  if (!ms || ms <= 0) return "Ready";
   const s = Math.ceil(ms/1000);
   const m = Math.floor(s/60);
   const r = s % 60;
@@ -95,17 +82,16 @@ export default function App(){
   const [visAngle, setVisAngle] = useState(0);   // visual angle (0..360)
   const rotorRef = useRef(null);
 
-  /* Spins/energy */
+  /* Spins/energy (non-additive cooldown) */
   const [spinsLeft, setSpinsLeft] = useState(SPIN_CAP);
-  const lastRefillRef = useRef(Date.now()); // base timestamp that marches forward as we regen
+  const [nextReadyAt, setNextReadyAt] = useState(null); // timestamp (ms) when 1 spin will be credited
   const [nextInMs, setNextInMs] = useState(0);
 
   /* UI state */
   const [spinning,setSpinning] = useState(false);
-  const [spinDurationMs,setSpinDurationMs] = useState(4800);
   const [bank,setBank] = useState(0);
   const [toast,setToast] = useState(null);
-  const [tab,setTab] = useState("play"); // play | loot | top | earn | tasks
+  const [tab,setTab] = useState("play");
   const [booting,setBooting] = useState(true);
 
   /* Sounds */
@@ -145,11 +131,11 @@ export default function App(){
 
   /* ------------------- SIZES ------------------- */
   const cx=500, cy=500;
-  const R_FACE = 440 * 0.74;   // smaller to avoid scroll; ~26% shrink vs original
+  const R_FACE = 440 * 0.74;
   const R_TRIM = 470 * 0.74;
   const TRIM_W = 40;
 
-  /* Pointer — tip sits on the gold trim outer edge */
+  /* Pointer — tip on gold trim outer edge */
   const trimOuter = R_TRIM + TRIM_W/2;
   const pointerTipY  = cy - trimOuter + 2;
   const pointerBaseY = pointerTipY - 26;
@@ -159,7 +145,7 @@ export default function App(){
     return Array.from({length:SEGMENTS_TOTAL}, (_,i)=>{
       const start=i*SEG_DEG; const end=start+SEG_DEG; const mid=(start+end)/2;
       const path = wedgePath(cx,cy,R_FACE,start,end);
-      const labelR = 360*0.74; // match face shrink
+      const labelR = 360*0.74;
       const {x,y} = polarToCartesian(cx,cy,labelR,mid);
       const sec1=i+1;
       const textFill = sec1===1 ? "#fff" : (sec1%2===0 ? "#fff" : "#000");
@@ -167,62 +153,63 @@ export default function App(){
     });
   },[]);
 
-  /* ================= IMPERATIVE ROTATION ================= */
-  const applyRotorAngle = (angleDeg, withTransition) => {
+  /* ================= IMPERATIVE ROTATION (duration-safe) ================= */
+  const applyRotorAngle = (angleDeg, withTransition, durationMs = 0) => {
     const node = rotorRef.current;
     if (!node) return;
     node.style.transformBox = "view-box";
     node.style.transformOrigin = "500px 500px";
     node.style.willChange = "transform";
     node.style.transition = withTransition
-      ? `transform ${spinDurationMs}ms cubic-bezier(.12,.8,.12,1)`
+      ? `transform ${durationMs}ms cubic-bezier(.12,.8,.12,1)`
       : "none";
     node.style.transform = `rotate(${START_OFFSET + angleDeg}deg)`;
   };
 
-  // Keep rotor at its last visual angle when Play tab shows or visAngle changes
+  // Keep rotor at last visual angle when Play tab shows or visAngle changes
   useEffect(() => {
     if (tab === "play" && rotorRef.current) applyRotorAngle(visAngle, false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, visAngle]);
 
-  /* ------------------- SPIN REGEN TICKER ------------------- */
+  /* ------------------- NON-ADDITIVE COOLDOWN TICKER ------------------- */
   useEffect(()=>{
     const tick = () => {
       const now = Date.now();
-      let spins = spinsLeft;
-      let base = lastRefillRef.current;
 
-      if (spins < SPIN_CAP) {
-        const elapsed = now - base;
-        const gained = Math.floor(elapsed / REGEN_MS);
-        if (gained > 0) {
-          spins = Math.min(SPIN_CAP, spins + gained);
-          base += gained * REGEN_MS;
-        }
+      if (spinsLeft >= SPIN_CAP) {
+        // full: no cooldown running
+        if (nextReadyAt !== null) setNextReadyAt(null);
+        setNextInMs(0);
+        return;
       }
 
-      // next timer display
-      let nextMs = 0;
-      if (spins >= SPIN_CAP) {
-        base = now; // at cap, keep base fresh
-        nextMs = 0;
-      } else {
-        nextMs = REGEN_MS - (now - base);
-        if (nextMs < 0) nextMs = 0;
+      // ensure we have a cooldown scheduled
+      if (nextReadyAt == null) {
+        setNextReadyAt(now + REGEN_MS);
+        setNextInMs(REGEN_MS);
+        return;
       }
 
-      // commit
-      if (spins !== spinsLeft) setSpinsLeft(spins);
-      if (base !== lastRefillRef.current) lastRefillRef.current = base;
-      setNextInMs(nextMs);
+      const remaining = nextReadyAt - now;
+      setNextInMs(remaining > 0 ? remaining : 0);
+
+      if (remaining <= 0) {
+        // grant exactly 1 spin
+        setSpinsLeft(s => Math.min(SPIN_CAP, s + 1));
+        // if still below cap, schedule the next single cooldown; otherwise clear it
+        setNextReadyAt(prev => {
+          const after = (spinsLeft + 1); // note: spinsLeft from closure; safe enough for UI pacing
+          return after < SPIN_CAP ? now + REGEN_MS : null;
+        });
+        setNextInMs( (spinsLeft + 1) < SPIN_CAP ? REGEN_MS : 0 );
+      }
     };
 
-    // initial and interval
-    tick();
     const id = setInterval(tick, TICK_MS);
+    tick();
     return ()=>clearInterval(id);
-  }, [spinsLeft]);
+  }, [spinsLeft, nextReadyAt]);
 
   /* ------------------- SPIN HANDLER ------------------- */
   const playSfx = async r => { try{ if(r?.current){ r.current.currentTime=0; await r.current.play(); } }catch{} };
@@ -233,12 +220,16 @@ export default function App(){
     setSpinning(true);
     setToast(null);
 
-    // consume one spin, and move base forward by REGEN_MS
+    // consume one spin
     setSpinsLeft(v => Math.max(0, v - 1));
-    lastRefillRef.current = lastRefillRef.current + REGEN_MS;
+    // start cooldown if we were at cap before spending
+    if (spinsLeft === SPIN_CAP) {
+      const now = Date.now();
+      setNextReadyAt(now + REGEN_MS);
+      setNextInMs(REGEN_MS);
+    }
 
-    const dur = randInt(3200, 6200);
-    setSpinDurationMs(dur);
+    const durationMs = randInt(3200, 6200);
 
     await playSfx(clickSfx);
     await playSfx(loopSfx);
@@ -267,8 +258,8 @@ export default function App(){
     // 1) set start with transition OFF, force reflow
     applyRotorAngle(startVis, false);
     rotorRef.current?.getBoundingClientRect();
-    // 2) animate to end
-    requestAnimationFrame(() => applyRotorAngle(endVis, true));
+    // 2) animate to end using the SAME duration we just picked
+    requestAnimationFrame(() => applyRotorAngle(endVis, true, durationMs));
 
     // finish on transition end
     let ended = false;
@@ -277,8 +268,8 @@ export default function App(){
       ended = true;
       rotorRef.current?.removeEventListener("transitionend", onEnd);
 
-      setCalcRot(finalCalc);                 // math angle
-      setVisAngle(((endVis % 360) + 360) % 360); // leave wheel exactly where it finished
+      setCalcRot(finalCalc);
+      setVisAngle(((endVis % 360) + 360) % 360);
 
       stopSfx(loopSfx); playSfx(winSfx);
 
@@ -292,8 +283,8 @@ export default function App(){
     };
 
     rotorRef.current?.addEventListener("transitionend", onEnd);
-    // generous fallback (in case transitionend is missed)
-    setTimeout(onEnd, dur + 1500);
+    // generous fallback
+    setTimeout(onEnd, durationMs + 1500);
   };
 
   /* ------------------- SCREENS ------------------- */
@@ -370,7 +361,7 @@ export default function App(){
         </div>
       </div>
 
-      {/* SPIN button — raised higher, shows limits + timer */}
+      {/* SPIN button — raised, with non-additive cooldown */}
       <div className="spin-row tight">
         <button className="btn-spin" onClick={handleSpin} disabled={spinning || spinsLeft<=0}>
           <span className="spin-count">{spinsLeft}/{SPIN_CAP} <span className="muted">Spins left</span></span>
@@ -386,7 +377,7 @@ export default function App(){
   );
 
   const TopScreen = () => {
-    const [subtab,setSubtab] = useState("holders"); // holders | invites
+    const [subtab,setSubtab] = useState("holders");
     const sample = Array.from({length:8}, (_,i)=>({
       id:i+1,
       name:`User ${i+1}`,
@@ -422,35 +413,19 @@ export default function App(){
   const EarnScreen  = () => <div className="placeholder-card">🚀 Earn coming soon…</div>;
   const TasksScreen = () => <div className="placeholder-card">🕹 Tasks coming soon…</div>;
 
-  /* ------------- MENU ICON+LABEL STACKED (emoji over text) ------------- */
+  /* Menu (emoji stacked over text) */
   const Menu = () => (
     <nav className="bottom-menu">
-      <button className={`menu-item ${tab==="play"?"on":""}`}  onClick={()=>setTab("play")}>
-        <span className="mi-emoji" aria-hidden>🎮</span>
-        <span className="mi-text">Play</span>
-      </button>
-      <button className={`menu-item ${tab==="loot"?"on":""}`}  onClick={()=>setTab("loot")}>
-        <span className="mi-emoji" aria-hidden>🎁</span>
-        <span className="mi-text">Loot</span>
-      </button>
-      <button className={`menu-item ${tab==="top" ?"on":""}`}  onClick={()=>setTab("top")}>
-        <span className="mi-emoji" aria-hidden>🏆</span>
-        <span className="mi-text">Top100</span>
-      </button>
-      <button className={`menu-item ${tab==="earn"?"on":""}`}  onClick={()=>setTab("earn")}>
-        <span className="mi-emoji" aria-hidden>🚀</span>
-        <span className="mi-text">Earn</span>
-      </button>
-      <button className={`menu-item ${tab==="tasks"?"on":""}`} onClick={()=>setTab("tasks")}>
-        <span className="mi-emoji" aria-hidden>🕹</span>
-        <span className="mi-text">Tasks</span>
-      </button>
+      <button className={`menu-item ${tab==="play"?"on":""}`}  onClick={()=>setTab("play")}><span className="mi-emoji">🎮</span><span className="mi-text">Play</span></button>
+      <button className={`menu-item ${tab==="loot"?"on":""}`}  onClick={()=>setTab("loot")}><span className="mi-emoji">🎁</span><span className="mi-text">Loot</span></button>
+      <button className={`menu-item ${tab==="top" ?"on":""}`}  onClick={()=>setTab("top")} ><span className="mi-emoji">🏆</span><span className="mi-text">Top100</span></button>
+      <button className={`menu-item ${tab==="earn"?"on":""}`}  onClick={()=>setTab("earn")}><span className="mi-emoji">🚀</span><span className="mi-text">Earn</span></button>
+      <button className={`menu-item ${tab==="tasks"?"on":""}`} onClick={()=>setTab("tasks")}><span className="mi-emoji">🕹</span><span className="mi-text">Tasks</span></button>
     </nav>
   );
 
   return (
     <div className="tg-app bg-img" style={{"--bg":theme.bg,"--text":theme.text}}>
-      {/* Splash (2s) */}
       {booting && (
         <div className="splash">
           <img src={BRAND_LOGO_SRC} alt="ROFFLE" />
@@ -465,7 +440,6 @@ export default function App(){
             <div className="header-right" />
           </header>
 
-          {/* Balance — compacted top spacing */}
           <section className="balance-block compacted">
             <div className="bal-line1">Your $ROF Balance:</div>
             <div className="bal-line2">
@@ -475,7 +449,6 @@ export default function App(){
             <button className="btn-premium" onClick={()=>alert("Premium modal will go here.")}>👑 Go $ROF Premium</button>
           </section>
 
-          {/* Screens */}
           <div className="screen flex-grow">
             {tab==="play"   && <PlayScreen />}
             {tab==="loot"   && <LootScreen />}
@@ -484,10 +457,8 @@ export default function App(){
             {tab==="tasks"  && <TasksScreen />}
           </div>
 
-          {/* Fade-out toast */}
           {toast && <div key={toast.key} className="toast-win">{toast.text}</div>}
 
-          {/* Bottom nav (emoji over text) */}
           <Menu />
         </div>
       )}
