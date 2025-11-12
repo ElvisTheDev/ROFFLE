@@ -151,10 +151,11 @@ export default function App(){
     });
   },[]);
   const rotorStyle = {
-    transform: `rotate(${START_OFFSET + rotation}deg)`,
-    transformOrigin: "500px 500px",
-    transition: `transform ${spinDurationMs}ms cubic-bezier(.12,.8,.12,1)`
-  };
+  transform: `rotate(${START_OFFSET + rotation}deg)`,
+  transformOrigin: "50% 50%",
+  transformBox: "fill-box",
+  transition: `transform ${spinDurationMs}ms cubic-bezier(.12,.8,.12,1)`
+};
 
   /* ------------------- SCREENS ------------------- */
   const PlayScreen = () => (
