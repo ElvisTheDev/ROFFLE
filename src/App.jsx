@@ -5,29 +5,58 @@ const SEGMENTS_TOTAL = 25;
 const SEG_DEG = 360 / SEGMENTS_TOTAL; // 14.4°
 const START_OFFSET = -90; // show 0° at TOP (under the pointer)
 
+/* Spins/energy settings */
+const SPIN_CAP = 20;
+const REGEN_MS = 10 * 60 * 1000; // 10 minutes in ms
+const TICK_MS = 1000; // UI update cadence
+
+/* RNG helpers */
 function randUint32(){ const a=new Uint32Array(1); window.crypto.getRandomValues(a); return a[0]; }
 function randFloat(){ return randUint32()/0xffffffff; }
 function randInt(min,max){ const span=max-min+1; const limit=Math.floor(0xffffffff/span)*span; let r; do{ r=randUint32(); }while(r>=limit); return min+(r%span); }
 function randChoice(n){ return randInt(0,n-1); }
 
+/* Build payout map (with your new values) */
 function buildSlots(){
   const arr = Array(SEGMENTS_TOTAL).fill(null);
-  arr[0] = { amount: 1000, label: "1000", type: "max", tone: "max" };
+  // Section 1: MAX WIN (now 100)
+  arr[0] = { amount: 100, label: "100", type: "max", tone: "max" };
+
   const put = (idxs, amt) => idxs.forEach(n => {
     const i = n-1; if(!arr[i]) arr[i] = { amount: amt, type: "flat" }; arr[i].label = String(amt);
   });
-  put([2,4,6,8,10,12,14,16,18,20,22,24], 5);
-  put([3,7,11,15,19,23], 10);
-  put([5,9,13], 20);
-  put([17,25], 50);
-  put([21], 100);
+
+  // Old → New remap:
+  // old 5  → 1
+  // old 10 → 2
+  // old 20 → 5
+  // old 50 → 20
+  // old 100→ 50
+  // old 1000→ 100 (set above)
+
+  // old 5 were: 2,4,6,8,10,12,14,16,18,20,22,24 → now 1
+  put([2,4,6,8,10,12,14,16,18,20,22,24], 1);
+
+  // old 10 were: 3,7,11,15,19,23 → now 2
+  put([3,7,11,15,19,23], 2);
+
+  // old 20 were: 5,9,13 → now 5
+  put([5,9,13], 5);
+
+  // old 50 were: 17,25 → now 20
+  put([17,25], 20);
+
+  // old 100 was: 21 → now 50
+  put([21], 50);
+
+  // Tone (for text color logic)
   for(let sec1=2; sec1<=SEGMENTS_TOTAL; sec1++){
     const i=sec1-1; if(!arr[i]) continue; arr[i].tone = sec1%2===0 ? "black" : "white";
   }
   return arr;
 }
 
-// geometry helpers
+/* Geometry helpers */
 function polarToCartesian(cx,cy,r,aDeg){ const a=(aDeg*Math.PI)/180; return {x:cx+r*Math.cos(a), y:cy+r*Math.sin(a)}; }
 function wedgePath(cx,cy,r,startDeg,endDeg){
   const start = polarToCartesian(cx,cy,r,startDeg);
@@ -43,6 +72,16 @@ function indexFromRotation(rotationDeg){
   return i;
 }
 
+/* Time formatting */
+function formatMs(ms){
+  if (ms <= 0) return "Ready";
+  const s = Math.ceil(ms/1000);
+  const m = Math.floor(s/60);
+  const r = s % 60;
+  const pad = (n)=> n<10 ? `0${n}` : `${n}`;
+  return `${m}:${pad(r)}`;
+}
+
 const tg = window.Telegram?.WebApp;
 const CENTER_LOGO_SRC = "/logo.png";
 const BRAND_LOGO_SRC  = "/rof-lg.png";
@@ -51,21 +90,25 @@ const ROF_ICON_SRC    = "/rof-bn.png";
 export default function App(){
   const slots = useMemo(buildSlots, []);
 
-  // Payout math angle (can grow large internally)
-  const [calcRot, setCalcRot] = useState(0);
-  // Visual angle we leave the rotor at (0..360) — this is what keeps the last position
-  const [visAngle, setVisAngle] = useState(0);
+  /* Wheel angles */
+  const [calcRot, setCalcRot] = useState(0);     // math angle (can grow)
+  const [visAngle, setVisAngle] = useState(0);   // visual angle (0..360)
   const rotorRef = useRef(null);
 
+  /* Spins/energy */
+  const [spinsLeft, setSpinsLeft] = useState(SPIN_CAP);
+  const lastRefillRef = useRef(Date.now()); // base timestamp that marches forward as we regen
+  const [nextInMs, setNextInMs] = useState(0);
+
+  /* UI state */
   const [spinning,setSpinning] = useState(false);
   const [spinDurationMs,setSpinDurationMs] = useState(4800);
   const [bank,setBank] = useState(0);
   const [toast,setToast] = useState(null);
-
   const [tab,setTab] = useState("play"); // play | loot | top | earn | tasks
   const [booting,setBooting] = useState(true);
 
-  // sounds
+  /* Sounds */
   const clickSfx = useRef(null), loopSfx = useRef(null), winSfx = useRef(null);
   useEffect(()=>{
     clickSfx.current = new Audio("/sounds/click.mp3"); clickSfx.current.preload="auto";
@@ -73,7 +116,7 @@ export default function App(){
     winSfx.current   = new Audio("/sounds/win.mp3"); winSfx.current.preload="auto";
   },[]);
 
-  // Telegram boot + 2s splash
+  /* Telegram boot + 2s splash */
   useEffect(()=>{
     const timer = setTimeout(()=>{
       setBooting(false);
@@ -88,7 +131,7 @@ export default function App(){
     return ()=>clearTimeout(timer);
   },[]);
 
-  // theme follow
+  /* Theme follow */
   const [theme,setTheme] = useState({ bg:"#000", text:"#e8ecf2" });
   useEffect(()=>{
     if(!tg) return;
@@ -102,21 +145,21 @@ export default function App(){
 
   /* ------------------- SIZES ------------------- */
   const cx=500, cy=500;
-  const R_FACE = 440 * 0.8;   // 20% smaller
-  const R_TRIM = 470 * 0.8;
+  const R_FACE = 440 * 0.74;   // smaller to avoid scroll; ~26% shrink vs original
+  const R_TRIM = 470 * 0.74;
   const TRIM_W = 40;
 
-  // Pointer sits on the gold trim (tip touches outer edge of the stroke)
-  const trimOuter = R_TRIM + TRIM_W/2;         // outer radius of gold stroke
-  const pointerTipY  = cy - trimOuter + 2;     // a couple px into the stroke
-  const pointerBaseY = pointerTipY - 26;       // base above the tip (triangle height ~26)
+  /* Pointer — tip sits on the gold trim outer edge */
+  const trimOuter = R_TRIM + TRIM_W/2;
+  const pointerTipY  = cy - trimOuter + 2;
+  const pointerBaseY = pointerTipY - 26;
 
   /* ------------------- WEDGES ------------------- */
   const wedges = useMemo(()=>{
     return Array.from({length:SEGMENTS_TOTAL}, (_,i)=>{
       const start=i*SEG_DEG; const end=start+SEG_DEG; const mid=(start+end)/2;
       const path = wedgePath(cx,cy,R_FACE,start,end);
-      const labelR = 360*0.8;
+      const labelR = 360*0.74; // match face shrink
       const {x,y} = polarToCartesian(cx,cy,labelR,mid);
       const sec1=i+1;
       const textFill = sec1===1 ? "#fff" : (sec1%2===0 ? "#fff" : "#000");
@@ -137,35 +180,69 @@ export default function App(){
     node.style.transform = `rotate(${START_OFFSET + angleDeg}deg)`;
   };
 
-  // Keep the rotor at its last visual angle on mount and whenever the Play tab is shown
+  // Keep rotor at its last visual angle when Play tab shows or visAngle changes
   useEffect(() => {
-    if (tab === "play" && rotorRef.current) {
-      applyRotorAngle(visAngle, false); // no reset/snap
-    }
+    if (tab === "play" && rotorRef.current) applyRotorAngle(visAngle, false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
+  }, [tab, visAngle]);
 
-  // Also re-apply if visAngle changes (e.g., after a spin finishes)
-  useEffect(() => {
-    if (rotorRef.current) applyRotorAngle(visAngle, false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visAngle]);
+  /* ------------------- SPIN REGEN TICKER ------------------- */
+  useEffect(()=>{
+    const tick = () => {
+      const now = Date.now();
+      let spins = spinsLeft;
+      let base = lastRefillRef.current;
 
-  const play = async r => { try{ if(r?.current){ r.current.currentTime=0; await r.current.play(); } }catch{} };
-  const stop = r => { try{ if(r?.current){ r.current.pause(); r.current.currentTime=0; } }catch{} };
+      if (spins < SPIN_CAP) {
+        const elapsed = now - base;
+        const gained = Math.floor(elapsed / REGEN_MS);
+        if (gained > 0) {
+          spins = Math.min(SPIN_CAP, spins + gained);
+          base += gained * REGEN_MS;
+        }
+      }
+
+      // next timer display
+      let nextMs = 0;
+      if (spins >= SPIN_CAP) {
+        base = now; // at cap, keep base fresh
+        nextMs = 0;
+      } else {
+        nextMs = REGEN_MS - (now - base);
+        if (nextMs < 0) nextMs = 0;
+      }
+
+      // commit
+      if (spins !== spinsLeft) setSpinsLeft(spins);
+      if (base !== lastRefillRef.current) lastRefillRef.current = base;
+      setNextInMs(nextMs);
+    };
+
+    // initial and interval
+    tick();
+    const id = setInterval(tick, TICK_MS);
+    return ()=>clearInterval(id);
+  }, [spinsLeft]);
+
+  /* ------------------- SPIN HANDLER ------------------- */
+  const playSfx = async r => { try{ if(r?.current){ r.current.currentTime=0; await r.current.play(); } }catch{} };
+  const stopSfx = r => { try{ if(r?.current){ r.current.pause(); r.current.currentTime=0; } }catch{} };
 
   const handleSpin = async () => {
-    if (spinning) return;
+    if (spinning || spinsLeft <= 0) return;
     setSpinning(true);
     setToast(null);
+
+    // consume one spin, and move base forward by REGEN_MS
+    setSpinsLeft(v => Math.max(0, v - 1));
+    lastRefillRef.current = lastRefillRef.current + REGEN_MS;
 
     const dur = randInt(3200, 6200);
     setSpinDurationMs(dur);
 
-    await play(clickSfx);
-    await play(loopSfx);
+    await playSfx(clickSfx);
+    await playSfx(loopSfx);
 
-    // Start from the exact last visual angle (no reset)
     const startVis = visAngle;
 
     // choose random target
@@ -203,7 +280,7 @@ export default function App(){
       setCalcRot(finalCalc);                 // math angle
       setVisAngle(((endVis % 360) + 360) % 360); // leave wheel exactly where it finished
 
-      stop(loopSfx); play(winSfx);
+      stopSfx(loopSfx); playSfx(winSfx);
 
       const landedIndex = indexFromRotation(finalCalc);
       const win = slots[landedIndex];
@@ -223,8 +300,8 @@ export default function App(){
   const PlayScreen = () => (
     <>
       {/* WHEEL */}
-      <div className="wheel-wrap small">
-        {/* wheel (pointer lives INSIDE this SVG now) */}
+      <div className="wheel-wrap compact-no-scroll">
+        {/* wheel (pointer lives INSIDE this SVG) */}
         <svg className="wheel-svg" viewBox="0 0 1000 1000" aria-hidden>
           <defs>
             {Array.from({length:SEGMENTS_TOTAL}, (_,i)=>{
@@ -277,7 +354,7 @@ export default function App(){
             ))}
           </g>
 
-          {/* POINTER — lives inside the same SVG so it's always visible & aligned */}
+          {/* POINTER */}
           <polygon
             className="pointer"
             points={`${cx-18},${pointerBaseY} ${cx+18},${pointerBaseY} ${cx},${pointerTipY}`}
@@ -293,10 +370,12 @@ export default function App(){
         </div>
       </div>
 
-      {/* SPIN button */}
-      <div className="spin-row">
-        <button className="btn-spin" onClick={handleSpin} disabled={spinning}>
-          {spinning ? "Spinning…" : "Spin"}
+      {/* SPIN button — raised higher, shows limits + timer */}
+      <div className="spin-row tight">
+        <button className="btn-spin" onClick={handleSpin} disabled={spinning || spinsLeft<=0}>
+          <span className="spin-count">{spinsLeft}/{SPIN_CAP} <span className="muted">Spins left</span></span>
+          <span className="spin-cta">{spinning ? "Spinning…" : "Spin"}</span>
+          <span className="spin-timer">{spinsLeft<SPIN_CAP ? `Next spin in ${formatMs(nextInMs)}` : "Ready"}</span>
         </button>
       </div>
     </>
@@ -343,6 +422,32 @@ export default function App(){
   const EarnScreen  = () => <div className="placeholder-card">🚀 Earn coming soon…</div>;
   const TasksScreen = () => <div className="placeholder-card">🕹 Tasks coming soon…</div>;
 
+  /* ------------- MENU ICON+LABEL STACKED (emoji over text) ------------- */
+  const Menu = () => (
+    <nav className="bottom-menu">
+      <button className={`menu-item ${tab==="play"?"on":""}`}  onClick={()=>setTab("play")}>
+        <span className="mi-emoji" aria-hidden>🎮</span>
+        <span className="mi-text">Play</span>
+      </button>
+      <button className={`menu-item ${tab==="loot"?"on":""}`}  onClick={()=>setTab("loot")}>
+        <span className="mi-emoji" aria-hidden>🎁</span>
+        <span className="mi-text">Loot</span>
+      </button>
+      <button className={`menu-item ${tab==="top" ?"on":""}`}  onClick={()=>setTab("top")}>
+        <span className="mi-emoji" aria-hidden>🏆</span>
+        <span className="mi-text">Top100</span>
+      </button>
+      <button className={`menu-item ${tab==="earn"?"on":""}`}  onClick={()=>setTab("earn")}>
+        <span className="mi-emoji" aria-hidden>🚀</span>
+        <span className="mi-text">Earn</span>
+      </button>
+      <button className={`menu-item ${tab==="tasks"?"on":""}`} onClick={()=>setTab("tasks")}>
+        <span className="mi-emoji" aria-hidden>🕹</span>
+        <span className="mi-text">Tasks</span>
+      </button>
+    </nav>
+  );
+
   return (
     <div className="tg-app bg-img" style={{"--bg":theme.bg,"--text":theme.text}}>
       {/* Splash (2s) */}
@@ -354,13 +459,14 @@ export default function App(){
       )}
 
       {!booting && (
-        <div className="compact">
+        <div className="compact no-scroll">
           <header className="header">
             <img src={BRAND_LOGO_SRC} alt="ROFFLE" className="brand-logo" />
             <div className="header-right" />
           </header>
 
-          <section className="balance-block">
+          {/* Balance — compacted top spacing */}
+          <section className="balance-block compacted">
             <div className="bal-line1">Your $ROF Balance:</div>
             <div className="bal-line2">
               <img className="bal-icon" src={ROF_ICON_SRC} alt="$ROF" />
@@ -370,23 +476,19 @@ export default function App(){
           </section>
 
           {/* Screens */}
-          {tab==="play"   && <PlayScreen />}
-          {tab==="loot"   && <LootScreen />}
-          {tab==="top"    && <TopScreen />}
-          {tab==="earn"   && <EarnScreen />}
-          {tab==="tasks"  && <TasksScreen />}
+          <div className="screen flex-grow">
+            {tab==="play"   && <PlayScreen />}
+            {tab==="loot"   && <LootScreen />}
+            {tab==="top"    && <TopScreen />}
+            {tab==="earn"   && <EarnScreen />}
+            {tab==="tasks"  && <TasksScreen />}
+          </div>
 
           {/* Fade-out toast */}
           {toast && <div key={toast.key} className="toast-win">{toast.text}</div>}
 
-          {/* Bottom nav */}
-          <nav className="bottom-menu">
-            <button className={`menu-item ${tab==="play"?"on":""}`}  onClick={()=>setTab("play")}>🎮 Play</button>
-            <button className={`menu-item ${tab==="loot"?"on":""}`}  onClick={()=>setTab("loot")}>🎁 Loot</button>
-            <button className={`menu-item ${tab==="top" ?"on":""}`}  onClick={()=>setTab("top")}>🏆 Top100</button>
-            <button className={`menu-item ${tab==="earn"?"on":""}`}  onClick={()=>setTab("earn")}>🚀 Earn</button>
-            <button className={`menu-item ${tab==="tasks"?"on":""}`} onClick={()=>setTab("tasks")}>🕹 Tasks</button>
-          </nav>
+          {/* Bottom nav (emoji over text) */}
+          <Menu />
         </div>
       )}
     </div>
