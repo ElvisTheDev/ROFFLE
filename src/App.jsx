@@ -25,7 +25,7 @@ function randFloat(){ return randUint32()/0xffffffff; }
 function randInt(min,max){ const span=max-min+1; const limit=Math.floor(0xffffffff/span)*span; let r; do{ r=randUint32(); }while(r>=limit); return min+(r%span); }
 function randChoice(n){ return randInt(0,n-1); }
 
-/* Payouts (your remap) */
+/* Payouts (your latest remap) */
 function buildSlots(){
   const arr = Array(SEGMENTS_TOTAL).fill(null);
   // Section 1 -> 100 (MAX)
@@ -81,7 +81,7 @@ function easeOutCubic(t){ return 1 - Math.pow(1 - t, 3); }
 
 /* Telegram + assets */
 const tg = window.Telegram?.WebApp;
-const CENTER_LOGO_SRC = "/logo.png";
+const CENTER_LOGO_SRC = "/logo.png";  // your R logo
 const BRAND_LOGO_SRC  = "/rof-lg.png";
 const ROF_ICON_SRC    = "/rof-bn.png";
 
@@ -134,20 +134,27 @@ const Wheel = React.memo(function Wheel({
         {/* ROTOR: rotate around 0,0 — the true center */}
         <g className="rotor" ref={rotorRef} data-angle="0" transform={`rotate(${START_OFFSET})`}>
           {wedges.map(({i,path})=> <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />)}
+
+          {/* Labels: upright and centered on each wedge */}
           {wedges.map(({i,mid,labelPos})=>{
-            const sec1=i+1;
-            const textFill = sec1===1 ? "#fff" : (sec1%2===0 ? "#fff" : "#000");
-            const isMax = sec1===1;
+            const sec1 = i + 1;
+            const textFill = sec1 === 1 ? "#fff" : (sec1 % 2 === 0 ? "#fff" : "#000");
+            const isMax = sec1 === 1;
             const { x, y } = labelPos;
+            // Flip text if it would be upside down (>90° & <270°), then rotate by wedge angle
+            const textAngle = (mid + 270) % 360;
+            const flip = textAngle > 90 && textAngle < 270;
             return (
-              <g key={`t${i}`} transform={`rotate(${mid+90})`}>
+              <g key={`t${i}`} transform={`rotate(${mid})`}>
                 <text
-                  x={x} y={y}
-                  className={`slice-txt ${isMax?"is-max":""}`}
+                  x={x}
+                  y={y}
+                  transform={flip ? `rotate(180 ${x} ${y})` : ""}
+                  className={`slice-txt ${isMax ? "is-max" : ""}`}
                   textAnchor="middle"
                   dominantBaseline="middle"
                   fill={textFill}
-                  filter={isMax?"url(#textGlow)":undefined}
+                  filter={isMax ? "url(#textGlow)" : undefined}
                 >
                   {slots[i].label}
                 </text>
@@ -392,10 +399,14 @@ export default function App(){
       calcRotRef.current = finalCalc;
 
       const finalVis = ((endVis % 360) + 360) % 360;
-      applyAngle(finalVis); // lock pose and persist
-      try{
+      applyAngle(finalVis); // lock pose
+
+      // ✅ persist both values so next launch starts where we stopped
+      try {
+        localStorage.setItem("rof_visAngle", String(finalVis));
         localStorage.setItem("rof_calcRot", String(finalCalc));
-      }catch{}
+        window.__rofAngle = finalVis;
+      } catch {}
 
       const landedIndex = indexFromRotation(finalCalc);
       const baseWin = slots[landedIndex].amount || 0;
@@ -472,17 +483,17 @@ export default function App(){
                     <div className="tc-name">{t.name}</div>
                     {active && <div className="tc-active">Active</div>}
                   </div>
-                  <ul className="tc-list">
-                    {bullets.map((b,idx)=><li key={idx}>{b}</li>)}
-                  </ul>
-                  <div className="tc-price">Price: {TEST_PRICE_COINS} coin</div>
-                  <button
-                    className="tc-buy"
-                    disabled={active || !canAfford(TEST_PRICE_COINS)}
-                    onClick={()=>buyTier(t.key)}
-                  >
-                    {active ? "Current Plan" : `Buy ${t.name}`}
-                  </button>
+                    <ul className="tc-list">
+                      {bullets.map((b,idx)=><li key={idx}>{b}</li>)}
+                    </ul>
+                    <div className="tc-price">Price: {TEST_PRICE_COINS} coin</div>
+                    <button
+                      className="tc-buy"
+                      disabled={active || !canAfford(TEST_PRICE_COINS)}
+                      onClick={()=>buyTier(t.key)}
+                    >
+                      {active ? "Current Plan" : `Buy ${t.name}`}
+                    </button>
                 </div>
               );
             })}
