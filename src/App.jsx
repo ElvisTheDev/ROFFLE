@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 /* ================= CORE WHEEL CONSTANTS ================= */
 const SEGMENTS_TOTAL = 25;
 const SEG_DEG = 360 / SEGMENTS_TOTAL; // 14.4°
-const START_OFFSET = -90; // used when writing the SVG rotate(cx,cy)
+const START_OFFSET = -90; // for visual pointer-at-top alignment
 
 /* Base (Free) spin settings */
 const BASE_CAP = 20;
@@ -29,9 +29,12 @@ function randChoice(n){ return randInt(0,n-1); }
 function buildSlots(){
   const arr = Array(SEGMENTS_TOTAL).fill(null);
   arr[0] = { amount: 100, label: "100", type: "max" };
+
   const put = (idxs, amt) => idxs.forEach(n => {
     const i = n-1; if(!arr[i]) arr[i] = { amount: amt }; arr[i].label = String(amt);
   });
+
+  // 1 -> 100 (already set)
   put([2,4,6,8,10,12,14,16,18,20,22,24], 1);
   put([3,7,11,15,19,23], 2);
   put([5,9,13], 5);
@@ -76,7 +79,7 @@ const CENTER_LOGO_SRC = "/logo.png";
 const BRAND_LOGO_SRC  = "/rof-lg.png";
 const ROF_ICON_SRC    = "/rof-bn.png";
 
-/* ==================== MEMO WHEEL (never re-render mid-spin) ==================== */
+/* ==================== WHEEL (memo) ==================== */
 const Wheel = React.memo(function Wheel({
   rotorRef, wedges, slots, cx, cy, R_TRIM, TRIM_W, R_FACE,
   pointerBaseY, pointerTipY
@@ -120,8 +123,11 @@ const Wheel = React.memo(function Wheel({
       {/* gold trim */}
       <circle cx={cx} cy={cy} r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
 
-      {/* ROTOR — IMPORTANT: no transform prop here, React won’t overwrite our angle */}
-      <g className="rotor" ref={rotorRef}>
+      {/* ROTOR — IMPORTANT: no SVG transform attribute; we drive CSS style.transform */}
+      <g className="rotor" ref={rotorRef} data-angle="0" />
+
+      {/* draw wedges & labels as children of rotor via <use>? simpler: overlay group */}
+      <g className="rotor-paint" pointerEvents="none">
         {wedges.map(({i,path})=> <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />)}
         {wedges.map(({i,x,y,mid})=>{
           const sec1=i+1;
@@ -164,12 +170,12 @@ export default function App(){
   const spinCap = tier.cap;
   const prizeMult = tier.prizeMult;
 
-  /* Wheel — 100% ref/DOM-driven */
+  /* Wheel — fully DOM-driven */
   const rotorRef = useRef(null);
   const rafRef = useRef(null);
   const animBusyRef = useRef(false);
-  const currentAngleRef = useRef(0);   // visual angle 0..360
-  const calcRotRef = useRef(0);        // math angle
+  const currentAngleRef = useRef(0);   // visual angle 0..360 (before START_OFFSET)
+  const calcRotRef = useRef(0);        // math angle (for payout)
 
   /* Spins/energy */
   const [spinsLeft, setSpinsLeft] = useState(BASE_CAP);
@@ -182,6 +188,18 @@ export default function App(){
   const [tab,setTab] = useState("play");
   const [booting,setBooting] = useState(true);
   const [showPremium, setShowPremium] = useState(false);
+
+  /* Sounds */
+  const clickSfx = useRef(null), loopSfx = useRef(null), winSfx = useRef(null);
+  useEffect(()=>{
+    clickSfx.current = new Audio("/sounds/click.mp3"); clickSfx.current.preload="auto";
+    loopSfx.current  = new Audio("/sounds/roll_loop.mp3"); loopSfx.current.loop=true; loopSfx.current.preload="auto";
+    winSfx.current   = new Audio("/sounds/win.mp3"); winSfx.current.preload="auto";
+  },[]);
+  const clickS = () => { try{ clickSfx.current.currentTime=0; clickSfx.current.play(); }catch{} };
+  const loopS  = () => { try{ loopSfx.current.currentTime=0; loopSfx.current.play(); }catch{} };
+  const stopL  = () => { try{ loopSfx.current.pause(); loopSfx.current.currentTime=0; }catch{} };
+  const winS   = () => { try{ winSfx.current.currentTime=0; winSfx.current.play(); }catch{} };
 
   /* Telegram splash */
   useEffect(()=>{
@@ -198,19 +216,7 @@ export default function App(){
     return ()=>clearTimeout(timer);
   },[]);
 
-  /* Sounds */
-  const clickSfx = useRef(null), loopSfx = useRef(null), winSfx = useRef(null);
-  useEffect(()=>{
-    clickSfx.current = new Audio("/sounds/click.mp3"); clickSfx.current.preload="auto";
-    loopSfx.current  = new Audio("/sounds/roll_loop.mp3"); loopSfx.current.loop=true; loopSfx.current.preload="auto";
-    winSfx.current   = new Audio("/sounds/win.mp3"); winSfx.current.preload="auto";
-  },[]);
-  const clickS = () => { try{ clickSfx.current.currentTime=0; clickSfx.current.play(); }catch{} };
-  const loopS  = () => { try{ loopSfx.current.currentTime=0; loopSfx.current.play(); }catch{} };
-  const stopL  = () => { try{ loopSfx.current.pause(); loopSfx.current.currentTime=0; }catch{} };
-  const winS   = () => { try{ winSfx.current.currentTime=0; winSfx.current.play(); }catch{} };
-
-  /* Background theme follow */
+  /* Theme follow */
   const [theme,setTheme] = useState({ bg:"#000", text:"#e8ecf2" });
   useEffect(()=>{
     if(!tg) return;
@@ -242,47 +248,49 @@ export default function App(){
     });
   },[]);
 
-  /* --- Rotor transform writer --- */
-  const setRotorAngle = (angle) => {
+  /* --- Rotor angle write (CSS transform, no SVG attribute) --- */
+  const applyAngle = (angle) => {
     const node = rotorRef.current;
     if (!node) return;
     const norm = ((angle % 360) + 360) % 360;
     currentAngleRef.current = norm;
-    node.setAttribute("transform", `rotate(${START_OFFSET + norm} ${cx} ${cy})`);
+
+    // write everywhere (CSS style, data, globals)—VERY STICKY
+    node.style.transformOrigin = `${cx}px ${cy}px`;
+    node.style.transform = `rotate(${START_OFFSET + norm}deg)`;
+    node.setAttribute("transform", ""); // ensure SVG attribute is empty and cannot conflict
+    node.dataset.angle = String(norm);
+    try { localStorage.setItem("rof_visAngle", String(norm)); } catch {}
+    try { window.__rofAngle = norm; } catch {}
   };
 
-  /* Restore last pose on mount */
+  /* Restore last pose on mount (multiple fallbacks) */
   useEffect(()=>{
+    let a = null;
+    try {
+      const ls = localStorage.getItem("rof_visAngle");
+      if (ls != null) a = parseFloat(ls);
+    } catch {}
+    if (a == null || Number.isNaN(a)) {
+      try { if (typeof window.__rofAngle === "number") a = window.__rofAngle; } catch {}
+    }
+    if (a == null || Number.isNaN(a)) {
+      const node = rotorRef.current;
+      if (node?.dataset?.angle) {
+        const da = parseFloat(node.dataset.angle);
+        if (!Number.isNaN(da)) a = da;
+      }
+    }
+    if (a == null || Number.isNaN(a)) a = 0;
+    applyAngle(a);
+
+    // restore calc rot for payout alignment
     try{
-      const savedVis = parseFloat(localStorage.getItem("rof_visAngle"));
       const savedCalc = parseFloat(localStorage.getItem("rof_calcRot"));
-      if(!Number.isNaN(savedVis)) setRotorAngle(savedVis);
-      else setRotorAngle(0);
       if(!Number.isNaN(savedCalc)) calcRotRef.current = savedCalc;
-    }catch{ setRotorAngle(0); }
+    }catch{}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
-
-  /* SAFETY WATCHDOG: if anything mutates the rotor transform while not spinning, put it back */
-  useEffect(()=>{
-    const node = rotorRef.current;
-    if(!node || typeof MutationObserver === "undefined") return;
-    const obs = new MutationObserver((muts)=>{
-      for(const m of muts){
-        if(m.type === "attributes" && m.attributeName === "transform"){
-          if(!spinning && !animBusyRef.current){
-            const expected = `rotate(${START_OFFSET + currentAngleRef.current} ${cx} ${cy})`;
-            const actual = node.getAttribute("transform");
-            if(actual !== expected){
-              node.setAttribute("transform", expected);
-            }
-          }
-        }
-      }
-    });
-    obs.observe(node, { attributes:true, attributeFilter:["transform"] });
-    return ()=>obs.disconnect();
-  },[spinning, cx, cy]);
 
   /* Cancel RAF on unmount */
   useEffect(()=>()=>{ if(rafRef.current) cancelAnimationFrame(rafRef.current); },[]);
@@ -296,11 +304,11 @@ export default function App(){
       const t = Math.min(1, (now - start) / durationMs);
       const eased = easeOutCubic(t);
       const angle = from + (to - from) * eased;
-      setRotorAngle(angle);
+      applyAngle(angle);
       if (t < 1) rafRef.current = requestAnimationFrame(step);
       else { animBusyRef.current = false; onDone?.(); }
     };
-    setRotorAngle(from);
+    applyAngle(from);
     rafRef.current = requestAnimationFrame(step);
   };
 
@@ -374,10 +382,9 @@ export default function App(){
       calcRotRef.current = finalCalc;
 
       const finalVis = ((endVis % 360) + 360) % 360;
-      setRotorAngle(finalVis); // lock pose
+      applyAngle(finalVis); // lock pose (CSS), and persist everywhere
       try{
         localStorage.setItem("rof_calcRot", String(finalCalc));
-        localStorage.setItem("rof_visAngle", String(finalVis));
       }catch{}
 
       const landedIndex = indexFromRotation(finalCalc);
