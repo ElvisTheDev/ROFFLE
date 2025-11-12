@@ -10,12 +10,15 @@ const BASE_CAP = 20;
 const BASE_REGEN_MS = 10 * 60 * 1000; // 10 minutes (non-additive!)
 const TICK_MS = 1000;
 
-/* Premium tiers (test pricing = 1 coin) */
+/* Premium tiers — FUNCTIONS stay the same; ONLY NAMES/BADGES CHANGED per your request */
 const TIERS = {
-  free:   { key: "free",    name: "Free",            regenMult: 1, cap: 20,  prizeMult: 1, inviteBonus: 0,   icon: "—", badge: ""       },
-  plus:   { key: "plus",    name: "$ROF Plus",       regenMult: 2, cap: 40,  prizeMult: 2, inviteBonus: 50,  icon: "＋", badge: "PLUS"   },
-  pro:    { key: "pro",     name: "$ROF Pro ⭐️",     regenMult: 3, cap: 60,  prizeMult: 3, inviteBonus: 75,  icon: "⭐", badge: "PRO"    },
-  prem:   { key: "prem",    name: "$ROF Premium 👑", regenMult: 5, cap: 100, prizeMult: 5, inviteBonus: 100, icon: "👑", badge: "PREMIUM"},
+  free: { key: "free", name: "Free", regenMult: 1, cap: 20, prizeMult: 1, inviteBonus: 0, icon: "—", badge: "" },
+  // (old "$ROF Plus" functions) → now display as "$ROF Premium"
+  plus: { key: "plus", name: "$ROF Premium", regenMult: 2, cap: 40, prizeMult: 2, inviteBonus: 50, icon: "＋", badge: "PREMIUM" },
+  // (old "$ROF Pro") → now display as "$ROF Plus ⭐️"
+  pro:  { key: "pro",  name: "$ROF Plus ⭐️", regenMult: 3, cap: 60, prizeMult: 3, inviteBonus: 75, icon: "⭐", badge: "PLUS" },
+  // (old "$ROF Premium") → now display as "$ROF Pro 👑"
+  prem:{ key: "prem", name: "$ROF Pro 👑", regenMult: 5, cap: 100, prizeMult: 5, inviteBonus: 100, icon: "👑", badge: "PRO" },
 };
 const TEST_PRICE_COINS = 1;
 
@@ -253,10 +256,28 @@ export default function App(){
     node.setAttribute("transform", `rotate(${START_OFFSET + angle} ${cx} ${cy})`);
   };
 
+  // Restore last pose from localStorage once on mount
+  useEffect(()=>{
+    try{
+      const savedVis = parseFloat(localStorage.getItem("rof_visAngle"));
+      const savedCalc = parseFloat(localStorage.getItem("rof_calcRot"));
+      if(!Number.isNaN(savedVis)){
+        setVisAngle(savedVis);
+        visAngleRef.current = savedVis;
+        setRotorAngle(savedVis);
+      }
+      if(!Number.isNaN(savedCalc)){
+        setCalcRot(savedCalc);
+      }
+    }catch{}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[]);
+
   // Keep the rotor exactly at the last finished angle; never snap back.
   useEffect(() => {
     visAngleRef.current = visAngle;
     if (!spinning) setRotorAngle(visAngle);
+    try{ localStorage.setItem("rof_visAngle", String(visAngle)); }catch{}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visAngle, spinning]);
 
@@ -318,7 +339,6 @@ export default function App(){
     const id = setInterval(tick, TICK_MS);
     tick();
     return ()=>clearInterval(id);
-    // include regenMs and spinCap so behavior updates when tier changes
   }, [spinsLeft, nextReadyAt, regenMs, spinCap]);
 
   /* ------------------- SPIN HANDLER ------------------- */
@@ -358,12 +378,14 @@ export default function App(){
 
     animateRotation(startVis, endVis, durationMs, () => {
       setCalcRot(finalCalc);
+      try{ localStorage.setItem("rof_calcRot", String(finalCalc)); }catch{}
+
       const finalVis = ((endVis % 360) + 360) % 360;
-      setVisAngle(finalVis);          // keep exact end pose
+      setVisAngle(finalVis); // keep exact end pose (persisted in effect)
 
       const landedIndex = indexFromRotation(finalCalc);
       const baseWin = slots[landedIndex].amount || 0;
-      const won = baseWin * prizeMult;              // <- prize multiplier by tier
+      const won = baseWin * prizeMult;              // prize multiplier by tier
       setBank(b => b + won);
       setToast({ text: `+${won} $ROF`, key: Date.now() });
       setTimeout(() => setToast(null), 1600);
@@ -397,19 +419,20 @@ export default function App(){
 
   const PremiumModal = () => {
     const cards = [
-      { t: TIERS.plus,  bullets: [
+      // Remember: functions unchanged, names swapped
+      { t: TIERS.plus, bullets: [
         "Wheel spins regenerate ×2 faster",
         "Wheel cap increases to 40/40",
         "All wheel prizes ×2",
         "Invite rewards +50% from base",
       ]},
-      { t: TIERS.pro,   bullets: [
+      { t: TIERS.pro, bullets: [
         "Wheel spins regenerate ×3 faster",
         "Wheel cap increases to 60/60",
         "All wheel prizes ×3",
         "Invite rewards +75% from base",
       ]},
-      { t: TIERS.prem,  bullets: [
+      { t: TIERS.prem, bullets: [
         "Wheel spins regenerate ×5 faster",
         "Wheel cap increases to 100/100",
         "All wheel prizes ×5",
@@ -545,6 +568,9 @@ export default function App(){
     </nav>
   );
 
+  /* -------- Status line text -------- */
+  const statusText = tierKey === "free" ? "No Status" : TIERS[tierKey].name;
+
   return (
     <div className="tg-app bg-img" style={{"--bg":theme.bg,"--text":theme.text}}>
       {booting && (
@@ -562,15 +588,18 @@ export default function App(){
           </header>
 
           <section className="balance-block compacted">
-            <div className="bal-line1">
-              Your $ROF Balance:
-              {tier.badge && <span className={`tier-badge inline ${tier.key}`}>{tier.badge}</span>}
-            </div>
+            <div className="bal-line1">Your $ROF Balance:</div>
             <div className="bal-line2">
               <img className="bal-icon" src={ROF_ICON_SRC} alt="$ROF" />
               <span className="bal-value">{bank}</span>
             </div>
-            <button className="btn-premium" onClick={()=>setShowPremium(true)}>👑 Go $ROF Premium</button>
+
+            <div className="premium-row">
+              <button className="btn-premium" onClick={()=>setShowPremium(true)}>👑 Go $ROF Premium</button>
+              <div className={`status-line ${tierKey==="free" ? "free" : "on"}`}>
+                Current status: <b>{statusText}</b>
+              </div>
+            </div>
           </section>
 
           <div className="screen flex-grow">
