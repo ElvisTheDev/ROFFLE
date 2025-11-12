@@ -7,7 +7,7 @@ const START_OFFSET = -90; // show 0° at TOP (under the pointer)
 
 /* Spins/energy settings */
 const SPIN_CAP = 20;
-const REGEN_MS = 10 * 60 * 1000; // 10 minutes
+const REGEN_MS = 10 * 60 * 1000; // 10 minutes (non-additive!)
 const TICK_MS = 1000;
 
 /* RNG helpers */
@@ -16,30 +16,20 @@ function randFloat(){ return randUint32()/0xffffffff; }
 function randInt(min,max){ const span=max-min+1; const limit=Math.floor(0xffffffff/span)*span; let r; do{ r=randUint32(); }while(r>=limit); return min+(r%span); }
 function randChoice(n){ return randInt(0,n-1); }
 
-/* Build payout map (your remapped values) */
+/* Payouts with your remap */
 function buildSlots(){
   const arr = Array(SEGMENTS_TOTAL).fill(null);
-  // Section 1: MAX (now 100)
-  arr[0] = { amount: 100, label: "100", type: "max", tone: "max" };
+  arr[0] = { amount: 100, label: "100", type: "max" }; // MAX (now 100)
 
   const put = (idxs, amt) => idxs.forEach(n => {
-    const i = n-1; if(!arr[i]) arr[i] = { amount: amt, type: "flat" }; arr[i].label = String(amt);
+    const i = n-1; if(!arr[i]) arr[i] = { amount: amt }; arr[i].label = String(amt);
   });
 
-  // old 5  → 1
-  put([2,4,6,8,10,12,14,16,18,20,22,24], 1);
-  // old 10 → 2
-  put([3,7,11,15,19,23], 2);
-  // old 20 → 5
-  put([5,9,13], 5);
-  // old 50 → 20
-  put([17,25], 20);
-  // old 100→ 50
-  put([21], 50);
-
-  for(let sec1=2; sec1<=SEGMENTS_TOTAL; sec1++){
-    const i=sec1-1; if(!arr[i]) continue; arr[i].tone = sec1%2===0 ? "black" : "white";
-  }
+  put([2,4,6,8,10,12,14,16,18,20,22,24], 1);   // old 5 -> 1
+  put([3,7,11,15,19,23], 2);                   // old 10 -> 2
+  put([5,9,13], 5);                            // old 20 -> 5
+  put([17,25], 20);                            // old 50 -> 20
+  put([21], 50);                               // old 100 -> 50
   return arr;
 }
 
@@ -69,16 +59,18 @@ function formatMs(ms){
   return `${m}:${pad(r)}`;
 }
 
+/* Easing */
+function easeOutCubic(t){ return 1 - Math.pow(1 - t, 3); }
+
+/* Telegram */
 const tg = window.Telegram?.WebApp;
 const CENTER_LOGO_SRC = "/logo.png";
 const BRAND_LOGO_SRC  = "/rof-lg.png";
 const ROF_ICON_SRC    = "/rof-bn.png";
 
-/* =========================================================
-   Pure, memoized wheel that never re-renders mid-spin
-   ========================================================= */
+/* ==================== MEMO WHEEL (no re-render mid-spin) ==================== */
 const Wheel = React.memo(function Wheel({
-  rotorRef, wedges, cx, cy, R_TRIM, TRIM_W, R_FACE,
+  rotorRef, wedges, slots, cx, cy, R_TRIM, TRIM_W, R_FACE,
   pointerBaseY, pointerTipY
 }){
   return (
@@ -120,19 +112,28 @@ const Wheel = React.memo(function Wheel({
       {/* gold trim */}
       <circle cx={cx} cy={cy} r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
 
-      {/* ROTOR — controlled imperatively */}
-      <g className="rotor" ref={rotorRef}>
+      {/* ROTOR — we will update its SVG attribute `transform` imperatively via RAF */}
+      <g className="rotor" ref={rotorRef} transform={`rotate(${START_OFFSET} ${cx} ${cy})`}>
         {wedges.map(({i,path})=> <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />)}
-        {wedges.map(({i,x,y,mid,textFill,isMax})=>(
-          <g key={`t${i}`} transform={`rotate(${mid+90} ${x} ${y})`}>
-            <text x={x} y={y} className={`slice-txt ${isMax?"is-max":""}`}
-                  textAnchor="middle" dominantBaseline="middle"
-                  fill={textFill} filter={isMax?"url(#textGlow)":undefined}>
-              {i===0 ? "100" : ( (i+1)%2===0 ? "" : "" )}{/* label set below anyway */}
-              {wedges[i].label}
-            </text>
-          </g>
-        ))}
+        {wedges.map(({i,x,y,mid})=>{
+          const sec1=i+1;
+          const textFill = sec1===1 ? "#fff" : (sec1%2===0 ? "#fff" : "#000");
+          const isMax = sec1===1;
+          return (
+            <g key={`t${i}`} transform={`rotate(${mid+90} ${x} ${y})`}>
+              <text
+                x={x} y={y}
+                className={`slice-txt ${isMax?"is-max":""}`}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill={textFill}
+                filter={isMax?"url(#textGlow)":undefined}
+              >
+                {slots[i].label /* <-- only once; fixes 100100 */}
+              </text>
+            </g>
+          );
+        })}
       </g>
 
       {/* POINTER */}
@@ -146,20 +147,22 @@ const Wheel = React.memo(function Wheel({
 
 export default function App(){
   const slots = useMemo(buildSlots, []);
+  const [bank,setBank] = useState(0);
 
   /* Wheel angles */
   const [calcRot, setCalcRot] = useState(0);     // math angle (can grow)
   const [visAngle, setVisAngle] = useState(0);   // visual angle (0..360)
   const rotorRef = useRef(null);
+  const rafRef = useRef(null);                   // current RAF id
+  const animBusyRef = useRef(false);             // prevent concurrent anim
 
   /* Spins/energy (non-additive cooldown) */
   const [spinsLeft, setSpinsLeft] = useState(SPIN_CAP);
-  const [nextReadyAt, setNextReadyAt] = useState(null); // timestamp (ms) when 1 spin will be credited
+  const [nextReadyAt, setNextReadyAt] = useState(null); // ms timestamp for +1
   const [nextInMs, setNextInMs] = useState(0);
 
   /* UI state */
   const [spinning,setSpinning] = useState(false);
-  const [bank,setBank] = useState(0);
   const [toast,setToast] = useState(null);
   const [tab,setTab] = useState("play");
   const [booting,setBooting] = useState(true);
@@ -171,6 +174,10 @@ export default function App(){
     loopSfx.current  = new Audio("/sounds/roll_loop.mp3"); loopSfx.current.loop=true; loopSfx.current.preload="auto";
     winSfx.current   = new Audio("/sounds/win.mp3"); winSfx.current.preload="auto";
   },[]);
+  const clickS = () => { try{ clickSfx.current.currentTime=0; clickSfx.current.play(); }catch{} };
+  const loopS  = () => { try{ loopSfx.current.currentTime=0; loopSfx.current.play(); }catch{} };
+  const stopL  = () => { try{ loopSfx.current.pause(); loopSfx.current.currentTime=0; }catch{} };
+  const winS   = () => { try{ winSfx.current.currentTime=0; winSfx.current.play(); }catch{} };
 
   /* Telegram boot + 2s splash */
   useEffect(()=>{
@@ -210,40 +217,54 @@ export default function App(){
   const pointerTipY  = cy - trimOuter + 2;
   const pointerBaseY = pointerTipY - 26;
 
-  /* ------------------- WEDGES (static) ------------------- */
+  /* ------------------- WEDGES (static geometry) ------------------- */
   const wedges = useMemo(()=>{
     return Array.from({length:SEGMENTS_TOTAL}, (_,i)=>{
       const start=i*SEG_DEG; const end=start+SEG_DEG; const mid=(start+end)/2;
       const path = wedgePath(cx,cy,R_FACE,start,end);
       const labelR = 360*0.74;
       const {x,y} = polarToCartesian(cx,cy,labelR,mid);
-      const sec1=i+1;
-      const textFill = sec1===1 ? "#fff" : (sec1%2===0 ? "#fff" : "#000");
-      return { i, mid, path, x, y, textFill, isMax: sec1===1, label: buildSlots()[i].label };
+      return { i, mid, path, x, y };
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[]); // static
+  },[]);
 
-  /* ================= IMPERATIVE ROTATION ================= */
-  const applyRotorAngle = (angleDeg, withTransition, durationMs = 0) => {
+  /* ============== ROTATION VIA RAF (SVG attribute transform) ============== */
+  const setRotorAngle = (angle) => {
     const node = rotorRef.current;
     if (!node) return;
-    node.style.transformBox = "view-box";
-    node.style.transformOrigin = "500px 500px";
-    node.style.willChange = "transform";
-    node.style.transition = withTransition
-      ? `transform ${durationMs}ms cubic-bezier(.12,.8,.12,1)`
-      : "none";
-    node.style.transform = `rotate(${START_OFFSET + angleDeg}deg)`;
+    // rotate(angle, cx, cy)
+    node.setAttribute("transform", `rotate(${START_OFFSET + angle} ${cx} ${cy})`);
   };
 
-  // Only set initial pose when Play tab appears and NOT spinning
-  useEffect(() => {
-    if (tab === "play" && !spinning && rotorRef.current) {
-      applyRotorAngle(visAngle, false);
-    }
+  // apply current angle when Play tab shows and not spinning
+  useEffect(()=>{
+    if (tab==="play" && !spinning) setRotorAngle(visAngle);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
+
+  // cancel animation on unmount
+  useEffect(()=>()=>{ if(rafRef.current) cancelAnimationFrame(rafRef.current); },[]);
+
+  const animateRotation = (from, to, durationMs, onDone) => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    animBusyRef.current = true;
+    const start = performance.now();
+    const step = (now) => {
+      const t = Math.min(1, (now - start) / durationMs);
+      const eased = easeOutCubic(t);
+      const angle = from + (to - from) * eased;
+      setRotorAngle(angle);
+      if (t < 1) {
+        rafRef.current = requestAnimationFrame(step);
+      } else {
+        animBusyRef.current = false;
+        onDone?.();
+      }
+    };
+    // ensure starting pose drawn this frame
+    setRotorAngle(from);
+    rafRef.current = requestAnimationFrame(step);
+  };
 
   /* ------------------- NON-ADDITIVE COOLDOWN TICKER ------------------- */
   useEffect(()=>{
@@ -266,12 +287,10 @@ export default function App(){
       setNextInMs(remaining > 0 ? remaining : 0);
 
       if (remaining <= 0) {
-        setSpinsLeft(s => Math.min(SPIN_CAP, s + 1)); // +1 only
-        setNextReadyAt(prev => {
-          const after = (spinsLeft + 1);
-          return after < SPIN_CAP ? now + REGEN_MS : null;
-        });
-        setNextInMs( (spinsLeft + 1) < SPIN_CAP ? REGEN_MS : 0 );
+        setSpinsLeft(s => Math.min(SPIN_CAP, s + 1));
+        const nextCount = Math.min(SPIN_CAP, spinsLeft + 1);
+        setNextReadyAt(nextCount < SPIN_CAP ? now + REGEN_MS : null);
+        setNextInMs(nextCount < SPIN_CAP ? REGEN_MS : 0);
       }
     };
 
@@ -281,73 +300,47 @@ export default function App(){
   }, [spinsLeft, nextReadyAt]);
 
   /* ------------------- SPIN HANDLER ------------------- */
-  const clickS = () => { try{ clickSfx.current.currentTime=0; clickSfx.current.play(); }catch{} };
-  const loopS  = () => { try{ loopSfx.current.currentTime=0; loopSfx.current.play(); }catch{} };
-  const stopL  = () => { try{ loopSfx.current.pause(); loopSfx.current.currentTime=0; }catch{} };
-  const winS   = () => { try{ winSfx.current.currentTime=0; winSfx.current.play(); }catch{} };
-
   const handleSpin = () => {
-    if (spinning || spinsLeft <= 0) return;
+    if (spinning || animBusyRef.current || spinsLeft <= 0) return;
+
     setSpinning(true);
     setToast(null);
 
     // consume one spin
     setSpinsLeft(v => Math.max(0, v - 1));
-    // start cooldown if we were at cap before spending
-    if (spinsLeft === SPIN_CAP) {
+    if (spinsLeft === SPIN_CAP) { // start cooldown only when spending from cap
       const now = Date.now();
       setNextReadyAt(now + REGEN_MS);
       setNextInMs(REGEN_MS);
     }
 
-    const durationMs = randInt(3200, 6200);
-
     clickS(); loopS();
 
     const startVis = visAngle;
 
-    // choose random target
+    // pick target
     const idx = randChoice(SEGMENTS_TOTAL);
     const spins = randInt(5, 12);
     const jitter = (randFloat() * 0.8 - 0.4) * SEG_DEG;
     const center = idx * SEG_DEG + SEG_DEG / 2 + jitter;
     const toZero = (360 - (center % 360) + 360) % 360;
 
-    // final calculation angle (for payouts)
-    const finalCalc = calcRot + spins * 360 + toZero;
-    const endMod = ((finalCalc % 360) + 360) % 360;
-
-    // visual delta from current vis angle
+    const finalCalc = calcRot + spins * 360 + toZero;     // math angle
+    const endMod = ((finalCalc % 360) + 360) % 360;       // where 0..360
     let visualDelta = endMod - startVis;
     if (visualDelta <= 0) visualDelta += 360;
     const extraTurns = spins - 1;
     visualDelta += extraTurns * 360;
-
     const endVis = startVis + visualDelta;
 
-    // --- clean two-step transition (no interference) ---
-    applyRotorAngle(startVis, false);
-    // force layout
-    // eslint-disable-next-line no-unused-expressions
-    rotorRef.current?.getBoundingClientRect();
-    // animate
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        applyRotorAngle(endVis, true, durationMs);
-      });
-    });
+    const durationMs = randInt(3200, 6200);
 
-    // finish on transition end
-    let ended = false;
-    const onEnd = () => {
-      if (ended) return;
-      ended = true;
-      rotorRef.current?.removeEventListener("transitionend", onEnd);
+    animateRotation(startVis, endVis, durationMs, () => {
+      stopL(); winS();
 
       setCalcRot(finalCalc);
-      setVisAngle(((endVis % 360) + 360) % 360);
-
-      stopL(); winS();
+      const finalVis = ((endVis % 360) + 360) % 360;
+      setVisAngle(finalVis);          // keep exact end pose
 
       const landedIndex = indexFromRotation(finalCalc);
       const win = slots[landedIndex];
@@ -356,26 +349,23 @@ export default function App(){
       setTimeout(() => setToast(null), 1600);
 
       setSpinning(false);
-    };
-
-    rotorRef.current?.addEventListener("transitionend", onEnd);
-    // safety fallback
-    setTimeout(onEnd, durationMs + 1500);
+    });
   };
 
-  /* ------------------- SCREENS ------------------- */
+  /* ------------------- UI SCREENS ------------------- */
   const PlayScreen = () => (
     <>
       <div className="wheel-wrap compact-no-scroll">
         <Wheel
           rotorRef={rotorRef}
           wedges={wedges}
+          slots={slots}
           cx={cx} cy={cy}
           R_TRIM={R_TRIM} TRIM_W={TRIM_W}
           R_FACE={R_FACE}
           pointerBaseY={pointerBaseY} pointerTipY={pointerTipY}
         />
-        {/* static center cap (separate DOM so the rotor never re-mounts) */}
+        {/* center stack kept separate so it never spins */}
         <div className="center-stack">
           <div className="center-ring" />
           <div className="center-cap" />
@@ -384,9 +374,8 @@ export default function App(){
         </div>
       </div>
 
-      {/* SPIN button — with non-additive cooldown */}
       <div className="spin-row tight">
-        <button className="btn-spin" onClick={handleSpin} disabled={spinning || spinsLeft<=0}>
+        <button className="btn-spin" onClick={handleSpin} disabled={spinning || animBusyRef.current || spinsLeft<=0}>
           <span className="spin-count">{spinsLeft}/{SPIN_CAP} <span className="muted">Spins left</span></span>
           <span className="spin-cta">{spinning ? "Spinning…" : "Spin"}</span>
           <span className="spin-timer">{spinsLeft<SPIN_CAP ? `Next spin in ${formatMs(nextInMs)}` : "Ready"}</span>
