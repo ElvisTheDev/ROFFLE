@@ -27,6 +27,7 @@ function buildSlots(){
   return arr;
 }
 
+// geometry helpers
 function polarToCartesian(cx,cy,r,aDeg){ const a=(aDeg*Math.PI)/180; return {x:cx+r*Math.cos(a), y:cy+r*Math.sin(a)}; }
 function wedgePath(cx,cy,r,startDeg,endDeg){
   const start = polarToCartesian(cx,cy,r,startDeg);
@@ -42,20 +43,6 @@ function indexFromRotation(rotationDeg){
   return i;
 }
 
-// read current rotation angle (in deg) from the rotor's computed matrix
-function getCurrentAngleDeg(node){
-  if(!node) return 0;
-  const t = getComputedStyle(node).transform;
-  if(!t || t === "none") return 0;
-  // matrix(a,b,c,d,tx,ty) => angle = atan2(b, a)
-  const m = t.match(/matrix\(([-0-9.,\s]+)\)/);
-  if(!m) return 0;
-  const [a, b] = m[1].split(",").map(x => parseFloat(x.trim()));
-  const angle = Math.atan2(b, a) * (180/Math.PI);
-  // Our transform also includes START_OFFSET; subtract it to get the pure rotor angle
-  return ((angle - START_OFFSET) % 360 + 360) % 360;
-}
-
 const tg = window.Telegram?.WebApp;
 const CENTER_LOGO_SRC = "/logo.png";
 const BRAND_LOGO_SRC  = "/rof-lg.png";
@@ -64,12 +51,11 @@ const ROF_ICON_SRC    = "/rof-bn.png";
 export default function App(){
   const slots = useMemo(buildSlots, []);
 
-  // calcRot for math/payouts, rotorRef for the visual transform
+  // Payout math angle (can grow large internally)
   const [calcRot, setCalcRot] = useState(0);
+  // Visual angle we leave the rotor at (0..360) — this is what keeps the last position
+  const [visAngle, setVisAngle] = useState(0);
   const rotorRef = useRef(null);
-
-  // persist latest visual angle between renders/tab changes
-  const lastVisRef = useRef(0);
 
   const [spinning,setSpinning] = useState(false);
   const [spinDurationMs,setSpinDurationMs] = useState(4800);
@@ -114,16 +100,18 @@ export default function App(){
     return ()=>tg.offEvent?.("themeChanged",sync);
   },[]);
 
-  /* ------------------- SPIN GEOMETRY ------------------- */
+  /* ------------------- SIZES ------------------- */
   const cx=500, cy=500;
   const R_FACE = 440 * 0.8;   // 20% smaller
   const R_TRIM = 470 * 0.8;
   const TRIM_W = 40;
 
-  // pointer: place its base just above the gold trim so the tip sits on the rim
-  const pointerBaseY = cy - R_TRIM - 4;   // base line of triangle
-  const pointerTipY  = pointerBaseY + 26; // tip goes down onto the gold rim
+  // Pointer sits on the gold trim (tip touches outer edge of the stroke)
+  const trimOuter = R_TRIM + TRIM_W/2;         // outer radius of gold stroke
+  const pointerTipY  = cy - trimOuter + 2;     // a couple px into the stroke
+  const pointerBaseY = pointerTipY - 26;       // base above the tip (triangle height ~26)
 
+  /* ------------------- WEDGES ------------------- */
   const wedges = useMemo(()=>{
     return Array.from({length:SEGMENTS_TOTAL}, (_,i)=>{
       const start=i*SEG_DEG; const end=start+SEG_DEG; const mid=(start+end)/2;
@@ -132,7 +120,7 @@ export default function App(){
       const {x,y} = polarToCartesian(cx,cy,labelR,mid);
       const sec1=i+1;
       const textFill = sec1===1 ? "#fff" : (sec1%2===0 ? "#fff" : "#000");
-      return { i, start, end, mid, path, x, y, textFill, isMax: sec1===1 };
+      return { i, mid, path, x, y, textFill, isMax: sec1===1 };
     });
   },[]);
 
@@ -149,13 +137,19 @@ export default function App(){
     node.style.transform = `rotate(${START_OFFSET + angleDeg}deg)`;
   };
 
-  // When the Play screen mounts (or we return to it), re-apply the last visual angle (no reset).
+  // Keep the rotor at its last visual angle on mount and whenever the Play tab is shown
   useEffect(() => {
     if (tab === "play" && rotorRef.current) {
-      applyRotorAngle(lastVisRef.current || 0, false);
+      applyRotorAngle(visAngle, false); // no reset/snap
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
+
+  // Also re-apply if visAngle changes (e.g., after a spin finishes)
+  useEffect(() => {
+    if (rotorRef.current) applyRotorAngle(visAngle, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visAngle]);
 
   const play = async r => { try{ if(r?.current){ r.current.currentTime=0; await r.current.play(); } }catch{} };
   const stop = r => { try{ if(r?.current){ r.current.pause(); r.current.currentTime=0; } }catch{} };
@@ -171,8 +165,8 @@ export default function App(){
     await play(clickSfx);
     await play(loopSfx);
 
-    // --- read current visual angle from DOM so we continue from where we left off
-    const currentVis = getCurrentAngleDeg(rotorRef.current); // 0..360 without START_OFFSET
+    // Start from the exact last visual angle (no reset)
+    const startVis = visAngle;
 
     // choose random target
     const idx = randChoice(SEGMENTS_TOTAL);
@@ -185,14 +179,13 @@ export default function App(){
     const finalCalc = calcRot + spins * 360 + toZero;
     const endMod = ((finalCalc % 360) + 360) % 360;
 
-    // visual delta derived from CURRENT VISUAL angle (not calcRot), so it never resets
-    let visualDelta = endMod - currentVis;
+    // visual delta from current vis angle
+    let visualDelta = endMod - startVis;
     if (visualDelta <= 0) visualDelta += 360;
-    const extraTurns = spins - 1; // show multiple spins visually
+    const extraTurns = spins - 1;
     visualDelta += extraTurns * 360;
 
-    const startVis = currentVis;
-    const endVis   = startVis + visualDelta;
+    const endVis = startVis + visualDelta;
 
     // 1) set start with transition OFF, force reflow
     applyRotorAngle(startVis, false);
@@ -200,17 +193,15 @@ export default function App(){
     // 2) animate to end
     requestAnimationFrame(() => applyRotorAngle(endVis, true));
 
-    // finish on transition end (single-shot)
+    // finish on transition end
     let ended = false;
     const onEnd = () => {
       if (ended) return;
       ended = true;
       rotorRef.current?.removeEventListener("transitionend", onEnd);
 
-      setCalcRot(finalCalc); // update payout angle
-
-      // Persist the EXACT visual angle we ended on (mod 360) for next time
-      lastVisRef.current = endVis % 360;
+      setCalcRot(finalCalc);                 // math angle
+      setVisAngle(((endVis % 360) + 360) % 360); // leave wheel exactly where it finished
 
       stop(loopSfx); play(winSfx);
 
@@ -233,15 +224,7 @@ export default function App(){
     <>
       {/* WHEEL */}
       <div className="wheel-wrap small">
-        {/* pointer on gold trim */}
-        <svg className="pointer-svg" viewBox="0 0 1000 120" aria-hidden>
-          <polygon
-            points={`${cx-18},${pointerBaseY} ${cx+18},${pointerBaseY} ${cx},${pointerTipY}`}
-            fill="#e61a1a" stroke="#7a0f0f" strokeWidth="6" strokeLinejoin="round"
-          />
-        </svg>
-
-        {/* wheel */}
+        {/* wheel (pointer lives INSIDE this SVG now) */}
         <svg className="wheel-svg" viewBox="0 0 1000 1000" aria-hidden>
           <defs>
             {Array.from({length:SEGMENTS_TOTAL}, (_,i)=>{
@@ -277,6 +260,7 @@ export default function App(){
             </filter>
           </defs>
 
+          {/* gold trim */}
           <circle cx={cx} cy={cy} r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
 
           {/* ROTOR — controlled imperatively */}
@@ -292,6 +276,12 @@ export default function App(){
               </g>
             ))}
           </g>
+
+          {/* POINTER — lives inside the same SVG so it's always visible & aligned */}
+          <polygon
+            className="pointer"
+            points={`${cx-18},${pointerBaseY} ${cx+18},${pointerBaseY} ${cx},${pointerTipY}`}
+          />
         </svg>
 
         {/* static center cap */}
