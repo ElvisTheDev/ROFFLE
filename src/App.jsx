@@ -3,22 +3,19 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 /* ================= CORE WHEEL CONSTANTS ================= */
 const SEGMENTS_TOTAL = 25;
 const SEG_DEG = 360 / SEGMENTS_TOTAL; // 14.4°
-const START_OFFSET = -90; // we add this to our own angles when writing to SVG
+const START_OFFSET = -90; // used when writing the SVG rotate(cx,cy)
 
 /* Base (Free) spin settings */
 const BASE_CAP = 20;
 const BASE_REGEN_MS = 10 * 60 * 1000; // 10 minutes (non-additive!)
 const TICK_MS = 1000;
 
-/* Premium tiers — FUNCTIONS stay the same; ONLY DISPLAY NAMES/BADGES CHANGED */
+/* Premium tiers — functions unchanged; display names/badges per request */
 const TIERS = {
-  free: { key: "free", name: "Free", regenMult: 1, cap: 20, prizeMult: 1, inviteBonus: 0, icon: "—", badge: "" },
-  // (old "$ROF Plus" functions) → now display as "$ROF Premium⚡️"
-  plus: { key: "plus", name: "$ROF Premium⚡️", regenMult: 2, cap: 40, prizeMult: 2, inviteBonus: 50, icon: "＋", badge: "PREMIUM" },
-  // (old "$ROF Pro") → now display as "$ROF Plus⭐️"
-  pro:  { key: "pro",  name: "$ROF Plus⭐️", regenMult: 3, cap: 60, prizeMult: 3, inviteBonus: 75, icon: "⭐", badge: "PLUS" },
-  // (old "$ROF Premium") → now display as "$ROF Pro👑"
-  prem:{ key: "prem", name: "$ROF Pro👑", regenMult: 5, cap: 100, prizeMult: 5, inviteBonus: 100, icon: "👑", badge: "PRO" },
+  free: { key: "free", name: "Free", regenMult: 1, cap: 20, prizeMult: 1, inviteBonus: 0, badge: "" },
+  plus: { key: "plus", name: "$ROF Premium⚡️", regenMult: 2, cap: 40, prizeMult: 2, inviteBonus: 50, badge: "PREMIUM" },
+  pro:  { key: "pro",  name: "$ROF Plus⭐️",    regenMult: 3, cap: 60, prizeMult: 3, inviteBonus: 75, badge: "PLUS" },
+  prem: { key: "prem", name: "$ROF Pro👑",      regenMult: 5, cap: 100, prizeMult: 5, inviteBonus: 100, badge: "PRO" },
 };
 const TEST_PRICE_COINS = 1;
 
@@ -32,11 +29,9 @@ function randChoice(n){ return randInt(0,n-1); }
 function buildSlots(){
   const arr = Array(SEGMENTS_TOTAL).fill(null);
   arr[0] = { amount: 100, label: "100", type: "max" };
-
   const put = (idxs, amt) => idxs.forEach(n => {
     const i = n-1; if(!arr[i]) arr[i] = { amount: amt }; arr[i].label = String(amt);
   });
-
   put([2,4,6,8,10,12,14,16,18,20,22,24], 1);
   put([3,7,11,15,19,23], 2);
   put([5,9,13], 5);
@@ -125,7 +120,7 @@ const Wheel = React.memo(function Wheel({
       {/* gold trim */}
       <circle cx={cx} cy={cy} r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
 
-      {/* ROTOR — IMPORTANT: no transform prop here, React won't overwrite our angle */}
+      {/* ROTOR — IMPORTANT: no transform prop here, React won’t overwrite our angle */}
       <g className="rotor" ref={rotorRef}>
         {wedges.map(({i,path})=> <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />)}
         {wedges.map(({i,x,y,mid})=>{
@@ -169,12 +164,12 @@ export default function App(){
   const spinCap = tier.cap;
   const prizeMult = tier.prizeMult;
 
-  /* Wheel angles — now 100% ref/DOM-driven to avoid any reset */
+  /* Wheel — 100% ref/DOM-driven */
   const rotorRef = useRef(null);
   const rafRef = useRef(null);
   const animBusyRef = useRef(false);
-  const currentAngleRef = useRef(0);     // visual angle 0..360
-  const calcRotRef = useRef(0);          // math angle for payout index
+  const currentAngleRef = useRef(0);   // visual angle 0..360
+  const calcRotRef = useRef(0);        // math angle
 
   /* Spins/energy */
   const [spinsLeft, setSpinsLeft] = useState(BASE_CAP);
@@ -187,18 +182,6 @@ export default function App(){
   const [tab,setTab] = useState("play");
   const [booting,setBooting] = useState(true);
   const [showPremium, setShowPremium] = useState(false);
-
-  /* SFX */
-  const clickSfx = useRef(null), loopSfx = useRef(null), winSfx = useRef(null);
-  useEffect(()=>{
-    clickSfx.current = new Audio("/sounds/click.mp3"); clickSfx.current.preload="auto";
-    loopSfx.current  = new Audio("/sounds/roll_loop.mp3"); loopSfx.current.loop=true; loopSfx.current.preload="auto";
-    winSfx.current   = new Audio("/sounds/win.mp3"); winSfx.current.preload="auto";
-  },[]);
-  const clickS = () => { try{ clickSfx.current.currentTime=0; clickSfx.current.play(); }catch{} };
-  const loopS  = () => { try{ loopSfx.current.currentTime=0; loopSfx.current.play(); }catch{} };
-  const stopL  = () => { try{ loopSfx.current.pause(); loopSfx.current.currentTime=0; }catch{} };
-  const winS   = () => { try{ winSfx.current.currentTime=0; winSfx.current.play(); }catch{} };
 
   /* Telegram splash */
   useEffect(()=>{
@@ -215,7 +198,19 @@ export default function App(){
     return ()=>clearTimeout(timer);
   },[]);
 
-  /* Theme follow */
+  /* Sounds */
+  const clickSfx = useRef(null), loopSfx = useRef(null), winSfx = useRef(null);
+  useEffect(()=>{
+    clickSfx.current = new Audio("/sounds/click.mp3"); clickSfx.current.preload="auto";
+    loopSfx.current  = new Audio("/sounds/roll_loop.mp3"); loopSfx.current.loop=true; loopSfx.current.preload="auto";
+    winSfx.current   = new Audio("/sounds/win.mp3"); winSfx.current.preload="auto";
+  },[]);
+  const clickS = () => { try{ clickSfx.current.currentTime=0; clickSfx.current.play(); }catch{} };
+  const loopS  = () => { try{ loopSfx.current.currentTime=0; loopSfx.current.play(); }catch{} };
+  const stopL  = () => { try{ loopSfx.current.pause(); loopSfx.current.currentTime=0; }catch{} };
+  const winS   = () => { try{ winSfx.current.currentTime=0; winSfx.current.play(); }catch{} };
+
+  /* Background theme follow */
   const [theme,setTheme] = useState({ bg:"#000", text:"#e8ecf2" });
   useEffect(()=>{
     if(!tg) return;
@@ -232,7 +227,6 @@ export default function App(){
   const R_FACE = 440 * 0.74;
   const R_TRIM = 470 * 0.74;
   const TRIM_W = 40;
-
   const trimOuter = R_TRIM + TRIM_W/2;
   const pointerTipY  = cy - trimOuter + 2;
   const pointerBaseY = pointerTipY - 26;
@@ -248,50 +242,63 @@ export default function App(){
     });
   },[]);
 
-  /* Rotor transform writer (the only place that sets the SVG attribute) */
+  /* --- Rotor transform writer --- */
   const setRotorAngle = (angle) => {
     const node = rotorRef.current;
     if (!node) return;
-    currentAngleRef.current = ((angle % 360) + 360) % 360;
-    node.setAttribute("transform", `rotate(${START_OFFSET + currentAngleRef.current} ${cx} ${cy})`);
+    const norm = ((angle % 360) + 360) % 360;
+    currentAngleRef.current = norm;
+    node.setAttribute("transform", `rotate(${START_OFFSET + norm} ${cx} ${cy})`);
   };
 
-  /* Restore last pose from localStorage once on mount */
+  /* Restore last pose on mount */
   useEffect(()=>{
     try{
       const savedVis = parseFloat(localStorage.getItem("rof_visAngle"));
       const savedCalc = parseFloat(localStorage.getItem("rof_calcRot"));
-      if(!Number.isNaN(savedVis)) {
-        setRotorAngle(savedVis);
-      } else {
-        setRotorAngle(0);
-      }
+      if(!Number.isNaN(savedVis)) setRotorAngle(savedVis);
+      else setRotorAngle(0);
       if(!Number.isNaN(savedCalc)) calcRotRef.current = savedCalc;
-    }catch{
-      setRotorAngle(0);
-    }
+    }catch{ setRotorAngle(0); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
+
+  /* SAFETY WATCHDOG: if anything mutates the rotor transform while not spinning, put it back */
+  useEffect(()=>{
+    const node = rotorRef.current;
+    if(!node || typeof MutationObserver === "undefined") return;
+    const obs = new MutationObserver((muts)=>{
+      for(const m of muts){
+        if(m.type === "attributes" && m.attributeName === "transform"){
+          if(!spinning && !animBusyRef.current){
+            const expected = `rotate(${START_OFFSET + currentAngleRef.current} ${cx} ${cy})`;
+            const actual = node.getAttribute("transform");
+            if(actual !== expected){
+              node.setAttribute("transform", expected);
+            }
+          }
+        }
+      }
+    });
+    obs.observe(node, { attributes:true, attributeFilter:["transform"] });
+    return ()=>obs.disconnect();
+  },[spinning, cx, cy]);
 
   /* Cancel RAF on unmount */
   useEffect(()=>()=>{ if(rafRef.current) cancelAnimationFrame(rafRef.current); },[]);
 
-  /* RAF tween (no state involved) */
+  /* RAF tween (no React state) */
   const animateRotation = (from, to, durationMs, onDone) => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     animBusyRef.current = true;
     const start = performance.now();
     const step = (now) => {
       const t = Math.min(1, (now - start) / durationMs);
-      const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
+      const eased = easeOutCubic(t);
       const angle = from + (to - from) * eased;
       setRotorAngle(angle);
-      if (t < 1) {
-        rafRef.current = requestAnimationFrame(step);
-      } else {
-        animBusyRef.current = false;
-        onDone?.();
-      }
+      if (t < 1) rafRef.current = requestAnimationFrame(step);
+      else { animBusyRef.current = false; onDone?.(); }
     };
     setRotorAngle(from);
     rafRef.current = requestAnimationFrame(step);
@@ -345,10 +352,8 @@ export default function App(){
       setNextInMs(regenMs);
     }
 
-    // always start from exact last visual angle
     const startVis = currentAngleRef.current;
 
-    // pick target
     const idx = randChoice(SEGMENTS_TOTAL);
     const spins = randInt(5, 12);
     const jitter = (randFloat() * 0.8 - 0.4) * SEG_DEG;
@@ -358,7 +363,6 @@ export default function App(){
     const finalCalc = calcRotRef.current + spins * 360 + toZero;
     const endMod = ((finalCalc % 360) + 360) % 360;
 
-    // visual delta so we keep turning forward smoothly from current pose
     let visualDelta = endMod - startVis;
     if (visualDelta <= 0) visualDelta += 360;
     const extraTurns = spins - 1;
@@ -370,7 +374,7 @@ export default function App(){
       calcRotRef.current = finalCalc;
 
       const finalVis = ((endVis % 360) + 360) % 360;
-      setRotorAngle(finalVis);             // lock exactly at final pose
+      setRotorAngle(finalVis); // lock pose
       try{
         localStorage.setItem("rof_calcRot", String(finalCalc));
         localStorage.setItem("rof_visAngle", String(finalVis));
@@ -387,7 +391,7 @@ export default function App(){
     });
   };
 
-  /* Premium modal */
+  /* Premium purchase */
   const canAfford = (price) => bank >= price;
   const buyTier = (key) => {
     if (key === tierKey) return;
@@ -407,6 +411,7 @@ export default function App(){
     setTimeout(() => setToast(null), 1600);
   };
 
+  /* Premium modal */
   const PremiumModal = () => {
     const cards = [
       { t: TIERS.plus, bullets: [
@@ -475,7 +480,7 @@ export default function App(){
     );
   };
 
-  /* Simple placeholder screens */
+  /* Screens */
   const PlayScreen = () => (
     <>
       <div className="wheel-wrap compact-no-scroll">
