@@ -72,6 +72,13 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
   position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:30%; aspect-ratio:1/1; border-radius:50%;
   background: radial-gradient(closest-side, rgba(255,255,255,.08), transparent 70%);
 }
+/* Ensure SVG group rotates from its own center across all browsers */
+.rotor{
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+.wheel-svg{ overflow: visible; } /* avoids clipping while spinning */
 
 /* Slice text */
 .slice-txt{ font: 900 28px/1.1 Inter, system-ui, Segoe UI, Roboto, Arial; paint-order:stroke fill; stroke:rgba(0,0,0,.25); stroke-width:2px; letter-spacing:.2px; }
