@@ -1,15 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 
-/* ================= CORE WHEEL CONSTANTS (unchanged mechanics) ================= */
+/* ================= CORE WHEEL CONSTANTS ================= */
 const SEGMENTS_TOTAL = 25;
 const SEG_DEG = 360 / SEGMENTS_TOTAL; // 14.4°
 const START_OFFSET = -90; // render offset so 0° appears at TOP
 
+// crypto-random helpers
 function randUint32(){ const a=new Uint32Array(1); window.crypto.getRandomValues(a); return a[0]; }
 function randFloat(){ return randUint32()/0xffffffff; }
 function randInt(min,max){ const span=max-min+1; const limit=Math.floor(0xffffffff/span)*span; let r; do{ r=randUint32(); }while(r>=limit); return min+(r%span); }
 function randChoice(n){ return randInt(0,n-1); }
 
+// payouts map
 function buildSlots(){
   const arr = Array(SEGMENTS_TOTAL).fill(null);
   arr[0] = { amount: 1000, label: "1000", type: "max", tone: "max" };
@@ -27,6 +29,7 @@ function buildSlots(){
   return arr;
 }
 
+// geometry helpers
 function polarToCartesian(cx,cy,r,aDeg){ const a=(aDeg*Math.PI)/180; return {x:cx+r*Math.cos(a), y:cy+r*Math.sin(a)}; }
 function wedgePath(cx,cy,r,startDeg,endDeg){
   const start = polarToCartesian(cx,cy,r,startDeg);
@@ -43,25 +46,29 @@ function indexFromRotation(rotationDeg){
 }
 
 const tg = window.Telegram?.WebApp;
-const CENTER_LOGO_SRC = "/logo.png";
-const BRAND_LOGO_SRC  = "/rof-lg.png";
-const ROF_ICON_SRC    = "/rof-bn.png";
+const CENTER_LOGO_SRC = "/logo.png";   // center cap logo (non-rotating)
+const BRAND_LOGO_SRC  = "/rof-lg.png"; // header logo
+const ROF_ICON_SRC    = "/rof-bn.png"; // small coin icon for balance
 
-/* =============================== APP =============================== */
 export default function App(){
   const slots = useMemo(buildSlots, []);
+
+  // visual spin fix: separate angles
+  const [calcRot, setCalcRot] = useState(0); // large angle for math/payouts
+  const [visRot,  setVisRot]  = useState(0); // bounded angle for CSS animation
+  const rotorRef = useRef(null);
+
   const [spinning,setSpinning] = useState(false);
-  const [rotation,setRotation] = useState(0);
   const [spinDurationMs,setSpinDurationMs] = useState(4800);
   const [bank,setBank] = useState(0);
 
-  // toast (fade-out text) after win
+  // toast (fade-out win)
   const [toast,setToast] = useState(null);
 
   // tabs
   const [tab,setTab] = useState("play"); // play | loot | top | earn | tasks
 
-  // splash (2s loading) — we call tg.ready() after splash to mimic Telegram loader
+  // splash (2s loading) — call tg.ready() after splash to mimic Telegram loader
   const [booting,setBooting] = useState(true);
 
   // sounds
@@ -72,18 +79,18 @@ export default function App(){
     winSfx.current   = new Audio("/sounds/win.mp3"); winSfx.current.preload="auto";
   },[]);
 
-  // Telegram boot + splash
+  // Telegram boot + 2s splash
   useEffect(()=>{
     const timer = setTimeout(()=>{
       setBooting(false);
       if(!tg) return;
-      tg.ready();            // signal “loaded” after 2s
+      tg.ready();            // signal “loaded” after delay
       tg.setHeaderColor("#000000");
       tg.setBackgroundColor("#000000");
       tg.expand();
       tg.MainButton.hide();  // we use our own buttons
       tg.MainButton.disable?.();
-    }, 2000); // 2 seconds splash
+    }, 2000);
     return ()=>clearTimeout(timer);
   },[]);
 
@@ -99,44 +106,11 @@ export default function App(){
     return ()=>tg.offEvent?.("themeChanged",sync);
   },[]);
 
-  /* ------------------- SPIN LOGIC ------------------- */
-  function computeRandomFinalRotation(current){
-    const idx = randChoice(SEGMENTS_TOTAL);
-    const spins = randInt(5,12);
-    const jitter = (randFloat()*0.8-0.4)*SEG_DEG;
-    const center = idx*SEG_DEG + SEG_DEG/2 + jitter;
-    const toZero = (360 - (center%360) + 360) % 360;
-    const finalRot = current + spins*360 + toZero;
-    return { finalRot };
-  }
-  const play = async r => { try{ if(r?.current){ r.current.currentTime=0; await r.current.play(); } }catch{} };
-  const stop = r => { try{ if(r?.current){ r.current.pause(); r.current.currentTime=0; } }catch{} };
-
-  const handleSpin = async ()=>{
-    if(spinning) return;
-    setSpinning(true);
-    const dur = randInt(3200,6200);
-    setSpinDurationMs(dur);
-    await play(clickSfx); await play(loopSfx);
-    const { finalRot } = computeRandomFinalRotation(rotation);
-    requestAnimationFrame(()=>setRotation(finalRot));
-    setTimeout(()=>{
-      const landedIndex = indexFromRotation(finalRot);
-      const win = slots[landedIndex];
-      setBank(b=>b+(win.amount||0));
-      stop(loopSfx); play(winSfx);
-      // show toast (fade-out)
-      setToast({ text: `+${win.amount} $ROF`, key: Date.now() });
-      setTimeout(()=>setToast(null), 1600);
-      setSpinning(false);
-    }, dur+120);
-  };
-
-  /* ------------------- WHEEL GEOMETRY ------------------- */
+  /* ------------------- SPIN LOGIC (visual fix) ------------------- */
   const cx=500, cy=500;
   const R_FACE = 440 * 0.8;   // 20% smaller
   const R_TRIM = 470 * 0.8;
-  const TRIM_W = 40;          // keep chunky gold rim
+  const TRIM_W = 40;
   const pointerY = 36;
 
   const wedges = useMemo(()=>{
@@ -150,15 +124,71 @@ export default function App(){
       return { i, start, end, mid, path, x, y, textFill, isMax: sec1===1 };
     });
   },[]);
-  const rotorStyle = {
-  transform: `rotate(${START_OFFSET + rotation}deg)`,
-  /* IMPORTANT: use the SVG viewBox center, not % */
-  transformOrigin: "500px 500px",
-  transformBox: "view-box",
-  transition: `transform ${spinDurationMs}ms cubic-bezier(.12,.8,.12,1)`,
-  willChange: "transform",
-};
 
+  const rotorStyle = {
+    transform: `rotate(${START_OFFSET + visRot}deg)`,
+    transformOrigin: "500px 500px",
+    transformBox: "view-box",
+    transition: `transform ${spinDurationMs}ms cubic-bezier(.12,.8,.12,1)`,
+    willChange: "transform",
+  };
+
+  const play = async r => { try{ if(r?.current){ r.current.currentTime=0; await r.current.play(); } }catch{} };
+  const stop = r => { try{ if(r?.current){ r.current.pause(); r.current.currentTime=0; } }catch{} };
+
+  const handleSpin = async () => {
+    if (spinning) return;
+    setSpinning(true);
+    setToast(null);
+
+    const dur = randInt(3200, 6200);
+    setSpinDurationMs(dur);
+
+    await play(clickSfx);
+    await play(loopSfx);
+
+    // choose random target
+    const idx = randChoice(SEGMENTS_TOTAL);
+    const spins = randInt(5, 12);
+    const jitter = (randFloat() * 0.8 - 0.4) * SEG_DEG;
+    const center = idx * SEG_DEG + SEG_DEG / 2 + jitter;
+    const toZero = (360 - (center % 360) + 360) % 360;
+
+    // final calculation angle (can be large)
+    const finalCalc = calcRot + spins * 360 + toZero;
+
+    // visual delta to animate, while keeping visual angle bounded
+    const calcBaseMod = ((calcRot % 360) + 360) % 360;
+    const endMod = ((finalCalc % 360) + 360) % 360;
+    let visualDelta = endMod - calcBaseMod;
+    if (visualDelta <= 0) visualDelta += 360; // ensure forward
+    const extraTurns = spins - 1;             // show multiple rotations
+    visualDelta += extraTurns * 360;
+
+    const startVis = calcBaseMod;
+    const endVis   = startVis + visualDelta;
+
+    // set start frame and force reflow to guarantee transition
+    setVisRot(startVis);
+    rotorRef.current?.getBoundingClientRect();
+    requestAnimationFrame(() => setVisRot(endVis));
+
+    // after animation
+    setTimeout(() => {
+      setCalcRot(finalCalc); // advance calc angle
+      setVisRot(endMod);     // clamp visual for next spin
+
+      const landedIndex = indexFromRotation(finalCalc);
+      const win = slots[landedIndex];
+      setBank(b => b + (win.amount || 0));
+      stop(loopSfx); play(winSfx);
+
+      setToast({ text: `+${win.amount} $ROF`, key: Date.now() });
+      setTimeout(() => setToast(null), 1600);
+
+      setSpinning(false);
+    }, dur + 80);
+  };
 
   /* ------------------- SCREENS ------------------- */
   const PlayScreen = () => (
@@ -210,7 +240,7 @@ export default function App(){
           </defs>
 
           <circle cx={cx} cy={cy} r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
-          <g className="rotor" style={rotorStyle}>
+          <g className="rotor" ref={rotorRef} style={rotorStyle}>
             {wedges.map(({i,path})=> <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />)}
             {wedges.map(({i,x,y,mid,textFill,isMax})=>(
               <g key={`t${i}`} transform={`rotate(${mid+90} ${x} ${y})`}>
@@ -247,8 +277,8 @@ export default function App(){
   );
 
   const TopScreen = () => {
-    const [tab,setTab] = useState("holders"); // holders | invites
-    // demo data placeholders
+    const [subtab,setSubtab] = useState("holders"); // holders | invites
+    // demo data (replace with backend later)
     const sample = Array.from({length:8}, (_,i)=>({
       id:i+1,
       name:`User ${i+1}`,
@@ -256,15 +286,15 @@ export default function App(){
       balance: Math.floor(Math.random()*5000)+200,
       invites: Math.floor(Math.random()*200)
     }));
-    const list = tab==="holders"
+    const list = subtab==="holders"
       ? [...sample].sort((a,b)=>b.balance-a.balance)
       : [...sample].sort((a,b)=>b.invites-a.invites);
 
     return (
       <div className="leaderboard">
         <div className="lb-tabs">
-          <button className={`lb-tab ${tab==="holders"?"on":""}`} onClick={()=>setTab("holders")}>$ROF holders</button>
-          <button className={`lb-tab ${tab==="invites"?"on":""}`} onClick={()=>setTab("invites")}>$ROF invites</button>
+          <button className={`lb-tab ${subtab==="holders"?"on":""}`} onClick={()=>setSubtab("holders")}>$ROF holders</button>
+          <button className={`lb-tab ${subtab==="invites"?"on":""}`} onClick={()=>setSubtab("invites")}>$ROF invites</button>
         </div>
         <div className="lb-list">
           {list.map((u,idx)=>(
@@ -273,7 +303,7 @@ export default function App(){
               <img className="avatar" src={u.pic} alt="" />
               <div className="who">
                 <div className="name">{u.name}</div>
-                <div className="sub">{tab==="holders" ? `$ROF ${u.balance.toLocaleString()}` : `${u.invites} invited`}</div>
+                <div className="sub">{subtab==="holders" ? `$ROF ${u.balance.toLocaleString()}` : `${u.invites} invited`}</div>
               </div>
             </div>
           ))}
@@ -285,7 +315,7 @@ export default function App(){
   const EarnScreen  = () => <div className="placeholder-card">🚀 Earn coming soon…</div>;
   const TasksScreen = () => <div className="placeholder-card">🕹 Tasks coming soon…</div>;
 
-  /* ------------------- HEADER + BALANCE ------------------- */
+  /* ------------------- HEADER + BALANCE + NAV ------------------- */
   return (
     <div className="tg-app bg-img" style={{"--bg":theme.bg,"--text":theme.text}}>
       {/* Splash (2s) */}
@@ -324,10 +354,10 @@ export default function App(){
 
           {/* Bottom menu (navigation only) */}
           <nav className="bottom-menu">
-            <button className={`menu-item ${tab==="play"?"on":""}`} onClick={()=>setTab("play")}>🎮 Play</button>
-            <button className={`menu-item ${tab==="loot"?"on":""}`} onClick={()=>setTab("loot")}>🎁 Loot</button>
-            <button className={`menu-item ${tab==="top" ?"on":""}`} onClick={()=>setTab("top")}>🏆 Top100</button>
-            <button className={`menu-item ${tab==="earn"?"on":""}`} onClick={()=>setTab("earn")}>🚀 Earn</button>
+            <button className={`menu-item ${tab==="play"?"on":""}`}  onClick={()=>setTab("play")}>🎮 Play</button>
+            <button className={`menu-item ${tab==="loot"?"on":""}`}  onClick={()=>setTab("loot")}>🎁 Loot</button>
+            <button className={`menu-item ${tab==="top" ?"on":""}`}  onClick={()=>setTab("top")}>🏆 Top100</button>
+            <button className={`menu-item ${tab==="earn"?"on":""}`}  onClick={()=>setTab("earn")}>🚀 Earn</button>
             <button className={`menu-item ${tab==="tasks"?"on":""}`} onClick={()=>setTab("tasks")}>🕹 Tasks</button>
           </nav>
         </div>
