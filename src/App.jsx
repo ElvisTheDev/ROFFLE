@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 /* ================= CORE WHEEL CONSTANTS ================= */
 const SEGMENTS_TOTAL = 25;
 const SEG_DEG = 360 / SEGMENTS_TOTAL; // 14.4°
-const START_OFFSET = -90; // keep pointer at top
+const START_OFFSET = -90; // pointer at top
 
 /* Base (Free) spin settings */
 const BASE_CAP = 20;
@@ -48,13 +48,14 @@ function buildSlots(){
   return arr;
 }
 
-/* Geometry */
-function polarToCartesian(cx,cy,r,aDeg){ const a=(aDeg*Math.PI)/180; return {x:cx+r*Math.cos(a), y:cy+r*Math.sin(a)}; }
-function wedgePath(cx,cy,r,startDeg,endDeg){
-  const start = polarToCartesian(cx,cy,r,startDeg);
-  const end   = polarToCartesian(cx,cy,r,endDeg);
+/* Geometry helpers (LOCAL around (0,0)) */
+function polarToCartesianLocal(r,aDeg){ const a=(aDeg*Math.PI)/180; return {x:r*Math.cos(a), y:r*Math.sin(a)}; }
+function wedgePathLocal(r,startDeg,endDeg){
+  const start = polarToCartesianLocal(r,startDeg);
+  const end   = polarToCartesianLocal(r,endDeg);
   const large = endDeg-startDeg>180?1:0;
-  return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${large} 1 ${end.x} ${end.y} Z`;
+  // Origin at (0,0)
+  return `M 0 0 L ${start.x} ${start.y} A ${r} ${r} 0 ${large} 1 ${end.x} ${end.y} Z`;
 }
 function indexFromRotation(rotationDeg){
   // rotationDeg is our math angle (0 at pointer-top), growing clockwise
@@ -84,7 +85,7 @@ const CENTER_LOGO_SRC = "/logo.png";
 const BRAND_LOGO_SRC  = "/rof-lg.png";
 const ROF_ICON_SRC    = "/rof-bn.png";
 
-/* ==================== WHEEL (SVG) ==================== */
+/* ==================== WHEEL (SVG centered via translate) ==================== */
 const Wheel = React.memo(function Wheel({
   rotorRef, wedges, slots, cx, cy, R_TRIM, TRIM_W, R_FACE,
   pointerBaseY, pointerTipY
@@ -125,34 +126,38 @@ const Wheel = React.memo(function Wheel({
         </filter>
       </defs>
 
-      {/* Gold outer trim */}
-      <circle cx={cx} cy={cy} r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
+      {/* Everything for the wheel lives in a centered root group */}
+      <g className="wheel-root" transform={`translate(${cx} ${cy})`}>
+        {/* Gold outer trim (centered circle) */}
+        <circle r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
 
-      {/* ROTOR: everything inside rotates via SVG attribute transform */}
-      <g className="rotor" ref={rotorRef} data-angle="0">
-        {wedges.map(({i,path})=> <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />)}
-        {wedges.map(({i,x,y,mid})=>{
-          const sec1=i+1;
-          const textFill = sec1===1 ? "#fff" : (sec1%2===0 ? "#fff" : "#000");
-          const isMax = sec1===1;
-          return (
-            <g key={`t${i}`} transform={`rotate(${mid+90} ${x} ${y})`}>
-              <text
-                x={x} y={y}
-                className={`slice-txt ${isMax?"is-max":""}`}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fill={textFill}
-                filter={isMax?"url(#textGlow)":undefined}
-              >
-                {slots[i].label}
-              </text>
-            </g>
-          );
-        })}
+        {/* ROTOR: rotate around 0,0 — the true center */}
+        <g className="rotor" ref={rotorRef} data-angle="0" transform={`rotate(${START_OFFSET})`}>
+          {wedges.map(({i,path})=> <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />)}
+          {wedges.map(({i,mid,labelPos})=>{
+            const sec1=i+1;
+            const textFill = sec1===1 ? "#fff" : (sec1%2===0 ? "#fff" : "#000");
+            const isMax = sec1===1;
+            const { x, y } = labelPos;
+            return (
+              <g key={`t${i}`} transform={`rotate(${mid+90})`}>
+                <text
+                  x={x} y={y}
+                  className={`slice-txt ${isMax?"is-max":""}`}
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fill={textFill}
+                  filter={isMax?"url(#textGlow)":undefined}
+                >
+                  {slots[i].label}
+                </text>
+              </g>
+            );
+          })}
+        </g>
       </g>
 
-      {/* Static pointer */}
+      {/* Static pointer in global coordinates */}
       <polygon
         className="pointer"
         points={`${cx-18},${pointerBaseY} ${cx+18},${pointerBaseY} ${cx},${pointerTipY}`}
@@ -176,7 +181,7 @@ export default function App(){
   const rotorRef = useRef(null);
   const rafRef = useRef(null);
   const animBusyRef = useRef(false);
-  const currentAngleRef = useRef(0);   // visual angle (0..360)
+  const currentAngleRef = useRef(0);   // visual angle (0..360) relative to rotor (no START_OFFSET)
   const calcRotRef = useRef(0);        // math angle for payout
 
   /* Spins/energy */
@@ -207,6 +212,7 @@ export default function App(){
   useEffect(()=>{
     const timer = setTimeout(()=>{
       setBooting(false);
+      const tg = window.Telegram?.WebApp;
       if(!tg) return;
       tg.ready();
       tg.setHeaderColor("#000000");
@@ -221,6 +227,7 @@ export default function App(){
   /* Theme follow */
   const [theme,setTheme] = useState({ bg:"#000", text:"#e8ecf2" });
   useEffect(()=>{
+    const tg = window.Telegram?.WebApp;
     if(!tg) return;
     const sync = ()=> {
       const p=tg.themeParams||{};
@@ -230,7 +237,7 @@ export default function App(){
     return ()=>tg.offEvent?.("themeChanged",sync);
   },[]);
 
-  /* Sizes */
+  /* Sizes (viewBox center is 500,500, but wheel itself is local (0,0) and translated) */
   const cx=500, cy=500;
   const R_FACE = 440 * 0.74;
   const R_TRIM = 470 * 0.74;
@@ -239,18 +246,18 @@ export default function App(){
   const pointerTipY  = cy - trimOuter + 2;
   const pointerBaseY = pointerTipY - 26;
 
-  /* Wedges (static) */
+  /* Wedges (static) — LOCAL coords around (0,0) */
   const wedges = useMemo(()=>{
     return Array.from({length:SEGMENTS_TOTAL}, (_,i)=>{
       const start=i*SEG_DEG; const end=start+SEG_DEG; const mid=(start+end)/2;
-      const path = wedgePath(cx,cy,R_FACE,start,end);
+      const path = wedgePathLocal(R_FACE, start, end);
       const labelR = 360*0.74;
-      const {x,y} = polarToCartesian(cx,cy,labelR,mid);
-      return { i, mid, path, x, y };
+      const labelPos = polarToCartesianLocal(labelR, mid);
+      return { i, mid, path, labelPos };
     });
   },[]);
 
-  /* --- Rotor angle write (SVG transform attribute with explicit center) --- */
+  /* --- Rotor angle write (SVG transform attribute around 0,0) --- */
   const applyAngle = (angle) => {
     const node = rotorRef.current;
     if (!node) return;
@@ -258,17 +265,15 @@ export default function App(){
     const norm = ((angle % 360) + 360) % 360;
     currentAngleRef.current = norm;
 
-    // ✅ Use SVG transform attribute with explicit pivot (cx, cy). No CSS transforms.
-    node.removeAttribute("style"); // strip any leftover CSS transform props if any
-    node.setAttribute("transform", `rotate(${START_OFFSET + norm} ${cx} ${cy})`);
+    node.removeAttribute("style"); // no CSS transforms
+    node.setAttribute("transform", `rotate(${START_OFFSET + norm})`);
 
-    // Persist last pose
     node.dataset.angle = String(norm);
     try { localStorage.setItem("rof_visAngle", String(norm)); } catch {}
     try { window.__rofAngle = norm; } catch {}
   };
 
-  /* Restore last pose on mount (belt & braces fallbacks) */
+  /* Restore last pose on mount */
   useEffect(()=>{
     let a = null;
     try {
@@ -288,7 +293,6 @@ export default function App(){
     if (a == null || Number.isNaN(a)) a = 0;
     applyAngle(a);
 
-    // restore calc rot for payout alignment
     try{
       const savedCalc = parseFloat(localStorage.getItem("rof_calcRot"));
       if(!Number.isNaN(savedCalc)) calcRotRef.current = savedCalc;
@@ -308,7 +312,7 @@ export default function App(){
       const t = Math.min(1, (now - start) / durationMs);
       const eased = easeOutCubic(t);
       const angle = from + (to - from) * eased;
-      applyAngle(angle); // ✅ write SVG transform each frame
+      applyAngle(angle); // write SVG transform each frame
       if (t < 1) rafRef.current = requestAnimationFrame(step);
       else { animBusyRef.current = false; onDone?.(); }
     };
@@ -366,7 +370,7 @@ export default function App(){
 
     const startVis = currentAngleRef.current;
 
-    // random target index & motion profile
+    // random target index & motion
     const idx = randChoice(SEGMENTS_TOTAL);
     const spins = randInt(5, 12);
     const jitter = (randFloat() * 0.8 - 0.4) * SEG_DEG;
