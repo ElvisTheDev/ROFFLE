@@ -10,15 +10,15 @@ const BASE_CAP = 20;
 const BASE_REGEN_MS = 10 * 60 * 1000; // 10 minutes (non-additive!)
 const TICK_MS = 1000;
 
-/* Premium tiers — FUNCTIONS stay the same; ONLY NAMES/BADGES CHANGED */
+/* Premium tiers — FUNCTIONS stay the same; ONLY DISPLAY NAMES/BADGES CHANGED */
 const TIERS = {
   free: { key: "free", name: "Free", regenMult: 1, cap: 20, prizeMult: 1, inviteBonus: 0, icon: "—", badge: "" },
-  // (old "$ROF Plus" functions) → now display as "$ROF Premium"
-  plus: { key: "plus", name: "$ROF Premium", regenMult: 2, cap: 40, prizeMult: 2, inviteBonus: 50, icon: "＋", badge: "PREMIUM" },
-  // (old "$ROF Pro") → now display as "$ROF Plus ⭐️"
-  pro:  { key: "pro",  name: "$ROF Plus ⭐️", regenMult: 3, cap: 60, prizeMult: 3, inviteBonus: 75, icon: "⭐", badge: "PLUS" },
-  // (old "$ROF Premium") → now display as "$ROF Pro 👑"
-  prem:{ key: "prem", name: "$ROF Pro 👑", regenMult: 5, cap: 100, prizeMult: 5, inviteBonus: 100, icon: "👑", badge: "PRO" },
+  // (old "$ROF Plus" functions) → now display as "$ROF Premium⚡️"
+  plus: { key: "plus", name: "$ROF Premium⚡️", regenMult: 2, cap: 40, prizeMult: 2, inviteBonus: 50, icon: "＋", badge: "PREMIUM" },
+  // (old "$ROF Pro") → now display as "$ROF Plus⭐️"
+  pro:  { key: "pro",  name: "$ROF Plus⭐️", regenMult: 3, cap: 60, prizeMult: 3, inviteBonus: 75, icon: "⭐", badge: "PLUS" },
+  // (old "$ROF Premium") → now display as "$ROF Pro👑"
+  prem:{ key: "prem", name: "$ROF Pro👑", regenMult: 5, cap: 100, prizeMult: 5, inviteBonus: 100, icon: "👑", badge: "PRO" },
 };
 const TEST_PRICE_COINS = 1;
 
@@ -169,13 +169,12 @@ export default function App(){
   const spinCap = tier.cap;
   const prizeMult = tier.prizeMult;
 
-  /* Wheel angles */
-  const [calcRot, setCalcRot] = useState(0);     // math angle (grows)
-  const [visAngle, setVisAngle] = useState(0);   // visual angle (0..360)
-  const visAngleRef = useRef(0);                 // exact last pose
+  /* Wheel angles — now 100% ref/DOM-driven to avoid any reset */
   const rotorRef = useRef(null);
   const rafRef = useRef(null);
   const animBusyRef = useRef(false);
+  const currentAngleRef = useRef(0);     // visual angle 0..360
+  const calcRotRef = useRef(0);          // math angle for payout index
 
   /* Spins/energy */
   const [spinsLeft, setSpinsLeft] = useState(BASE_CAP);
@@ -253,7 +252,8 @@ export default function App(){
   const setRotorAngle = (angle) => {
     const node = rotorRef.current;
     if (!node) return;
-    node.setAttribute("transform", `rotate(${START_OFFSET + angle} ${cx} ${cy})`);
+    currentAngleRef.current = ((angle % 360) + 360) % 360;
+    node.setAttribute("transform", `rotate(${START_OFFSET + currentAngleRef.current} ${cx} ${cy})`);
   };
 
   /* Restore last pose from localStorage once on mount */
@@ -261,42 +261,29 @@ export default function App(){
     try{
       const savedVis = parseFloat(localStorage.getItem("rof_visAngle"));
       const savedCalc = parseFloat(localStorage.getItem("rof_calcRot"));
-      if(!Number.isNaN(savedVis)){
-        setVisAngle(savedVis);
-        visAngleRef.current = savedVis;
+      if(!Number.isNaN(savedVis)) {
         setRotorAngle(savedVis);
       } else {
-        // ensure we initialize the DOM to angle 0 (no snap later)
         setRotorAngle(0);
       }
-      if(!Number.isNaN(savedCalc)){
-        setCalcRot(savedCalc);
-      }
+      if(!Number.isNaN(savedCalc)) calcRotRef.current = savedCalc;
     }catch{
       setRotorAngle(0);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
 
-  /* Keep rotor at the last finished angle; never snap back */
-  useEffect(() => {
-    visAngleRef.current = visAngle;
-    if (!spinning) setRotorAngle(visAngle);
-    try{ localStorage.setItem("rof_visAngle", String(visAngle)); }catch{}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visAngle, spinning]);
-
   /* Cancel RAF on unmount */
   useEffect(()=>()=>{ if(rafRef.current) cancelAnimationFrame(rafRef.current); },[]);
 
-  /* RAF tween */
+  /* RAF tween (no state involved) */
   const animateRotation = (from, to, durationMs, onDone) => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     animBusyRef.current = true;
     const start = performance.now();
     const step = (now) => {
       const t = Math.min(1, (now - start) / durationMs);
-      const eased = easeOutCubic(t);
+      const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
       const angle = from + (to - from) * eased;
       setRotorAngle(angle);
       if (t < 1) {
@@ -358,8 +345,8 @@ export default function App(){
       setNextInMs(regenMs);
     }
 
-    // always start from exact last angle
-    const startVis = visAngleRef.current;
+    // always start from exact last visual angle
+    const startVis = currentAngleRef.current;
 
     // pick target
     const idx = randChoice(SEGMENTS_TOTAL);
@@ -368,8 +355,10 @@ export default function App(){
     const center = idx * SEG_DEG + SEG_DEG / 2 + jitter;
     const toZero = (360 - (center % 360) + 360) % 360;
 
-    const finalCalc = calcRot + spins * 360 + toZero;
+    const finalCalc = calcRotRef.current + spins * 360 + toZero;
     const endMod = ((finalCalc % 360) + 360) % 360;
+
+    // visual delta so we keep turning forward smoothly from current pose
     let visualDelta = endMod - startVis;
     if (visualDelta <= 0) visualDelta += 360;
     const extraTurns = spins - 1;
@@ -378,11 +367,14 @@ export default function App(){
     const durationMs = randInt(3200, 6200);
 
     animateRotation(startVis, endVis, durationMs, () => {
-      setCalcRot(finalCalc);
-      try{ localStorage.setItem("rof_calcRot", String(finalCalc)); }catch{}
+      calcRotRef.current = finalCalc;
 
       const finalVis = ((endVis % 360) + 360) % 360;
-      setVisAngle(finalVis);        // store + re-apply (and persist)
+      setRotorAngle(finalVis);             // lock exactly at final pose
+      try{
+        localStorage.setItem("rof_calcRot", String(finalCalc));
+        localStorage.setItem("rof_visAngle", String(finalVis));
+      }catch{}
 
       const landedIndex = indexFromRotation(finalCalc);
       const baseWin = slots[landedIndex].amount || 0;
@@ -483,7 +475,7 @@ export default function App(){
     );
   };
 
-  /* Screens */
+  /* Simple placeholder screens */
   const PlayScreen = () => (
     <>
       <div className="wheel-wrap compact-no-scroll">
@@ -533,9 +525,9 @@ export default function App(){
   /* Badge mapping for current status */
   const statusBadge = (() => {
     if (tierKey === "free") return { cls: "free", text: "No status" };
-    if (tierKey === "plus") return { cls: "premium", text: "$ROF Premium" };
-    if (tierKey === "pro")  return { cls: "plus",    text: "$ROF Plus ⭐️" };
-    return { cls: "pro", text: "$ROF Pro 👑" }; // prem
+    if (tierKey === "plus") return { cls: "premium", text: "Premium⚡️" };
+    if (tierKey === "pro")  return { cls: "plus",    text: "Plus⭐️" };
+    return { cls: "pro", text: "Pro👑" }; // prem
   })();
 
   return (
