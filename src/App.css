@@ -55,7 +55,7 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
 .wheel-wrap{ position:relative; width:100%; aspect-ratio:1/1; margin:6px auto 12px; max-width:520px; }
 .wheel-wrap.small{ max-width: 416px; } /* ~20% smaller area */
 .pointer-svg{ position:absolute; left:0; right:0; margin:0 auto; top:0; width:100%; height:auto; z-index:40; pointer-events:none; }
-.wheel-svg{ position:absolute; inset:0; z-index:10; pointer-events:none; filter: drop-shadow(0 30px 70px rgba(0,0,0,.55)); }
+.wheel-svg{ position:absolute; inset:0; z-index:10; pointer-events:none; filter: drop-shadow(0 30px 70px rgba(0,0,0,.55)); overflow:visible; }
 .center-stack{ position:absolute; inset:0; display:block; z-index:50; pointer-events:none; }
 .center-ring{
   position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:38%; aspect-ratio:1/1; border-radius:50%;
@@ -72,18 +72,17 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
   position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:30%; aspect-ratio:1/1; border-radius:50%;
   background: radial-gradient(closest-side, rgba(255,255,255,.08), transparent 70%);
 }
-/* Make the <g class="rotor"> rotate around the SVG viewBox center on all browsers */
-.rotor{
-  transform-box: view-box;    /* not fill-box */
-  transform-origin: 500px 500px;
-  will-change: transform;
-}
-
-/* Avoid clipping during rotation */
-.wheel-svg{ overflow: visible; }
 
 /* Slice text */
 .slice-txt{ font: 900 28px/1.1 Inter, system-ui, Segoe UI, Roboto, Arial; paint-order:stroke fill; stroke:rgba(0,0,0,.25); stroke-width:2px; letter-spacing:.2px; }
+.slice-txt.is-max{ filter:url(#textGlow); }
+
+/* Ensure SVG group rotates from the SVG viewBox center */
+.rotor{
+  transform-box: view-box;
+  transform-origin: 500px 500px;
+  will-change: transform;
+}
 
 /* SPIN button (10px below wheel) */
 .spin-row{ display:flex; justify-content:center; margin-top:10px; margin-bottom:6px; }
