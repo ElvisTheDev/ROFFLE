@@ -62,17 +62,17 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
   background:linear-gradient(180deg, rgba(160,170,178,.18), rgba(140,148,156,.10));
   border-color:rgba(180,188,196,.35);
 }
-.badge.premium{ /* green */
+.badge.premium{ /* green for Premium⚡️ */
   color:#19FB9B;
   background:linear-gradient(180deg, rgba(25,251,155,.16), rgba(25,251,155,.08));
   border-color:rgba(25,251,155,.35);
 }
-.badge.plus{ /* blue/purple */
+.badge.plus{ /* blue for Plus⭐️ */
   color:#b9a8ff;
   background:linear-gradient(180deg, rgba(124,92,255,.18), rgba(124,92,255,.10));
   border-color:rgba(124,92,255,.4);
 }
-.badge.pro{ /* gold */
+.badge.pro{ /* gold for Pro👑 */
   color:#ffd86a;
   background:linear-gradient(180deg, rgba(250,214,120,.20), rgba(250,214,120,.10));
   border-color:rgba(250,214,120,.45);
