@@ -152,10 +152,13 @@ export default function App(){
   },[]);
   const rotorStyle = {
   transform: `rotate(${START_OFFSET + rotation}deg)`,
-  transformOrigin: "50% 50%",
-  transformBox: "fill-box",
-  transition: `transform ${spinDurationMs}ms cubic-bezier(.12,.8,.12,1)`
+  /* IMPORTANT: use the SVG viewBox center, not % */
+  transformOrigin: "500px 500px",
+  transformBox: "view-box",
+  transition: `transform ${spinDurationMs}ms cubic-bezier(.12,.8,.12,1)`,
+  willChange: "transform",
 };
+
 
   /* ------------------- SCREENS ------------------- */
   const PlayScreen = () => (
