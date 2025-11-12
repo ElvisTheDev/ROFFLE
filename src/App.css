@@ -101,7 +101,7 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
   will-change: transform;
 }
 
-/* SPIN button (with non-additive cooldown info) */
+/* SPIN button */
 .spin-row{ display:flex; justify-content:center; margin-top:2px; margin-bottom:0; }
 .spin-row.tight{ margin-top:0; }
 .btn-spin{
