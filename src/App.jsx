@@ -3,14 +3,14 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 /* ================= CORE WHEEL CONSTANTS ================= */
 const SEGMENTS_TOTAL = 25;
 const SEG_DEG = 360 / SEGMENTS_TOTAL; // 14.4°
-const START_OFFSET = -90; // show 0° at TOP (under the pointer)
+const START_OFFSET = -90; // we add this to our own angles when writing to SVG
 
 /* Base (Free) spin settings */
 const BASE_CAP = 20;
 const BASE_REGEN_MS = 10 * 60 * 1000; // 10 minutes (non-additive!)
 const TICK_MS = 1000;
 
-/* Premium tiers — FUNCTIONS stay the same; ONLY NAMES/BADGES CHANGED per your request */
+/* Premium tiers — FUNCTIONS stay the same; ONLY NAMES/BADGES CHANGED */
 const TIERS = {
   free: { key: "free", name: "Free", regenMult: 1, cap: 20, prizeMult: 1, inviteBonus: 0, icon: "—", badge: "" },
   // (old "$ROF Plus" functions) → now display as "$ROF Premium"
@@ -28,24 +28,24 @@ function randFloat(){ return randUint32()/0xffffffff; }
 function randInt(min,max){ const span=max-min+1; const limit=Math.floor(0xffffffff/span)*span; let r; do{ r=randUint32(); }while(r>=limit); return min+(r%span); }
 function randChoice(n){ return randInt(0,n-1); }
 
-/* Payouts with your current remap */
+/* Payouts (your remap) */
 function buildSlots(){
   const arr = Array(SEGMENTS_TOTAL).fill(null);
-  arr[0] = { amount: 100, label: "100", type: "max" }; // MAX (now 100)
+  arr[0] = { amount: 100, label: "100", type: "max" };
 
   const put = (idxs, amt) => idxs.forEach(n => {
     const i = n-1; if(!arr[i]) arr[i] = { amount: amt }; arr[i].label = String(amt);
   });
 
-  put([2,4,6,8,10,12,14,16,18,20,22,24], 1);   // old 5 -> 1
-  put([3,7,11,15,19,23], 2);                   // old 10 -> 2
-  put([5,9,13], 5);                            // old 20 -> 5
-  put([17,25], 20);                            // old 50 -> 20
-  put([21], 50);                               // old 100 -> 50
+  put([2,4,6,8,10,12,14,16,18,20,22,24], 1);
+  put([3,7,11,15,19,23], 2);
+  put([5,9,13], 5);
+  put([17,25], 20);
+  put([21], 50);
   return arr;
 }
 
-/* Geometry helpers */
+/* Geometry */
 function polarToCartesian(cx,cy,r,aDeg){ const a=(aDeg*Math.PI)/180; return {x:cx+r*Math.cos(a), y:cy+r*Math.sin(a)}; }
 function wedgePath(cx,cy,r,startDeg,endDeg){
   const start = polarToCartesian(cx,cy,r,startDeg);
@@ -54,14 +54,15 @@ function wedgePath(cx,cy,r,startDeg,endDeg){
   return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${large} 1 ${end.x} ${end.y} Z`;
 }
 function indexFromRotation(rotationDeg){
+  // rotationDeg is our math angle (0 at pointer-top), growing clockwise
   const rot = ((rotationDeg%360)+360)%360;
-  const target = (360-rot)%360;
+  const target = (360-rot)%360; // top-aligned
   let i = Math.round((target-SEG_DEG/2)/SEG_DEG);
   i = ((i%SEGMENTS_TOTAL)+SEGMENTS_TOTAL)%SEGMENTS_TOTAL;
   return i;
 }
 
-/* Time formatting */
+/* Time */
 function formatMs(ms){
   if (!ms || ms <= 0) return "Ready";
   const s = Math.ceil(ms/1000);
@@ -74,13 +75,13 @@ function formatMs(ms){
 /* Easing */
 function easeOutCubic(t){ return 1 - Math.pow(1 - t, 3); }
 
-/* Telegram */
+/* Telegram + assets */
 const tg = window.Telegram?.WebApp;
 const CENTER_LOGO_SRC = "/logo.png";
 const BRAND_LOGO_SRC  = "/rof-lg.png";
 const ROF_ICON_SRC    = "/rof-bn.png";
 
-/* ==================== MEMO WHEEL (no re-render mid-spin) ==================== */
+/* ==================== MEMO WHEEL (never re-render mid-spin) ==================== */
 const Wheel = React.memo(function Wheel({
   rotorRef, wedges, slots, cx, cy, R_TRIM, TRIM_W, R_FACE,
   pointerBaseY, pointerTipY
@@ -124,8 +125,8 @@ const Wheel = React.memo(function Wheel({
       {/* gold trim */}
       <circle cx={cx} cy={cy} r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
 
-      {/* ROTOR — we update its SVG attribute `transform` via RAF */}
-      <g className="rotor" ref={rotorRef} transform={`rotate(${START_OFFSET} ${cx} ${cy})`}>
+      {/* ROTOR — IMPORTANT: no transform prop here, React won't overwrite our angle */}
+      <g className="rotor" ref={rotorRef}>
         {wedges.map(({i,path})=> <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />)}
         {wedges.map(({i,x,y,mid})=>{
           const sec1=i+1;
@@ -155,7 +156,7 @@ const Wheel = React.memo(function Wheel({
       />
     </svg>
   );
-}, () => true); // never re-render
+}, () => true);
 
 export default function App(){
   const slots = useMemo(buildSlots, []);
@@ -169,16 +170,16 @@ export default function App(){
   const prizeMult = tier.prizeMult;
 
   /* Wheel angles */
-  const [calcRot, setCalcRot] = useState(0);     // math angle (can grow)
+  const [calcRot, setCalcRot] = useState(0);     // math angle (grows)
   const [visAngle, setVisAngle] = useState(0);   // visual angle (0..360)
-  const visAngleRef = useRef(0);                 // keep exact last pose
+  const visAngleRef = useRef(0);                 // exact last pose
   const rotorRef = useRef(null);
-  const rafRef = useRef(null);                   // current RAF id
-  const animBusyRef = useRef(false);             // prevent concurrent anim
+  const rafRef = useRef(null);
+  const animBusyRef = useRef(false);
 
-  /* Spins/energy (non-additive cooldown) */
+  /* Spins/energy */
   const [spinsLeft, setSpinsLeft] = useState(BASE_CAP);
-  const [nextReadyAt, setNextReadyAt] = useState(null); // ms timestamp for +1
+  const [nextReadyAt, setNextReadyAt] = useState(null);
   const [nextInMs, setNextInMs] = useState(0);
 
   /* UI state */
@@ -188,7 +189,7 @@ export default function App(){
   const [booting,setBooting] = useState(true);
   const [showPremium, setShowPremium] = useState(false);
 
-  /* Sounds */
+  /* SFX */
   const clickSfx = useRef(null), loopSfx = useRef(null), winSfx = useRef(null);
   useEffect(()=>{
     clickSfx.current = new Audio("/sounds/click.mp3"); clickSfx.current.preload="auto";
@@ -200,7 +201,7 @@ export default function App(){
   const stopL  = () => { try{ loopSfx.current.pause(); loopSfx.current.currentTime=0; }catch{} };
   const winS   = () => { try{ winSfx.current.currentTime=0; winSfx.current.play(); }catch{} };
 
-  /* Telegram boot + 2s splash */
+  /* Telegram splash */
   useEffect(()=>{
     const timer = setTimeout(()=>{
       setBooting(false);
@@ -227,18 +228,17 @@ export default function App(){
     return ()=>tg.offEvent?.("themeChanged",sync);
   },[]);
 
-  /* ------------------- SIZES ------------------- */
+  /* Sizes */
   const cx=500, cy=500;
   const R_FACE = 440 * 0.74;
   const R_TRIM = 470 * 0.74;
   const TRIM_W = 40;
 
-  /* Pointer — tip on gold trim outer edge */
   const trimOuter = R_TRIM + TRIM_W/2;
   const pointerTipY  = cy - trimOuter + 2;
   const pointerBaseY = pointerTipY - 26;
 
-  /* ------------------- WEDGES (static geometry) ------------------- */
+  /* Wedges (static) */
   const wedges = useMemo(()=>{
     return Array.from({length:SEGMENTS_TOTAL}, (_,i)=>{
       const start=i*SEG_DEG; const end=start+SEG_DEG; const mid=(start+end)/2;
@@ -249,14 +249,14 @@ export default function App(){
     });
   },[]);
 
-  /* ============== ROTATION VIA RAF (SVG attribute transform) ============== */
+  /* Rotor transform writer (the only place that sets the SVG attribute) */
   const setRotorAngle = (angle) => {
     const node = rotorRef.current;
     if (!node) return;
     node.setAttribute("transform", `rotate(${START_OFFSET + angle} ${cx} ${cy})`);
   };
 
-  // Restore last pose from localStorage once on mount
+  /* Restore last pose from localStorage once on mount */
   useEffect(()=>{
     try{
       const savedVis = parseFloat(localStorage.getItem("rof_visAngle"));
@@ -265,15 +265,20 @@ export default function App(){
         setVisAngle(savedVis);
         visAngleRef.current = savedVis;
         setRotorAngle(savedVis);
+      } else {
+        // ensure we initialize the DOM to angle 0 (no snap later)
+        setRotorAngle(0);
       }
       if(!Number.isNaN(savedCalc)){
         setCalcRot(savedCalc);
       }
-    }catch{}
+    }catch{
+      setRotorAngle(0);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
 
-  // Keep the rotor exactly at the last finished angle; never snap back.
+  /* Keep rotor at the last finished angle; never snap back */
   useEffect(() => {
     visAngleRef.current = visAngle;
     if (!spinning) setRotorAngle(visAngle);
@@ -281,9 +286,10 @@ export default function App(){
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visAngle, spinning]);
 
-  // cancel animation on unmount
+  /* Cancel RAF on unmount */
   useEffect(()=>()=>{ if(rafRef.current) cancelAnimationFrame(rafRef.current); },[]);
 
+  /* RAF tween */
   const animateRotation = (from, to, durationMs, onDone) => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     animBusyRef.current = true;
@@ -300,17 +306,14 @@ export default function App(){
         onDone?.();
       }
     };
-    // ensure starting pose drawn this frame
     setRotorAngle(from);
     rafRef.current = requestAnimationFrame(step);
   };
 
-  /* ------------------- NON-ADDITIVE COOLDOWN TICKER ------------------- */
+  /* Non-additive cooldown ticker */
   useEffect(()=>{
     const tick = () => {
       const now = Date.now();
-
-      // Clamp spinsLeft to current tier cap if the cap changed
       setSpinsLeft(s => Math.min(s, spinCap));
 
       if (spinsLeft >= spinCap) {
@@ -329,7 +332,7 @@ export default function App(){
       setNextInMs(remaining > 0 ? remaining : 0);
 
       if (remaining <= 0) {
-        setSpinsLeft(s => Math.min(spinCap, s + 1)); // +1 only (non-additive)
+        setSpinsLeft(s => Math.min(spinCap, s + 1));
         const nextCount = Math.min(spinCap, spinsLeft + 1);
         setNextReadyAt(nextCount < spinCap ? now + regenMs : null);
         setNextInMs(nextCount < spinCap ? regenMs : 0);
@@ -341,22 +344,21 @@ export default function App(){
     return ()=>clearInterval(id);
   }, [spinsLeft, nextReadyAt, regenMs, spinCap]);
 
-  /* ------------------- SPIN HANDLER ------------------- */
+  /* Spin */
   const handleSpin = () => {
     if (spinning || animBusyRef.current || spinsLeft <= 0) return;
 
     setSpinning(true);
     setToast(null);
 
-    // consume one spin
     setSpinsLeft(v => Math.max(0, v - 1));
-    // start cooldown only when spending from full cap
     if (spinsLeft === spinCap) {
       const now = Date.now();
       setNextReadyAt(now + regenMs);
       setNextInMs(regenMs);
     }
 
+    // always start from exact last angle
     const startVis = visAngleRef.current;
 
     // pick target
@@ -366,14 +368,13 @@ export default function App(){
     const center = idx * SEG_DEG + SEG_DEG / 2 + jitter;
     const toZero = (360 - (center % 360) + 360) % 360;
 
-    const finalCalc = calcRot + spins * 360 + toZero;     // math angle
-    const endMod = ((finalCalc % 360) + 360) % 360;       // where 0..360
+    const finalCalc = calcRot + spins * 360 + toZero;
+    const endMod = ((finalCalc % 360) + 360) % 360;
     let visualDelta = endMod - startVis;
     if (visualDelta <= 0) visualDelta += 360;
     const extraTurns = spins - 1;
     visualDelta += extraTurns * 360;
     const endVis = startVis + visualDelta;
-
     const durationMs = randInt(3200, 6200);
 
     animateRotation(startVis, endVis, durationMs, () => {
@@ -381,11 +382,11 @@ export default function App(){
       try{ localStorage.setItem("rof_calcRot", String(finalCalc)); }catch{}
 
       const finalVis = ((endVis % 360) + 360) % 360;
-      setVisAngle(finalVis); // keep exact end pose (persisted in effect)
+      setVisAngle(finalVis);        // store + re-apply (and persist)
 
       const landedIndex = indexFromRotation(finalCalc);
       const baseWin = slots[landedIndex].amount || 0;
-      const won = baseWin * prizeMult;              // prize multiplier by tier
+      const won = baseWin * prizeMult;
       setBank(b => b + won);
       setToast({ text: `+${won} $ROF`, key: Date.now() });
       setTimeout(() => setToast(null), 1600);
@@ -394,11 +395,10 @@ export default function App(){
     });
   };
 
-  /* ------------------- PREMIUM MODAL ------------------- */
+  /* Premium modal */
   const canAfford = (price) => bank >= price;
-
   const buyTier = (key) => {
-    if (key === tierKey) return; // already active
+    if (key === tierKey) return;
     if (!canAfford(TEST_PRICE_COINS)) {
       setToast({ text: "Not enough coins for Premium", key: Date.now() });
       setTimeout(() => setToast(null), 1600);
@@ -407,9 +407,7 @@ export default function App(){
     const t = TIERS[key];
     setBank(b => b - TEST_PRICE_COINS);
     setTierKey(key);
-    // adjust spins to new cap without granting freebies
     setSpinsLeft(s => Math.min(s, t.cap));
-    // restart cooldown appropriately if we were at cap
     const now = Date.now();
     setNextReadyAt(spinsLeft >= t.cap ? null : (nextReadyAt ?? now + Math.floor(BASE_REGEN_MS / t.regenMult)));
     setShowPremium(false);
@@ -419,7 +417,6 @@ export default function App(){
 
   const PremiumModal = () => {
     const cards = [
-      // Remember: functions unchanged, names swapped
       { t: TIERS.plus, bullets: [
         "Wheel spins regenerate ×2 faster",
         "Wheel cap increases to 40/40",
@@ -446,7 +443,6 @@ export default function App(){
             <div className="mh-left">
               <span className="mh-icon">👑</span>
               <div className="mh-title">Go $ROF Premium</div>
-              {tier.badge && <span className={`tier-badge ${tier.key}`}>{tier.badge}</span>}
             </div>
             <button className="modal-close" onClick={()=>setShowPremium(false)}>✕</button>
           </div>
@@ -487,7 +483,7 @@ export default function App(){
     );
   };
 
-  /* ------------------- UI SCREENS ------------------- */
+  /* Screens */
   const PlayScreen = () => (
     <>
       <div className="wheel-wrap compact-no-scroll">
@@ -500,7 +496,7 @@ export default function App(){
           R_FACE={R_FACE}
           pointerBaseY={pointerBaseY} pointerTipY={pointerTipY}
         />
-        {/* center stack kept separate so it never spins */}
+        {/* center stack (doesn't spin) */}
         <div className="center-stack">
           <div className="center-ring" />
           <div className="center-cap" />
@@ -520,43 +516,9 @@ export default function App(){
   );
 
   const LootScreen = () => <div className="placeholder-card">🎁 Lootboxes coming soon…</div>;
-
-  const TopScreen = () => {
-    const [subtab,setSubtab] = useState("holders");
-    const sample = Array.from({length:8}, (_,i)=>({
-      id:i+1,
-      name:`User ${i+1}`,
-      pic:`https://api.dicebear.com/7.x/thumbs/svg?seed=${i+1}`,
-      balance: Math.floor(Math.random()*5000)+200,
-      invites: Math.floor(Math.random()*200)
-    }));
-    const list = subtab==="holders"
-      ? [...sample].sort((a,b)=>b.balance-a.balance)
-      : [...sample].sort((a,b)=>b.invites-a.invites);
-    return (
-      <div className="leaderboard">
-        <div className="lb-tabs">
-          <button className={`lb-tab ${subtab==="holders"?"on":""}`} onClick={()=>setSubtab("holders")}>$ROF holders</button>
-          <button className={`lb-tab ${subtab==="invites"?"on":""}`} onClick={()=>setSubtab("invites")}>$ROF invites</button>
-        </div>
-        <div className="lb-list">
-          {list.map((u,idx)=>(
-            <div className="lb-row" key={u.id}>
-              <div className="rank">{idx+1}</div>
-              <img className="avatar" src={u.pic} alt="" />
-              <div className="who">
-                <div className="name">{u.name}</div>
-                <div className="sub">{subtab==="holders" ? `$ROF ${u.balance.toLocaleString()}` : `${u.invites} invited`}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  const EarnScreen  = () => <div className="placeholder-card">🚀 Earn coming soon…</div>;
-  const TasksScreen = () => <div className="placeholder-card">🕹 Tasks coming soon…</div>;
+  const TopScreen  = () => <div className="placeholder-card">🏆 Leaderboards coming soon…</div>;
+  const EarnScreen = () => <div className="placeholder-card">🚀 Earn coming soon…</div>;
+  const TasksScreen= () => <div className="placeholder-card">🕹 Tasks coming soon…</div>;
 
   const Menu = () => (
     <nav className="bottom-menu">
@@ -568,8 +530,13 @@ export default function App(){
     </nav>
   );
 
-  /* -------- Status line text -------- */
-  const statusText = tierKey === "free" ? "No Status" : TIERS[tierKey].name;
+  /* Badge mapping for current status */
+  const statusBadge = (() => {
+    if (tierKey === "free") return { cls: "free", text: "No status" };
+    if (tierKey === "plus") return { cls: "premium", text: "$ROF Premium" };
+    if (tierKey === "pro")  return { cls: "plus",    text: "$ROF Plus ⭐️" };
+    return { cls: "pro", text: "$ROF Pro 👑" }; // prem
+  })();
 
   return (
     <div className="tg-app bg-img" style={{"--bg":theme.bg,"--text":theme.text}}>
@@ -596,9 +563,7 @@ export default function App(){
 
             <div className="premium-row">
               <button className="btn-premium" onClick={()=>setShowPremium(true)}>👑 Go $ROF Premium</button>
-              <div className={`status-line ${tierKey==="free" ? "free" : "on"}`}>
-                Current status: <b>{statusText}</b>
-              </div>
+              <span className={`badge ${statusBadge.cls}`}>{statusBadge.text}</span>
             </div>
           </section>
 
