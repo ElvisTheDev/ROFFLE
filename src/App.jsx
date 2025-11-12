@@ -28,21 +28,15 @@ function randChoice(n){ return randInt(0,n-1); }
 /* Payouts (base values before multiplier) */
 function buildSlots(){
   const arr = Array(SEGMENTS_TOTAL).fill(null);
-  // Section 1 -> 100 (MAX)
   arr[0] = { amount: 100, label: "100", type: "max" };
 
   const put = (idxs, amt) => idxs.forEach(n => {
     const i = n-1; if(!arr[i]) arr[i] = { amount: amt }; arr[i].label = String(amt);
   });
-  // Even positions (2,4,...,24) -> 1
   put([2,4,6,8,10,12,14,16,18,20,22,24], 1);
-  // 3,7,11,15,19,23 -> 2
   put([3,7,11,15,19,23], 2);
-  // 5,9,13 -> 5
   put([5,9,13], 5);
-  // 17,25 -> 20
   put([17,25], 20);
-  // 21 -> 50
   put([21], 50);
 
   return arr;
@@ -78,12 +72,11 @@ function formatMs(ms){
 function easeOutCubic(t){ return 1 - Math.pow(1 - t, 3); }
 
 /* Assets */
-const CENTER_LOGO_SRC = "/logo.png";  // your R logo
+const CENTER_LOGO_SRC = "/logo.png";
 const BRAND_LOGO_SRC  = "/rof-lg.png";
 const ROF_ICON_SRC    = "/rof-bn.png";
 
 /* ==================== WHEEL ==================== */
-const SEGMENTS_TOTAL_CONST = SEGMENTS_TOTAL;
 const Wheel = React.memo(function Wheel({
   angleState, wedges, slots, cx, cy, R_TRIM, TRIM_W, R_FACE,
   pointerBaseY, pointerTipY, prizeMult
@@ -91,7 +84,7 @@ const Wheel = React.memo(function Wheel({
   return (
     <svg className="wheel-svg" viewBox="0 0 1000 1000" aria-hidden>
       <defs>
-        {Array.from({length:SEGMENTS_TOTAL_CONST}, (_,i)=>{
+        {Array.from({length:SEGMENTS_TOTAL}, (_,i)=>{
           const sec1=i+1; const id=`grad-${i}`;
           if(sec1===1) return (
             <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
@@ -124,21 +117,12 @@ const Wheel = React.memo(function Wheel({
         </filter>
       </defs>
 
-      {/* Centered root */}
       <g className="wheel-root" transform={`translate(${cx} ${cy})`}>
-        {/* Gold trim */}
         <circle r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
 
-        {/* Rotor controlled by angleState */}
-        <g
-          className="rotor"
-          data-angle={angleState}
-          transform={`rotate(${START_OFFSET + angleState})`}
-        >
-          {/* Wedges */}
+        <g className="rotor" data-angle={angleState} transform={`rotate(${START_OFFSET + angleState})`}>
           {wedges.map(({i,path})=> <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />)}
 
-          {/* Labels (multiplied by prizeMult) — clean stroke only */}
           {wedges.map(({i,mid,labelR})=>{
             const sec1 = i + 1;
             const isMax = sec1 === 1;
@@ -169,7 +153,6 @@ const Wheel = React.memo(function Wheel({
         </g>
       </g>
 
-      {/* Pointer */}
       <polygon
         className="pointer"
         points={`${cx-18},${pointerBaseY} ${cx+18},${pointerBaseY} ${cx},${pointerTipY}`}
@@ -178,37 +161,30 @@ const Wheel = React.memo(function Wheel({
   );
 }, () => true);
 
-/* ======= DEMO LEADERBOARD DATA (replace with backend later) ======= */
+/* ======= DEMO LEADERBOARD DATA (placeholder) ======= */
 const DEMO_NAMES = [
-  "Elena", "Maks", "Aya", "Ramon", "Nina", "Leo", "Kira", "Owen", "Aria", "Felix",
-  "Mila", "Dmitri", "Zane", "Ivy", "Noah", "Luna", "Kai", "Nova", "Sasha", "Mira",
-  "Ewan", "Iris", "Lars", "Yuri", "Vera", "Maddox", "Soren", "Lia", "Indie", "Theo",
-  "Kato", "Aiko", "Rhea", "Ezra", "Ares", "Rumi", "Moss", "Tess", "Zoe", "Rex",
-  "Juno", "Oleg", "Gwen", "Finn", "Jax", "Maya", "Oksana", "Toma", "Hugo", "Eli"
+  "Elena","Maks","Aya","Ramon","Nina","Leo","Kira","Owen","Aria","Felix",
+  "Mila","Dmitri","Zane","Ivy","Noah","Luna","Kai","Nova","Sasha","Mira",
+  "Ewan","Iris","Lars","Yuri","Vera","Maddox","Soren","Lia","Indie","Theo",
+  "Kato","Aiko","Rhea","Ezra","Ares","Rumi","Moss","Tess","Zoe","Rex",
+  "Juno","Oleg","Gwen","Finn","Jax","Maya","Oksana","Toma","Hugo","Eli"
 ];
 const DEMO_AVATAR_COLORS = ["#6c5ce7","#00cec9","#fd79a8","#ffeaa7","#55efc4","#a29bfe","#fab1a0","#81ecec","#ffd6a5"];
 
-function initials(name){
-  return name.split(" ").map(s=>s[0]).join("").slice(0,2).toUpperCase();
-}
+function initials(name){ return name.split(" ").map(s=>s[0]).join("").slice(0,2).toUpperCase(); }
 function randomItem(a){ return a[Math.floor(Math.random()*a.length)] }
 
 function buildDemoUsers(count=150){
   const tiers = ["free","plus","pro","prem"];
-  const arr = [];
-  for(let i=0;i<count;i++){
-    const name = randomItem(DEMO_NAMES) + " " + (Math.random()<.5 ? randomItem(DEMO_NAMES) : "");
-    arr.push({
-      id: `u${i}`,
-      name: name.trim() || `User ${i+1}`,
-      username: `@user${1000+i}`,
-      photo: "",
+  return Array.from({length:count}, (_,i)=>{
+    const name = (randomItem(DEMO_NAMES) + " " + (Math.random()<.5 ? randomItem(DEMO_NAMES) : "")).trim();
+    return {
+      id:`u${i}`, name: name || `User ${i+1}`, username:`@user${1000+i}`, photo:"",
       balance: Math.floor(Math.random()*50000),
       invites: Math.floor(Math.random()*1200),
       tier: randomItem(tiers)
-    });
-  }
-  return arr;
+    };
+  });
 }
 const DEMO_USERS = buildDemoUsers();
 
@@ -219,16 +195,9 @@ function TierBadge({tierKey}){
   return <span className="badge pro">Pro👑</span>;
 }
 
-/* ======= Top100 (clickable tabs, 60s refresh) ======= */
 const TopScreen = React.memo(function TopScreen({ lbTab, tick, onTabChange }) {
-  const topPlayers = useMemo(()=>{
-    return [...DEMO_USERS].sort((a,b)=> b.balance - a.balance).slice(0,100);
-  },[tick]);
-
-  const topInvites = useMemo(()=>{
-    return [...DEMO_USERS].sort((a,b)=> b.invites - a.invites).slice(0,100);
-  },[tick]);
-
+  const topPlayers = useMemo(()=>[...DEMO_USERS].sort((a,b)=> b.balance - a.balance).slice(0,100),[tick]);
+  const topInvites = useMemo(()=>[...DEMO_USERS].sort((a,b)=> b.invites - a.invites).slice(0,100),[tick]);
   const active = lbTab === "players" ? topPlayers : topInvites;
 
   function Avatar({name, photo}){
@@ -271,18 +240,8 @@ const TopScreen = React.memo(function TopScreen({ lbTab, tick, onTabChange }) {
   return (
     <div className="lb-wrap">
       <div className="lb-tabs">
-        <button
-          className={`lb-tab ${lbTab==="players"?"on":""}`}
-          onClick={()=>onTabChange("players")}
-        >
-          Top Players
-        </button>
-        <button
-          className={`lb-tab ${lbTab==="invites"?"on":""}`}
-          onClick={()=>onTabChange("invites")}
-        >
-          Top Invites
-        </button>
+        <button className={`lb-tab ${lbTab==="players"?"on":""}`} onClick={()=>onTabChange("players")}>Top Players</button>
+        <button className={`lb-tab ${lbTab==="invites"?"on":""}`} onClick={()=>onTabChange("invites")}>Top Invites</button>
       </div>
 
       <div className="lb-head">
@@ -300,47 +259,41 @@ const TopScreen = React.memo(function TopScreen({ lbTab, tick, onTabChange }) {
   );
 });
 
+/* ==================== APP ==================== */
 export default function App(){
   const slots = useMemo(buildSlots, []);
   const [bank,setBank] = useState(0);
 
-  /* Premium state */
   const [tierKey, setTierKey] = useState("free"); // "free" | "plus" | "pro" | "prem"
   const tier = TIERS[tierKey];
   const regenMs = Math.floor(BASE_REGEN_MS / tier.regenMult);
   const spinCap = tier.cap;
   const prizeMult = tier.prizeMult;
 
-  /* Wheel (controlled angle) */
   const rafRef = useRef(null);
   const animBusyRef = useRef(false);
   const [angleState, setAngleState] = useState(0);
   const currentAngleRef = useRef(0);
   const calcRotRef = useRef(0);
 
-  /* Spins/energy */
   const [spinsLeft, setSpinsLeft] = useState(BASE_CAP);
   const [nextReadyAt, setNextReadyAt] = useState(null);
   const [nextInMs, setNextInMs] = useState(0);
 
-  /* UI */
   const [spinning,setSpinning] = useState(false);
   const [toast,setToast] = useState(null);
   const [tab,setTab] = useState("play");
   const [booting,setBooting] = useState(true);
   const [showPremium, setShowPremium] = useState(false);
 
-  /* Leaderboard UI */
   const [lbTab, setLbTab] = useState("players");
-  const [lbTick, setLbTick] = useState(0); // refresh once per minute
+  const [lbTick, setLbTick] = useState(0);
 
-  // 60-second refresh for leaderboard only
   useEffect(()=>{
     const id = setInterval(()=> setLbTick(t => t+1), 60000);
     return ()=> clearInterval(id);
   },[]);
 
-  /* Splash */
   useEffect(()=>{
     const timer = setTimeout(()=>{
       setBooting(false);
@@ -356,7 +309,6 @@ export default function App(){
     return ()=>clearTimeout(timer);
   },[]);
 
-  /* Theme follow */
   const [theme,setTheme] = useState({ bg:"#000", text:"#e8ecf2" });
   useEffect(()=>{
     const tg = window.Telegram?.WebApp;
@@ -369,7 +321,6 @@ export default function App(){
     return ()=>tg.offEvent?.("themeChanged",sync);
   },[]);
 
-  /* Sizes */
   const cx=500, cy=500;
   const R_FACE = 440 * 0.74;
   const R_TRIM = 470 * 0.74;
@@ -379,7 +330,6 @@ export default function App(){
   const pointerTipY  = cy - trimOuter + 2;
   const pointerBaseY = pointerTipY - 26;
 
-  /* Wedges */
   const wedges = useMemo(()=>{
     return Array.from({length:SEGMENTS_TOTAL}, (_,i)=>{
       const start=i*SEG_DEG; const end=start+SEG_DEG; const mid=(start+end)/2;
@@ -388,7 +338,6 @@ export default function App(){
     });
   },[]);
 
-  /* Angle setters */
   const applyAngle = (angle) => {
     const norm = ((angle % 360) + 360) % 360;
     currentAngleRef.current = norm;
@@ -397,7 +346,6 @@ export default function App(){
     try { window.__rofAngle = norm; } catch {}
   };
 
-  /* Restore last pose on mount */
   useEffect(()=>{
     let a = null;
     try {
@@ -417,10 +365,8 @@ export default function App(){
     }catch{}
   },[]);
 
-  /* Cancel RAF on unmount */
   useEffect(()=>()=>{ if(rafRef.current) cancelAnimationFrame(rafRef.current); },[]);
 
-  /* RAF tween */
   const animateRotation = (from, to, durationMs, onDone) => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     animBusyRef.current = true;
@@ -437,9 +383,8 @@ export default function App(){
     rafRef.current = requestAnimationFrame(step);
   };
 
-  /* Non-additive cooldown ticker — PAUSED while Premium modal is open */
   useEffect(()=>{
-    if (showPremium) return; // pause ticker to avoid layout flicker
+    if (showPremium) return; // pause ticker while modal open
     const tick = () => {
       const now = Date.now();
       setSpinsLeft(s => Math.min(s, spinCap));
@@ -472,7 +417,6 @@ export default function App(){
     return ()=>clearInterval(id);
   }, [spinsLeft, nextReadyAt, regenMs, spinCap, showPremium]);
 
-  /* Spin */
   const handleSpin = () => {
     if (spinning || animBusyRef.current || spinsLeft <= 0) return;
 
@@ -528,7 +472,6 @@ export default function App(){
     });
   };
 
-  /* Premium purchase */
   const canAfford = (price) => bank >= price;
   const buyTier = (key) => {
     if (key === tierKey) return;
@@ -548,7 +491,6 @@ export default function App(){
     setTimeout(() => setToast(null), 1600);
   };
 
-  /* Premium modal (slide-up, gradient borders) */
   const PremiumModal = () => {
     const cards = [
       { t: TIERS.plus, bullets: [
@@ -597,13 +539,17 @@ export default function App(){
                       {bullets.map((b,idx)=><li key={idx}>{b}</li>)}
                     </ul>
                     <div className="tc-price">Price: {TEST_PRICE_COINS} coin</div>
-                    <button
-                      className="tc-buy gradient-outline-btn"
-                      disabled={active || !canAfford(TEST_PRICE_COINS)}
-                      onClick={()=>buyTier(t.key)}
-                    >
-                      {active ? "Current Plan" : `Buy ${t.name}`}
-                    </button>
+
+                    {/* BUY BUTTON → RIGHT SIDE */}
+                    <div className="tc-actions">
+                      <button
+                        className="tc-buy gradient-outline-btn"
+                        disabled={active || !canAfford(TEST_PRICE_COINS)}
+                        onClick={()=>buyTier(t.key)}
+                      >
+                        {active ? "Current Plan" : `Buy ${t.name}`}
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -619,7 +565,6 @@ export default function App(){
     );
   };
 
-  /* Screens */
   const PlayScreen = () => (
     <>
       <div className="wheel-wrap compact-no-scroll">
@@ -633,7 +578,6 @@ export default function App(){
           pointerBaseY={pointerBaseY} pointerTipY={pointerTipY}
           prizeMult={prizeMult}
         />
-        {/* center stack (doesn't spin) */}
         <div className="center-stack">
           <div className="center-ring" />
           <div className="center-cap" />
@@ -654,11 +598,7 @@ export default function App(){
 
   const LootScreen = () => <div className="placeholder-card">🎁 Lootboxes coming soon…</div>;
   const TopScreenContainer  = () => (
-    <TopScreen
-      lbTab={lbTab}
-      tick={lbTick}
-      onTabChange={(t)=>setLbTab(t)}
-    />
+    <TopScreen lbTab={lbTab} tick={lbTick} onTabChange={(t)=>setLbTab(t)} />
   );
   const EarnScreen = () => <div className="placeholder-card">🚀 Earn coming soon…</div>;
   const TasksScreen= () => <div className="placeholder-card">🕹 Tasks coming soon…</div>;
@@ -673,17 +613,15 @@ export default function App(){
     </nav>
   );
 
-  /* Badge mapping for current status (header) */
   const statusBadge = (() => {
     if (tierKey === "free") return { cls: "free", text: "No status" };
     if (tierKey === "plus") return { cls: "premium", text: "Premium⚡️" };
     if (tierKey === "pro")  return { cls: "plus",    text: "Plus⭐️" };
-    return { cls: "pro", text: "Pro👑" }; // prem
+    return { cls: "pro", text: "Pro👑" };
   })();
 
   return (
     <div className={`tg-app bg-img ${showPremium ? "modal-open" : ""}`} style={{"--bg":theme.bg,"--text":theme.text}}>
-      {/* Splash */}
       {booting && (
         <div className="splash">
           <img src={BRAND_LOGO_SRC} alt="ROFFLE" />
