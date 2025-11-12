@@ -46,9 +46,20 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
 .balance-block{ margin:18px auto 4px; text-align:center; }
 .balance-block.compacted{ margin:10px auto 0; }
 .bal-line1{ font-weight:600; color:#d3d6d7; font-size:14px; letter-spacing:.2px; margin-bottom:4px; }
+.bal-line1 .tier-badge.inline{ margin-left:8px; vertical-align:middle; }
 .bal-line2{ display:flex; align-items:center; justify-content:center; gap:8px; color:#fff; font-weight:900; font-size:26px; margin-bottom:6px; }
 .bal-icon{ width:24px; height:24px; object-fit:contain; }
 .bal-value{ font-variation-settings:"wght" 900; }
+
+/* Premium badge */
+.tier-badge{
+  display:inline-flex; align-items:center; justify-content:center; font-weight:900; font-size:10px;
+  padding:2px 6px; border-radius:999px; margin-left:6px; letter-spacing:.3px;
+  border:1px solid rgba(255,255,255,.16);
+}
+.tier-badge.plus{ background:linear-gradient(180deg, rgba(25,251,155,.14), rgba(25,251,155,.08)); color:#19FB9B; }
+.tier-badge.pro{ background:linear-gradient(180deg, rgba(124,92,255,.16), rgba(124,92,255,.08)); color:#b9a8ff; border-color:rgba(124,92,255,.35); }
+.tier-badge.prem{ background:linear-gradient(180deg, rgba(250,214,120,.18), rgba(250,214,120,.10)); color:#ffd86a; border-color:rgba(250,214,120,.45); }
 
 /* Premium button */
 .btn-premium{
@@ -169,3 +180,55 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
   border:1px solid rgba(255,255,255,.1);
   padding:14px; border-radius:12px; text-align:center; color:#d3d6d7; font-weight:700;
 }
+
+/* ===================== MODAL: PREMIUM ===================== */
+.modal-overlay{
+  position:fixed; inset:0; background:rgba(0,0,0,.65); backdrop-filter: blur(4px);
+  display:flex; align-items:flex-end; justify-content:center; z-index:9999;
+}
+.modal{
+  width:100%; max-width:520px; background:#0b0c0f; border-top-left-radius:16px; border-top-right-radius:16px;
+  border:1px solid rgba(255,255,255,.1); box-shadow:0 -12px 40px rgba(0,0,0,.45);
+  padding:14px 12px 12px; animation:slideup .2s ease-out;
+}
+@keyframes slideup{ from{ transform:translateY(16px); opacity:.7 } to{ transform:translateY(0); opacity:1 } }
+.modal-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+.mh-left{ display:flex; align-items:center; gap:8px; }
+.mh-icon{ font-size:18px }
+.mh-title{ font-weight:900; font-size:16px }
+.modal-close{
+  appearance:none; background:#13151a; color:#bfc5c9; border:1px solid rgba(255,255,255,.12);
+  border-radius:10px; font-weight:900; padding:4px 8px; cursor:pointer;
+}
+.modal-sub{ color:#bfc5c9; font-size:13px; margin-bottom:10px; text-align:center; }
+
+.tier-grid{
+  display:grid; grid-template-columns:1fr; gap:10px; margin-bottom:10px;
+}
+@media (min-width:480px){
+  .tier-grid{ grid-template-columns:1fr 1fr 1fr; }
+}
+.tier-card{
+  background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:14px; padding:10px; display:flex; flex-direction:column; gap:8px;
+}
+.tier-card.active{
+  border-color:#5ce1e6; box-shadow: inset 0 0 0 2px rgba(181,11,229,.35);
+}
+.tc-top{ display:flex; align-items:center; justify-content:space-between; }
+.tc-name{ font-weight:900; }
+.tc-active{ font-size:11px; padding:2px 6px; border-radius:999px; border:1px solid rgba(255,255,255,.14); color:#5ce1e6; }
+.tc-list{ margin:0; padding-left:16px; color:#c9d0d6; font-size:12px; }
+.tc-list li{ margin:2px 0; }
+.tc-price{ font-weight:800; font-size:12px; color:#d3d6d7; }
+.tc-buy{
+  appearance:none; background:#000; color:#fff; font-weight:900; border-radius:12px; padding:8px 10px; cursor:pointer;
+  border:2px solid transparent; background-image: linear-gradient(#000,#000), linear-gradient(180deg, #5ce1e6, #b50be5);
+  background-origin: border-box; background-clip: padding-box, border-box;
+}
+.tc-buy:disabled{ opacity:.6; cursor:not-allowed; }
+
+.modal-foot{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.mf-note{ color:#98a0a6; font-size:12px; }
+.mf-back{ appearance:none; background:#111318; color:#fff; border:1px solid rgba(255,255,255,.12); padding:8px 12px; border-radius:10px; font-weight:800; }
