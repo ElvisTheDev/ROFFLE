@@ -10,12 +10,17 @@ const BASE_CAP = 20;
 const BASE_REGEN_MS = 10 * 60 * 1000; // 10 minutes (non-additive!)
 const TICK_MS = 1000;
 
-/* Premium tiers */
+/* Premium tiers
+   NOTE: naming per your earlier mapping
+   - plus  -> "$ROF Premium⚡️"  (green, ×2)
+   - pro   -> "$ROF Plus⭐️"     (purple, ×3)
+   - prem  -> "$ROF Pro👑"      (gold, ×5)
+*/
 const TIERS = {
-  free: { key: "free", name: "Free", regenMult: 1, cap: 20, prizeMult: 1, inviteBonus: 0 },
-  plus: { key: "plus", name: "$ROF Premium⚡️", regenMult: 2, cap: 40, prizeMult: 2, inviteBonus: 50 },
-  pro:  { key: "pro",  name: "$ROF Plus⭐️",    regenMult: 3, cap: 60, prizeMult: 3, inviteBonus: 75 },
-  prem: { key: "prem", name: "$ROF Pro👑",      regenMult: 5, cap: 100, prizeMult: 5, inviteBonus: 100 },
+  free: { key: "free", name: "Free",              regenMult: 1, cap: 20,  prizeMult: 1,  inviteBonus: 0 },
+  plus: { key: "plus", name: "$ROF Premium⚡️",   regenMult: 2, cap: 40,  prizeMult: 2,  inviteBonus: 50 },
+  pro:  { key: "pro",  name: "$ROF Plus⭐️",      regenMult: 3, cap: 60,  prizeMult: 3,  inviteBonus: 75 },
+  prem: { key: "prem", name: "$ROF Pro👑",        regenMult: 5, cap: 100, prizeMult: 5,  inviteBonus: 100 },
 };
 const TEST_PRICE_COINS = 1;
 
@@ -25,7 +30,7 @@ function randFloat(){ return randUint32()/0xffffffff; }
 function randInt(min,max){ const span=max-min+1; const limit=Math.floor(0xffffffff/span)*span; let r; do{ r=randUint32(); }while(r>=limit); return min+(r%span); }
 function randChoice(n){ return randInt(0,n-1); }
 
-/* Payouts (your latest remap) */
+/* Payouts (base values before multiplier) */
 function buildSlots(){
   const arr = Array(SEGMENTS_TOTAL).fill(null);
   // Section 1 -> 100 (MAX)
@@ -79,17 +84,23 @@ function formatMs(ms){
 /* Easing */
 function easeOutCubic(t){ return 1 - Math.pow(1 - t, 3); }
 
-/* Telegram + assets */
-const tg = window.Telegram?.WebApp;
+/* Assets */
 const CENTER_LOGO_SRC = "/logo.png";  // your R logo
 const BRAND_LOGO_SRC  = "/rof-lg.png";
 const ROF_ICON_SRC    = "/rof-bn.png";
 
-/* ==================== WHEEL (SVG centered via translate) ==================== */
+/* ==================== WHEEL ==================== */
 const Wheel = React.memo(function Wheel({
-  rotorRef, angleState, wedges, slots, cx, cy, R_TRIM, TRIM_W, R_FACE,
-  pointerBaseY, pointerTipY
+  angleState, wedges, slots, cx, cy, R_TRIM, TRIM_W, R_FACE,
+  pointerBaseY, pointerTipY, prizeMult, tierKey
 }){
+  // class for outline color based on tier
+  const outlineCls =
+    tierKey === "prem" ? "outline-gold"
+  : tierKey === "pro"  ? "outline-purple"
+  : tierKey === "plus" ? "outline-green"
+  : "outline-default";
+
   return (
     <svg className="wheel-svg" viewBox="0 0 1000 1000" aria-hidden>
       <defs>
@@ -126,27 +137,28 @@ const Wheel = React.memo(function Wheel({
         </filter>
       </defs>
 
-      {/* Everything for the wheel lives in a centered root group */}
+      {/* Centered root */}
       <g className="wheel-root" transform={`translate(${cx} ${cy})`}>
-        {/* Gold outer trim (centered circle) */}
+        {/* Gold trim */}
         <circle r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
 
-        {/* ROTOR: rotate around 0,0 — controlled by React state */}
+        {/* Rotor controlled by angleState */}
         <g
           className="rotor"
-          ref={rotorRef}
           data-angle={angleState}
           transform={`rotate(${START_OFFSET + angleState})`}
         >
           {/* Wedges */}
           {wedges.map(({i,path})=> <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />)}
 
-          {/* Labels: compute at x-axis and rotate group only (no double-rotate) */}
+          {/* Labels (multiplied by prizeMult) */}
           {wedges.map(({i,mid,labelR})=>{
             const sec1 = i + 1;
-            const textFill = sec1 === 1 ? "#fff" : (sec1 % 2 === 0 ? "#fff" : "#000");
             const isMax = sec1 === 1;
+            const baseAmount = slots[i].amount || 0;
+            const shown = baseAmount * prizeMult; // <-- visual reflects tier multiplier
 
+            const textFill = sec1 === 1 ? "#fff" : (sec1 % 2 === 0 ? "#fff" : "#000");
             const textAngle = (mid + 270) % 360;
             const flip = textAngle > 90 && textAngle < 270;
 
@@ -156,13 +168,13 @@ const Wheel = React.memo(function Wheel({
                   x={labelR}
                   y={0}
                   transform={flip ? `rotate(180 ${labelR} 0)` : ""}
-                  className={`slice-txt ${isMax ? "is-max" : ""}`}
+                  className={`slice-txt ${outlineCls} ${isMax ? "is-max" : ""}`}
                   textAnchor="middle"
                   dominantBaseline="middle"
                   fill={textFill}
                   filter={isMax ? "url(#textGlow)" : undefined}
                 >
-                  {slots[i].label}
+                  {shown}
                 </text>
               </g>
             );
@@ -170,7 +182,7 @@ const Wheel = React.memo(function Wheel({
         </g>
       </g>
 
-      {/* Static pointer in global coordinates */}
+      {/* Pointer */}
       <polygon
         className="pointer"
         points={`${cx-18},${pointerBaseY} ${cx+18},${pointerBaseY} ${cx},${pointerTipY}`}
@@ -179,8 +191,7 @@ const Wheel = React.memo(function Wheel({
   );
 }, () => true);
 
-/* =================== DEMO LEADERBOARD DATA =================== */
-/* In production, replace this with real API data from your backend */
+/* ======= DEMO LEADERBOARD DATA (replace with backend later) ======= */
 const DEMO_NAMES = [
   "Elena", "Maks", "Aya", "Ramon", "Nina", "Leo", "Kira", "Owen", "Aria", "Felix",
   "Mila", "Dmitri", "Zane", "Ivy", "Noah", "Luna", "Kai", "Nova", "Sasha", "Mira",
@@ -204,23 +215,93 @@ function buildDemoUsers(count=150){
       id: `u${i}`,
       name: name.trim() || `User ${i+1}`,
       username: `@user${1000+i}`,
-      photo: "", // put CDN/Telegram photo URL here in prod
-      balance: Math.floor(Math.random()*50000), // $ROF coins
+      photo: "",
+      balance: Math.floor(Math.random()*50000),
       invites: Math.floor(Math.random()*1200),
-      tier: randomItem(tiers) // free | plus | pro | prem
+      tier: randomItem(tiers)
     });
   }
   return arr;
 }
 const DEMO_USERS = buildDemoUsers();
 
-/* Badge renderer for any tier key (free/plus/pro/prem) */
 function TierBadge({tierKey}){
   if (tierKey === "free") return <span className="badge free">No status</span>;
   if (tierKey === "plus") return <span className="badge premium">Premium⚡️</span>;
   if (tierKey === "pro")  return <span className="badge plus">Plus⭐️</span>;
   return <span className="badge pro">Pro👑</span>;
 }
+
+/* ======= Top100 (memo + hourly tick reduced to 60s) ======= */
+const TopScreen = React.memo(function TopScreen({ lbTab, tick }) {
+  const topPlayers = useMemo(()=>{
+    return [...DEMO_USERS].sort((a,b)=> b.balance - a.balance).slice(0,100);
+  },[tick]); // refresh only when tick updates (once per minute)
+
+  const topInvites = useMemo(()=>{
+    return [...DEMO_USERS].sort((a,b)=> b.invites - a.invites).slice(0,100);
+  },[tick]);
+
+  const active = lbTab === "players" ? topPlayers : topInvites;
+
+  function Avatar({name, photo}){
+    if (photo) return <img className="lb-avatar" src={photo} alt={name} />;
+    const bg = randomItem(DEMO_AVATAR_COLORS);
+    return <div className="lb-avatar fallback" style={{ background: bg }}>{initials(name)}</div>;
+  }
+
+  function Row({rank, user, mode}){
+    return (
+      <div className="lb-row">
+        <div className="lb-left">
+          <div className="lb-rank">{rank}</div>
+          <Avatar name={user.name} photo={user.photo} />
+          <div className="lb-namebox">
+            <div className="lb-name">{user.name}</div>
+            <div className="lb-meta">
+              <TierBadge tierKey={user.tier} />
+              <span className="lb-username">{user.username}</span>
+            </div>
+          </div>
+        </div>
+        <div className="lb-right">
+          {mode === "players" ? (
+            <div className="lb-metric coins">
+              <img className="lb-coin" src={ROF_ICON_SRC} alt="$ROF" />
+              <span>{user.balance.toLocaleString()}</span>
+            </div>
+          ) : (
+            <div className="lb-metric invites">
+              <span className="lb-invites">{user.invites.toLocaleString()}</span>
+              <span className="lb-invites-lbl">invites</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="lb-wrap">
+      <div className="lb-tabs">
+        <button className={`lb-tab ${lbTab==="players"?"on":""}`} disabled>Top Players</button>
+        <button className={`lb-tab ${lbTab==="invites"?"on":""}`} disabled>Top Invites</button>
+      </div>
+
+      <div className="lb-head">
+        <div className="lb-h-left">Rank</div>
+        <div className="lb-h-mid">User</div>
+        <div className="lb-h-right">{lbTab==="players" ? "Balance" : "Invites"}</div>
+      </div>
+
+      <div className="lb-list">
+        {active.map((u,idx)=>(
+          <Row key={`${lbTab}-${u.id}`} rank={idx+1} user={u} mode={lbTab} />
+        ))}
+      </div>
+    </div>
+  );
+});
 
 export default function App(){
   const slots = useMemo(buildSlots, []);
@@ -233,13 +314,12 @@ export default function App(){
   const spinCap = tier.cap;
   const prizeMult = tier.prizeMult;
 
-  /* Wheel — controlled angle state to avoid React overwriting */
-  const rotorRef = useRef(null);
+  /* Wheel (controlled by state to prevent reset) */
   const rafRef = useRef(null);
   const animBusyRef = useRef(false);
-  const [angleState, setAngleState] = useState(0); // React now owns the transform
-  const currentAngleRef = useRef(0);   // mirror of angleState
-  const calcRotRef = useRef(0);        // math angle for payout
+  const [angleState, setAngleState] = useState(0);
+  const currentAngleRef = useRef(0);
+  const calcRotRef = useRef(0);
 
   /* Spins/energy */
   const [spinsLeft, setSpinsLeft] = useState(BASE_CAP);
@@ -255,6 +335,13 @@ export default function App(){
 
   /* Leaderboard UI state */
   const [lbTab, setLbTab] = useState("players"); // 'players' | 'invites'
+  const [lbTick, setLbTick] = useState(0);       // refresh once per minute
+
+  // 60-second refresh for leaderboard only
+  useEffect(()=>{
+    const id = setInterval(()=> setLbTick(t => t+1), 60000);
+    return ()=> clearInterval(id);
+  },[]);
 
   /* Sounds */
   const clickSfx = useRef(null), loopSfx = useRef(null), winSfx = useRef(null);
@@ -268,7 +355,7 @@ export default function App(){
   const stopL  = () => { try{ loopSfx.current.pause(); loopSfx.current.currentTime=0; }catch{} };
   const winS   = () => { try{ winSfx.current.currentTime=0; winSfx.current.play(); }catch{} };
 
-  /* Telegram splash */
+  /* Splash */
   useEffect(()=>{
     const timer = setTimeout(()=>{
       setBooting(false);
@@ -297,17 +384,17 @@ export default function App(){
     return ()=>tg.offEvent?.("themeChanged",sync);
   },[]);
 
-  /* Sizes (viewBox center is 500,500, but wheel itself is local (0,0) and translated) */
+  /* Sizes */
   const cx=500, cy=500;
-  const R_FACE = 440 * 0.74;      // wedge radius
-  const R_TRIM = 470 * 0.74;      // gold trim radius
-  const TRIM_W = 40;              // gold trim width
-  const LABEL_R = 360 * 0.74;     // label radius (kept inside wedges)
+  const R_FACE = 440 * 0.74;
+  const R_TRIM = 470 * 0.74;
+  const TRIM_W = 40;
+  const LABEL_R = 360 * 0.74;
   const trimOuter = R_TRIM + TRIM_W/2;
   const pointerTipY  = cy - trimOuter + 2;
   const pointerBaseY = pointerTipY - 26;
 
-  /* Wedges (static) — LOCAL coords around (0,0) */
+  /* Wedges */
   const wedges = useMemo(()=>{
     return Array.from({length:SEGMENTS_TOTAL}, (_,i)=>{
       const start=i*SEG_DEG; const end=start+SEG_DEG; const mid=(start+end)/2;
@@ -316,11 +403,11 @@ export default function App(){
     });
   },[]);
 
-  /* Angle write — React state owns it to prevent reset */
+  /* Angle setters */
   const applyAngle = (angle) => {
     const norm = ((angle % 360) + 360) % 360;
     currentAngleRef.current = norm;
-    setAngleState(norm); // React controls the transform!
+    setAngleState(norm);
     try { localStorage.setItem("rof_visAngle", String(norm)); } catch {}
     try { window.__rofAngle = norm; } catch {}
   };
@@ -343,7 +430,6 @@ export default function App(){
       const savedCalc = parseFloat(localStorage.getItem("rof_calcRot"));
       if(!Number.isNaN(savedCalc)) calcRotRef.current = savedCalc;
     }catch{}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   },[]);
 
   /* Cancel RAF on unmount */
@@ -358,7 +444,7 @@ export default function App(){
       const t = Math.min(1, (now - start) / durationMs);
       const eased = easeOutCubic(t);
       const angle = from + (to - from) * eased;
-      applyAngle(angle); // update state each frame
+      applyAngle(angle);
       if (t < 1) rafRef.current = requestAnimationFrame(step);
       else { animBusyRef.current = false; onDone?.(); }
     };
@@ -366,7 +452,7 @@ export default function App(){
     rafRef.current = requestAnimationFrame(step);
   };
 
-  /* Non-additive cooldown ticker */
+  /* Non-additive cooldown ticker (still 1s, but Top100 is decoupled) */
   useEffect(()=>{
     const tick = () => {
       const now = Date.now();
@@ -440,7 +526,6 @@ export default function App(){
       const finalVis = ((endVis % 360) + 360) % 360;
       applyAngle(finalVis); // lock pose
 
-      // persist both angles so next spin/restores start from here
       try {
         localStorage.setItem("rof_visAngle", String(finalVis));
         localStorage.setItem("rof_calcRot", String(finalCalc));
@@ -478,7 +563,7 @@ export default function App(){
     setTimeout(() => setToast(null), 1600);
   };
 
-  /* Premium modal */
+  /* Premium modal (footer removed) */
   const PremiumModal = () => {
     const cards = [
       { t: TIERS.plus, bullets: [
@@ -511,7 +596,7 @@ export default function App(){
             <button className="modal-close" onClick={()=>setShowPremium(false)}>✕</button>
           </div>
 
-          <div className="modal-sub">Choose a tier (test price: <b>{TEST_PRICE_COINS} coin</b> each)</div>
+          <div className="modal-sub">Choose a tier</div>
 
           <div className="tier-grid">
             {cards.map(({t, bullets})=>{
@@ -525,123 +610,28 @@ export default function App(){
                   <ul className="tc-list">
                     {bullets.map((b,idx)=><li key={idx}>{b}</li>)}
                   </ul>
-                    <div className="tc-price">Price: {TEST_PRICE_COINS} coin</div>
-                    <button
-                      className="tc-buy"
-                      disabled={active || !canAfford(TEST_PRICE_COINS)}
-                      onClick={()=>buyTier(t.key)}
-                    >
-                      {active ? "Current Plan" : `Buy ${t.name}`}
-                    </button>
+                  <div className="tc-price">Price: {TEST_PRICE_COINS} coin</div>
+                  <button
+                    className="tc-buy"
+                    disabled={active || !canAfford(TEST_PRICE_COINS)}
+                    onClick={()=>buyTier(t.key)}
+                  >
+                    {active ? "Current Plan" : `Buy ${t.name}`}
+                  </button>
                 </div>
               );
             })}
-          </div>
-
-          <div className="modal-foot">
-            <div className="mf-note">Payments are test-mode. Real payments & pricing coming soon.</div>
-            <button className="mf-back" onClick={()=>setShowPremium(false)}>Back</button>
           </div>
         </div>
       </div>
     );
   };
 
-  /* ======= Leaderboards (Top100) ======= */
-  function Avatar({name, photo}){
-    if (photo) return <img className="lb-avatar" src={photo} alt={name} />;
-    // Fallback colored circle with initials
-    const bg = randomItem(DEMO_AVATAR_COLORS);
-    return (
-      <div className="lb-avatar fallback" style={{ background: bg }}>
-        {initials(name)}
-      </div>
-    );
-  }
-
-  function Row({rank, user, mode}){
-    return (
-      <div className="lb-row">
-        <div className="lb-left">
-          <div className="lb-rank">{rank}</div>
-          <Avatar name={user.name} photo={user.photo} />
-          <div className="lb-namebox">
-            <div className="lb-name">{user.name}</div>
-            <div className="lb-meta">
-              <TierBadge tierKey={user.tier} />
-              <span className="lb-username">{user.username}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="lb-right">
-          {mode === "players" ? (
-            <div className="lb-metric coins">
-              <img className="lb-coin" src={ROF_ICON_SRC} alt="$ROF" />
-              <span>{user.balance.toLocaleString()}</span>
-            </div>
-          ) : (
-            <div className="lb-metric invites">
-              <span className="lb-invites">{user.invites.toLocaleString()}</span>
-              <span className="lb-invites-lbl">invites</span>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  function TopScreen(){
-    // Build two sorted lists
-    const topPlayers = useMemo(()=>{
-      const sorted = [...DEMO_USERS].sort((a,b)=> b.balance - a.balance).slice(0,100);
-      return sorted;
-    },[]);
-    const topInvites = useMemo(()=>{
-      const sorted = [...DEMO_USERS].sort((a,b)=> b.invites - a.invites).slice(0,100);
-      return sorted;
-    },[]);
-
-    const active = lbTab === "players" ? topPlayers : topInvites;
-
-    return (
-      <div className="lb-wrap">
-        <div className="lb-tabs">
-          <button
-            className={`lb-tab ${lbTab==="players"?"on":""}`}
-            onClick={()=>setLbTab("players")}
-          >
-            Top Players
-          </button>
-          <button
-            className={`lb-tab ${lbTab==="invites"?"on":""}`}
-            onClick={()=>setLbTab("invites")}
-          >
-            Top Invites
-          </button>
-        </div>
-
-        <div className="lb-head">
-          <div className="lb-h-left">Rank</div>
-          <div className="lb-h-mid">User</div>
-          <div className="lb-h-right">{lbTab==="players" ? "Balance" : "Invites"}</div>
-        </div>
-
-        <div className="lb-list">
-          {active.map((u,idx)=>(
-            <Row key={`${lbTab}-${u.id}`} rank={idx+1} user={u} mode={lbTab} />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   /* Screens */
   const PlayScreen = () => (
     <>
       <div className="wheel-wrap compact-no-scroll">
         <Wheel
-          rotorRef={rotorRef}
           angleState={angleState}
           wedges={wedges}
           slots={slots}
@@ -649,6 +639,8 @@ export default function App(){
           R_TRIM={R_TRIM} TRIM_W={TRIM_W}
           R_FACE={R_FACE}
           pointerBaseY={pointerBaseY} pointerTipY={pointerTipY}
+          prizeMult={prizeMult}
+          tierKey={tierKey}
         />
         {/* center stack (doesn't spin) */}
         <div className="center-stack">
@@ -670,7 +662,7 @@ export default function App(){
   );
 
   const LootScreen = () => <div className="placeholder-card">🎁 Lootboxes coming soon…</div>;
-  const TopScreenContainer  = () => <TopScreen />;
+  const TopScreenContainer  = () => <TopScreen lbTab={lbTab} tick={lbTick} />;
   const EarnScreen = () => <div className="placeholder-card">🚀 Earn coming soon…</div>;
   const TasksScreen= () => <div className="placeholder-card">🕹 Tasks coming soon…</div>;
 
@@ -684,7 +676,7 @@ export default function App(){
     </nav>
   );
 
-  /* Badge mapping for current status (header balance area) */
+  /* Badge mapping for current status (header) */
   const statusBadge = (() => {
     if (tierKey === "free") return { cls: "free", text: "No status" };
     if (tierKey === "plus") return { cls: "premium", text: "Premium⚡️" };
