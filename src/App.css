@@ -54,8 +54,12 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
 /* Wheel + pointer */
 .wheel-wrap{ position:relative; width:100%; aspect-ratio:1/1; margin:6px auto 12px; max-width:520px; }
 .wheel-wrap.small{ max-width: 416px; } /* 20% smaller */
-.pointer-svg{ position:absolute; left:0; right:0; margin:0 auto; top:0; width:100%; height:auto; z-index:40; pointer-events:none; }
 .wheel-svg{ position:absolute; inset:0; z-index:10; pointer-events:none; filter: drop-shadow(0 30px 70px rgba(0,0,0,.55)); overflow:visible; }
+
+/* The red pointer drawn inside the wheel SVG */
+.pointer{ fill:#e61a1a; stroke:#7a0f0f; stroke-width:6; stroke-linejoin:round; }
+
+/* Center cap */
 .center-stack{ position:absolute; inset:0; display:block; z-index:50; pointer-events:none; }
 .center-ring{
   position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:38%; aspect-ratio:1/1; border-radius:50%;
