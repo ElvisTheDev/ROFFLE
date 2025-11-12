@@ -147,8 +147,6 @@ const Wheel = React.memo(function Wheel({
             const textFill = sec1 === 1 ? "#fff" : (sec1 % 2 === 0 ? "#fff" : "#000");
             const isMax = sec1 === 1;
 
-            // text base position on x-axis (r,0), rotate the group by mid
-            // if angle would be upside-down, flip 180° around its point
             const textAngle = (mid + 270) % 360;
             const flip = textAngle > 90 && textAngle < 270;
 
@@ -181,6 +179,49 @@ const Wheel = React.memo(function Wheel({
   );
 }, () => true);
 
+/* =================== DEMO LEADERBOARD DATA =================== */
+/* In production, replace this with real API data from your backend */
+const DEMO_NAMES = [
+  "Elena", "Maks", "Aya", "Ramon", "Nina", "Leo", "Kira", "Owen", "Aria", "Felix",
+  "Mila", "Dmitri", "Zane", "Ivy", "Noah", "Luna", "Kai", "Nova", "Sasha", "Mira",
+  "Ewan", "Iris", "Lars", "Yuri", "Vera", "Maddox", "Soren", "Lia", "Indie", "Theo",
+  "Kato", "Aiko", "Rhea", "Ezra", "Ares", "Rumi", "Moss", "Tess", "Zoe", "Rex",
+  "Juno", "Oleg", "Gwen", "Finn", "Jax", "Maya", "Oksana", "Toma", "Hugo", "Eli"
+];
+const DEMO_AVATAR_COLORS = ["#6c5ce7","#00cec9","#fd79a8","#ffeaa7","#55efc4","#a29bfe","#fab1a0","#81ecec","#ffd6a5"];
+
+function initials(name){
+  return name.split(" ").map(s=>s[0]).join("").slice(0,2).toUpperCase();
+}
+function randomItem(a){ return a[Math.floor(Math.random()*a.length)] }
+
+function buildDemoUsers(count=150){
+  const tiers = ["free","plus","pro","prem"];
+  const arr = [];
+  for(let i=0;i<count;i++){
+    const name = randomItem(DEMO_NAMES) + " " + (Math.random()<.5 ? randomItem(DEMO_NAMES) : "");
+    arr.push({
+      id: `u${i}`,
+      name: name.trim() || `User ${i+1}`,
+      username: `@user${1000+i}`,
+      photo: "", // put CDN/Telegram photo URL here in prod
+      balance: Math.floor(Math.random()*50000), // $ROF coins
+      invites: Math.floor(Math.random()*1200),
+      tier: randomItem(tiers) // free | plus | pro | prem
+    });
+  }
+  return arr;
+}
+const DEMO_USERS = buildDemoUsers();
+
+/* Badge renderer for any tier key (free/plus/pro/prem) */
+function TierBadge({tierKey}){
+  if (tierKey === "free") return <span className="badge free">No status</span>;
+  if (tierKey === "plus") return <span className="badge premium">Premium⚡️</span>;
+  if (tierKey === "pro")  return <span className="badge plus">Plus⭐️</span>;
+  return <span className="badge pro">Pro👑</span>;
+}
+
 export default function App(){
   const slots = useMemo(buildSlots, []);
   const [bank,setBank] = useState(0);
@@ -196,7 +237,7 @@ export default function App(){
   const rotorRef = useRef(null);
   const rafRef = useRef(null);
   const animBusyRef = useRef(false);
-  const [angleState, setAngleState] = useState(0); // <-- React now owns the transform
+  const [angleState, setAngleState] = useState(0); // React now owns the transform
   const currentAngleRef = useRef(0);   // mirror of angleState
   const calcRotRef = useRef(0);        // math angle for payout
 
@@ -211,6 +252,9 @@ export default function App(){
   const [tab,setTab] = useState("play");
   const [booting,setBooting] = useState(true);
   const [showPremium, setShowPremium] = useState(false);
+
+  /* Leaderboard UI state */
+  const [lbTab, setLbTab] = useState("players"); // 'players' | 'invites'
 
   /* Sounds */
   const clickSfx = useRef(null), loopSfx = useRef(null), winSfx = useRef(null);
@@ -481,14 +525,14 @@ export default function App(){
                   <ul className="tc-list">
                     {bullets.map((b,idx)=><li key={idx}>{b}</li>)}
                   </ul>
-                  <div className="tc-price">Price: {TEST_PRICE_COINS} coin</div>
-                  <button
-                    className="tc-buy"
-                    disabled={active || !canAfford(TEST_PRICE_COINS)}
-                    onClick={()=>buyTier(t.key)}
-                  >
-                    {active ? "Current Plan" : `Buy ${t.name}`}
-                  </button>
+                    <div className="tc-price">Price: {TEST_PRICE_COINS} coin</div>
+                    <button
+                      className="tc-buy"
+                      disabled={active || !canAfford(TEST_PRICE_COINS)}
+                      onClick={()=>buyTier(t.key)}
+                    >
+                      {active ? "Current Plan" : `Buy ${t.name}`}
+                    </button>
                 </div>
               );
             })}
@@ -502,6 +546,95 @@ export default function App(){
       </div>
     );
   };
+
+  /* ======= Leaderboards (Top100) ======= */
+  function Avatar({name, photo}){
+    if (photo) return <img className="lb-avatar" src={photo} alt={name} />;
+    // Fallback colored circle with initials
+    const bg = randomItem(DEMO_AVATAR_COLORS);
+    return (
+      <div className="lb-avatar fallback" style={{ background: bg }}>
+        {initials(name)}
+      </div>
+    );
+  }
+
+  function Row({rank, user, mode}){
+    return (
+      <div className="lb-row">
+        <div className="lb-left">
+          <div className="lb-rank">{rank}</div>
+          <Avatar name={user.name} photo={user.photo} />
+          <div className="lb-namebox">
+            <div className="lb-name">{user.name}</div>
+            <div className="lb-meta">
+              <TierBadge tierKey={user.tier} />
+              <span className="lb-username">{user.username}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="lb-right">
+          {mode === "players" ? (
+            <div className="lb-metric coins">
+              <img className="lb-coin" src={ROF_ICON_SRC} alt="$ROF" />
+              <span>{user.balance.toLocaleString()}</span>
+            </div>
+          ) : (
+            <div className="lb-metric invites">
+              <span className="lb-invites">{user.invites.toLocaleString()}</span>
+              <span className="lb-invites-lbl">invites</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  function TopScreen(){
+    // Build two sorted lists
+    const topPlayers = useMemo(()=>{
+      const sorted = [...DEMO_USERS].sort((a,b)=> b.balance - a.balance).slice(0,100);
+      return sorted;
+    },[]);
+    const topInvites = useMemo(()=>{
+      const sorted = [...DEMO_USERS].sort((a,b)=> b.invites - a.invites).slice(0,100);
+      return sorted;
+    },[]);
+
+    const active = lbTab === "players" ? topPlayers : topInvites;
+
+    return (
+      <div className="lb-wrap">
+        <div className="lb-tabs">
+          <button
+            className={`lb-tab ${lbTab==="players"?"on":""}`}
+            onClick={()=>setLbTab("players")}
+          >
+            Top Players
+          </button>
+          <button
+            className={`lb-tab ${lbTab==="invites"?"on":""}`}
+            onClick={()=>setLbTab("invites")}
+          >
+            Top Invites
+          </button>
+        </div>
+
+        <div className="lb-head">
+          <div className="lb-h-left">Rank</div>
+          <div className="lb-h-mid">User</div>
+          <div className="lb-h-right">{lbTab==="players" ? "Balance" : "Invites"}</div>
+        </div>
+
+        <div className="lb-list">
+          {active.map((u,idx)=>(
+            <Row key={`${lbTab}-${u.id}`} rank={idx+1} user={u} mode={lbTab} />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   /* Screens */
   const PlayScreen = () => (
@@ -537,7 +670,7 @@ export default function App(){
   );
 
   const LootScreen = () => <div className="placeholder-card">🎁 Lootboxes coming soon…</div>;
-  const TopScreen  = () => <div className="placeholder-card">🏆 Leaderboards coming soon…</div>;
+  const TopScreenContainer  = () => <TopScreen />;
   const EarnScreen = () => <div className="placeholder-card">🚀 Earn coming soon…</div>;
   const TasksScreen= () => <div className="placeholder-card">🕹 Tasks coming soon…</div>;
 
@@ -545,13 +678,13 @@ export default function App(){
     <nav className="bottom-menu">
       <button className={`menu-item ${tab==="play"?"on":""}`}  onClick={()=>setTab("play")}><span className="mi-emoji">🎮</span><span className="mi-text">Play</span></button>
       <button className={`menu-item ${tab==="loot"?"on":""}`}  onClick={()=>setTab("loot")}><span className="mi-emoji">🎁</span><span className="mi-text">Loot</span></button>
-      <button className={`menu-item ${tab==="top" ?"on":""}`}  onClick={()=>setTab("top")} ><span className="mi-emoji">🏆</span><span className="mi-text">Top100</span></button>
+      <button className={`menu-item ${tab==="top" ?"on":""}`}  onClick={()=>{ setTab("top"); setLbTab("players"); }} ><span className="mi-emoji">🏆</span><span className="mi-text">Top100</span></button>
       <button className={`menu-item ${tab==="earn"?"on":""}`}  onClick={()=>setTab("earn")}><span className="mi-emoji">🚀</span><span className="mi-text">Earn</span></button>
       <button className={`menu-item ${tab==="tasks"?"on":""}`} onClick={()=>setTab("tasks")}><span className="mi-emoji">🕹</span><span className="mi-text">Tasks</span></button>
     </nav>
   );
 
-  /* Badge mapping for current status */
+  /* Badge mapping for current status (header balance area) */
   const statusBadge = (() => {
     if (tierKey === "free") return { cls: "free", text: "No status" };
     if (tierKey === "plus") return { cls: "premium", text: "Premium⚡️" };
@@ -591,7 +724,7 @@ export default function App(){
           <div className="screen flex-grow">
             {tab==="play"   && <PlayScreen />}
             {tab==="loot"   && <LootScreen />}
-            {tab==="top"    && <TopScreen />}
+            {tab==="top"    && <TopScreenContainer />}
             {tab==="earn"   && <EarnScreen />}
             {tab==="tasks"  && <TasksScreen />}
           </div>
