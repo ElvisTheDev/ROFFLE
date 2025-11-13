@@ -14,10 +14,10 @@ const API_BASE = "https://roffle-bot.onrender.com";
 
 /* Premium tiers (names per your mapping) */
 const TIERS = {
-  free: { key: "free", name: "Free", regenMult: 1, cap: 20, prizeMult: 1, inviteBonus: 0 },
-  plus: { key: "plus", name: "$ROF Premium⚡️", regenMult: 2, cap: 40, prizeMult: 2, inviteBonus: 50 },
-  pro:  { key: "pro",  name: "$ROF Plus⭐️",    regenMult: 3, cap: 60, prizeMult: 3, inviteBonus: 75 },
-  prem: { key: "prem", name: "$ROF Pro👑",      regenMult: 5, cap: 100, prizeMult: 5, inviteBonus: 100 },
+  free: { key: "free", name: "Free",              regenMult: 1, cap: 20,  prizeMult: 1,  inviteBonus: 0 },
+  plus: { key: "plus", name: "$ROF Premium⚡️",   regenMult: 2, cap: 40,  prizeMult: 2,  inviteBonus: 50 },
+  pro:  { key: "pro",  name: "$ROF Plus⭐️",      regenMult: 3, cap: 60,  prizeMult: 3,  inviteBonus: 75 },
+  prem: { key: "prem", name: "$ROF Pro👑",        regenMult: 5, cap: 100, prizeMult: 5,  inviteBonus: 100 },
 };
 const TEST_PRICE_COINS = 1;
 
@@ -38,9 +38,6 @@ function randInt(min, max) {
     r = randUint32();
   } while (r >= limit);
   return min + (r % span);
-}
-function randChoice(n) {
-  return randInt(0, n - 1);
 }
 
 /* Payouts (base values before multiplier) */
@@ -80,13 +77,6 @@ function wedgePathLocal(r, startDeg, endDeg) {
   const large = endDeg - startDeg > 180 ? 1 : 0;
   return `M 0 0 L ${start.x} ${start.y} A ${r} ${r} 0 ${large} 1 ${end.x} ${end.y} Z`;
 }
-function indexFromRotation(rotationDeg) {
-  const rot = ((rotationDeg % 360) + 360) % 360;
-  const target = (360 - rot) % 360; // top-aligned
-  let i = Math.round((target - SEG_DEG / 2) / SEG_DEG);
-  i = ((i % SEGMENTS_TOTAL) + SEGMENTS_TOTAL) % SEGMENTS_TOTAL;
-  return i;
-}
 
 /* Time */
 function formatMs(ms) {
@@ -108,146 +98,26 @@ const CENTER_LOGO_SRC = "/logo.png";
 const BRAND_LOGO_SRC = "/rof-lg.png";
 const ROF_ICON_SRC = "/rof-bn.png";
 
-/* ==================== WHEEL ==================== */
-const Wheel = React.memo(
-  function Wheel({
-    angleState,
-    wedges,
-    slots,
-    cx,
-    cy,
-    R_TRIM,
-    TRIM_W,
-    R_FACE,
-    pointerBaseY,
-    pointerTipY,
-    prizeMult,
-  }) {
-    return (
-      <svg className="wheel-svg" viewBox="0 0 1000 1000" aria-hidden>
-        <defs>
-          {Array.from({ length: SEGMENTS_TOTAL }, (_, i) => {
-            const sec1 = i + 1;
-            const id = `grad-${i}`;
-            if (sec1 === 1)
-              return (
-                <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#43cda3" />
-                  <stop offset="100%" stopColor="#490e6d" />
-                </linearGradient>
-              );
-            else if (sec1 % 2 === 0)
-              return (
-                <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#404040" />
-                  <stop offset="100%" stopColor="#000000" />
-                </linearGradient>
-              );
-            else
-              return (
-                <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#ffffff" />
-                  <stop offset="100%" stopColor="#a8a8a8" />
-                </linearGradient>
-              );
-          })}
-          <linearGradient id="goldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#f6e19a" />
-            <stop offset="50%" stopColor="#caa03a" />
-            <stop offset="100%" stopColor="#7a5d19" />
-          </linearGradient>
-          <filter id="textGlow" x="-50%" y="-50%" width="200%" height="200%">
-            <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#36125e" floodOpacity="1" />
-            <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#36125e" floodOpacity=".85" />
-            <feDropShadow dx="0" dy="0" stdDeviation="10" floodColor="#36125e" floodOpacity=".6" />
-          </filter>
-        </defs>
-
-        <g className="wheel-root" transform={`translate(${cx} ${cy})`}>
-          <circle r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
-
-          <g className="rotor" data-angle={angleState} transform={`rotate(${START_OFFSET + angleState})`}>
-            {wedges.map(({ i, path }) => (
-              <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />
-            ))}
-
-            {wedges.map(({ i, mid, labelR }) => {
-              const sec1 = i + 1;
-              const isMax = sec1 === 1;
-              const baseAmount = slots[i].amount || 0;
-              const shown = baseAmount * prizeMult;
-
-              const textFill = sec1 === 1 ? "#fff" : sec1 % 2 === 0 ? "#fff" : "#000";
-              const textAngle = (mid + 270) % 360;
-              const flip = textAngle > 90 && textAngle < 270;
-
-              return (
-                <g key={`t${i}`} transform={`rotate(${mid})`}>
-                  <text
-                    x={labelR}
-                    y={0}
-                    transform={flip ? `rotate(180 ${labelR} 0)` : ""}
-                    className={`slice-txt ${isMax ? "is-max" : ""}`}
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fill={textFill}
-                    filter={isMax ? "url(#textGlow)" : undefined}
-                  >
-                    {shown}
-                  </text>
-                </g>
-              );
-            })}
-          </g>
-        </g>
-
-        <polygon
-          className="pointer"
-          points={`${cx - 18},${pointerBaseY} ${cx + 18},${pointerBaseY} ${cx},${pointerTipY}`}
-        />
-      </svg>
-    );
-  },
-  () => true
-);
-
-/* ======= DEMO LEADERBOARD DATA (placeholder) ======= */
-const DEMO_NAMES = [
-  "Elena","Maks","Aya","Ramon","Nina","Leo","Kira","Owen","Aria","Felix",
-  "Mila","Dmitri","Zane","Ivy","Noah","Luna","Kai","Nova","Sasha","Mira",
-  "Ewan","Iris","Lars","Yuri","Vera","Maddox","Soren","Lia","Indie","Theo",
-  "Kato","Aiko","Rhea","Ezra","Ares","Rumi","Moss","Tess","Zoe","Rex",
-  "Juno","Oleg","Gwen","Finn","Jax","Maya","Oksana","Toma","Hugo","Eli"
+/* ===== Avatar helpers & demo colors (for fallback visuals) ===== */
+const DEMO_AVATAR_COLORS = [
+  "#6c5ce7","#00cec9","#fd79a8","#ffeaa7",
+  "#55efc4","#a29bfe","#fab1a0","#81ecec","#ffd6a5"
 ];
-const DEMO_AVATAR_COLORS = ["#6c5ce7","#00cec9","#fd79a8","#ffeaa7","#55efc4","#a29bfe","#fab1a0","#81ecec","#ffd6a5"];
 
 function initials(name){
   return name.split(" ").map(s=>s[0]).join("").slice(0,2).toUpperCase();
 }
 function randomItem(a){ return a[Math.floor(Math.random()*a.length)] }
 
-function buildDemoUsers(count=150){
-  const tiers = ["free","plus","pro","prem"];
-  return Array.from({length:count}, (_,i)=>{
-    const name = (randomItem(DEMO_NAMES) + " " + (Math.random()<.5 ? randomItem(DEMO_NAMES) : "")).trim();
-    return {
-      id:`u${i}`, name: name || `User ${i+1}`, username:`@user${1000+i}`, photo:"",
-      balance: Math.floor(Math.random()*50000),
-      invites: Math.floor(Math.random()*1200),
-      tier: randomItem(tiers)
-    };
-  });
-}
-const DEMO_USERS = buildDemoUsers();
-
+/* Tier badges for UI */
 function TierBadge({tierKey}){
-  if (tierKey === "free") return <span className="badge free">No status</span>;
+  if (tierKey === "free" || !tierKey) return <span className="badge free">No status</span>;
   if (tierKey === "plus") return <span className="badge premium">Premium⚡️</span>;
   if (tierKey === "pro")  return <span className="badge plus">Plus⭐️</span>;
   return <span className="badge pro">Pro👑</span>;
 }
 
-/* --------- Earn helpers (no-backend demo) --------- */
+/* --------- Earn helpers --------- */
 function getTGUser(){
   const u = window.Telegram?.WebApp?.initDataUnsafe?.user;
   if (!u) return null;
@@ -283,17 +153,63 @@ function addReferralRow(row){
   writeReferrals(arr.slice(0,500));
 }
 
-/* ==================== Top100 Screen ==================== */
+/* ==================== Top100 Screen (LIVE from Supabase) ==================== */
 const TopScreen = React.memo(function TopScreen({ lbTab, tick, onTabChange }) {
-  const topPlayers = useMemo(()=>[...DEMO_USERS].sort((a,b)=> b.balance - a.balance).slice(0,100),[tick]);
-  const topInvites = useMemo(()=>[...DEMO_USERS].sort((a,b)=> b.invites - a.invites).slice(0,100),[tick]);
-  const active = lbTab === "players" ? topPlayers : topInvites;
+  const [players, setPlayers] = useState([]);
+  const [invites, setInvites] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [errMsg, setErrMsg] = useState(null);
 
   function Avatar({name, photo}){
     if (photo) return <img className="lb-avatar" src={photo} alt={name} />;
     const bg = randomItem(DEMO_AVATAR_COLORS);
     return <div className="lb-avatar fallback" style={{ background: bg }}>{initials(name)}</div>;
   }
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function fetchData() {
+      setLoading(true);
+      setErrMsg(null);
+
+      try {
+        const orderField = lbTab === "players" ? "balance" : "invites";
+
+        const { data, error } = await supabase
+          .from("roff_users")
+          .select("tg_id, username, full_name, photo_url, balance, invites, premium_tier")
+          .order(orderField, { ascending: false })
+          .limit(100);
+
+        if (error) throw error;
+        if (cancelled || !data) return;
+
+        const mapped = data.map((row) => ({
+          id: row.tg_id,
+          name: row.full_name || row.username || `User ${row.tg_id}`,
+          username: row.username ? `@${row.username}` : "",
+          photo: row.photo_url || "",
+          balance: row.balance ?? 0,
+          invites: row.invites ?? 0,
+          tier: row.premium_tier || "free",
+        }));
+
+        if (lbTab === "players") setPlayers(mapped);
+        else setInvites(mapped);
+      } catch (e) {
+        console.error("Leaderboard fetch error", e);
+        if (!cancelled) setErrMsg("Failed to load leaderboard");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    fetchData();
+    return () => { cancelled = true; };
+  }, [lbTab, tick]);
+
+  const active = lbTab === "players" ? players : invites;
 
   function Row({rank, user, mode}){
     return (
@@ -339,9 +255,15 @@ const TopScreen = React.memo(function TopScreen({ lbTab, tick, onTabChange }) {
         <div className="lb-h-right">{lbTab==="players" ? "Balance" : "Invites"}</div>
       </div>
 
+      {loading && <div className="lb-loading">Loading…</div>}
+      {errMsg && !loading && <div className="lb-error">{errMsg}</div>}
+
       <div className="lb-list">
+        {!loading && !errMsg && active.length === 0 && (
+          <div className="lb-empty">No data yet.</div>
+        )}
         {active.map((u,idx)=>(
-          <Row key={`${lbTab}-${u.id}`} rank={idx+1} user={u} mode={lbTab} />
+          <Row key={`${lbTab}-${u.id}-${idx}`} rank={idx+1} user={u} mode={lbTab} />
         ))}
       </div>
     </div>
@@ -354,53 +276,8 @@ export default function App(){
   const [bank,setBank] = useState(0);
   const [tgId, setTgId] = useState(null);
 
-  // Sync Telegram user into Supabase on app load
-  // and load balance + spins from the database
-  useEffect(() => {
-    const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
-    if (!tgUser) return;
-
-    const run = async () => {
-      try {
-        setTgId(tgUser.id);
-        const baseUser = {
-          tg_id: tgUser.id,
-          username: tgUser.username || null,
-          full_name: [tgUser.first_name, tgUser.last_name].filter(Boolean).join(" "),
-          photo_url: tgUser.photo_url || null,
-          last_seen: new Date().toISOString(),
-        };
-
-        const { data, error } = await supabase
-          .from("roff_users")
-          .upsert(baseUser, { onConflict: "tg_id" })
-          .select("*")
-          .eq("tg_id", tgUser.id)
-          .single();
-
-        if (error) {
-          console.error("Supabase upsert/select error", error);
-          return;
-        }
-
-        if (data) {
-          if (typeof data.balance === "number") {
-            setBank(data.balance);
-          }
-          if (typeof data.spins_left === "number") {
-            setSpinsLeft(data.spins_left);
-          }
-        }
-      } catch (err) {
-        console.error("Supabase sync error", err);
-      }
-    };
-
-    run();
-  }, []);
-
   /* Premium state */
-  const [tierKey, setTierKey] = useState("free"); // "free" | "plus" | "pro" | "prem"
+  const [tierKey, setTierKey] = useState("free"); // persisted in DB as premium_tier
   const tier = TIERS[tierKey];
   const regenMs = Math.floor(BASE_REGEN_MS / tier.regenMult);
   const spinCap = tier.cap;
@@ -415,7 +292,7 @@ export default function App(){
 
   /* Spins/energy */
   const [spinsLeft, setSpinsLeft] = useState(BASE_CAP);
-  const [nextReadyAt, setNextReadyAt] = useState(null);
+  const [nextReadyAt, setNextReadyAt] = useState(null); // timestamp ms
   const [nextInMs, setNextInMs] = useState(0);
 
   /* UI */
@@ -430,7 +307,6 @@ export default function App(){
   const [lbTick, setLbTick] = useState(0);
 
   /* Earn / referrals */
-  const [myRefCode,setMyRefCode] = useState("");
   const [myRefLink,setMyRefLink] = useState("");
   const [referrals,setReferrals] = useState(readReferrals());
 
@@ -482,17 +358,20 @@ export default function App(){
     });
   },[]);
 
-  /* Angle setters */
+  /* Angle setters + persist angle */
   const applyAngle = (angle) => {
     const norm = ((angle % 360) + 360) % 360;
     currentAngleRef.current = norm;
     setAngleState(norm);
-    try { localStorage.setItem("rof_visAngle", String(norm)); } catch {}
-    try { window.__rofAngle = norm; } catch {}
+    try {
+      localStorage.setItem("rof_visAngle", String(norm));
+      window.__rofAngle = norm;
+    } catch {}
   };
 
-  /* Restore last pose on mount */
+  /* Restore angle + saved timer from last session */
   useEffect(()=>{
+    // angle
     let a = null;
     try {
       const ls = localStorage.getItem("rof_visAngle");
@@ -502,19 +381,32 @@ export default function App(){
       try { if (typeof window.__rofAngle === "number") a = window.__rofAngle; } catch {}
     }
     if (a == null || Number.isNaN(a)) a = 0;
-
     applyAngle(a);
 
+    // calcRot (optional)
     try{
       const savedCalc = parseFloat(localStorage.getItem("rof_calcRot"));
       if(!Number.isNaN(savedCalc)) calcRotRef.current = savedCalc;
     }catch{}
+
+    // regen timer
+    try {
+      const stored = localStorage.getItem("rof_nextReadyAt");
+      if (stored) {
+        const ts = parseInt(stored, 10);
+        if (!Number.isNaN(ts)) {
+          setNextReadyAt(ts);
+          const now = Date.now();
+          setNextInMs(Math.max(0, ts - now));
+        }
+      }
+    } catch {}
   },[]);
 
   /* Cancel RAF on unmount */
   useEffect(()=>()=>{ if(rafRef.current) cancelAnimationFrame(rafRef.current); },[]);
 
-  /* RAF tween */
+  /* RAF tween for main spin */
   const animateRotation = (from, to, durationMs, onDone) => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     animBusyRef.current = true;
@@ -537,7 +429,54 @@ export default function App(){
     return ()=> clearInterval(id);
   },[]);
 
-  /* Non-additive cooldown ticker — pauses while Premium modal open */
+  /* Sync Telegram user + balance/spins/tier from Supabase */
+  useEffect(() => {
+    const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+    if (!tgUser) return;
+
+    const run = async () => {
+      try {
+        setTgId(tgUser.id);
+        const baseUser = {
+          tg_id: tgUser.id,
+          username: tgUser.username || null,
+          full_name: [tgUser.first_name, tgUser.last_name].filter(Boolean).join(" "),
+          photo_url: tgUser.photo_url || null,
+          last_seen: new Date().toISOString(),
+        };
+
+        const { data, error } = await supabase
+          .from("roff_users")
+          .upsert(baseUser, { onConflict: "tg_id" })
+          .select("*")
+          .eq("tg_id", tgUser.id)
+          .single();
+
+        if (error) {
+          console.error("Supabase upsert/select error", error);
+          return;
+        }
+
+        if (data) {
+          if (typeof data.balance === "number") {
+            setBank(data.balance);
+          }
+          if (typeof data.spins_left === "number") {
+            setSpinsLeft(data.spins_left);
+          }
+          if (typeof data.premium_tier === "string" && TIERS[data.premium_tier]) {
+            setTierKey(data.premium_tier);
+          }
+        }
+      } catch (err) {
+        console.error("Supabase sync error", err);
+      }
+    };
+
+    run();
+  }, []);
+
+  /* Non-additive cooldown ticker (persists timer in localStorage) */
   useEffect(()=>{
     if (showPremium) return;
     const tick = () => {
@@ -545,14 +484,19 @@ export default function App(){
       setSpinsLeft(s => Math.min(s, spinCap));
 
       if (spinsLeft >= spinCap) {
-        if (nextReadyAt !== null) setNextReadyAt(null);
+        if (nextReadyAt !== null) {
+          setNextReadyAt(null);
+          try { localStorage.removeItem("rof_nextReadyAt"); } catch {}
+        }
         setNextInMs(0);
         return;
       }
 
       if (nextReadyAt == null) {
-        setNextReadyAt(now + regenMs);
+        const ts = now + regenMs;
+        setNextReadyAt(ts);
         setNextInMs(regenMs);
+        try { localStorage.setItem("rof_nextReadyAt", String(ts)); } catch {}
         return;
       }
 
@@ -562,8 +506,16 @@ export default function App(){
       if (remaining <= 0) {
         setSpinsLeft(s => Math.min(spinCap, s + 1));
         const nextCount = Math.min(spinCap, spinsLeft + 1);
-        setNextReadyAt(nextCount < spinCap ? now + regenMs : null);
-        setNextInMs(nextCount < spinCap ? regenMs : 0);
+        if (nextCount < spinCap) {
+          const ts = now + regenMs;
+          setNextReadyAt(ts);
+          setNextInMs(regenMs);
+          try { localStorage.setItem("rof_nextReadyAt", String(ts)); } catch {}
+        } else {
+          setNextReadyAt(null);
+          setNextInMs(0);
+          try { localStorage.removeItem("rof_nextReadyAt"); } catch {}
+        }
       }
     };
 
@@ -573,7 +525,7 @@ export default function App(){
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spinsLeft, nextReadyAt, regenMs, spinCap, showPremium]);
 
-  /* Spin – simple, server-authoritative, no idle RAF */
+  /* ===== Spin – server-authoritative payout, visual index matched to prize ===== */
   const handleSpin = async () => {
     if (spinning || animBusyRef.current || spinsLeft <= 0) return;
     if (!tgId) {
@@ -588,7 +540,6 @@ export default function App(){
     const startVis = currentAngleRef.current;
 
     try {
-      // 1) Call backend /spin
       const response = await fetch(`${API_BASE}/spin`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -609,14 +560,33 @@ export default function App(){
         return;
       }
 
-      const idx = data.index;         // segment index 0..24 from server
-      const won = data.prize;         // prize AFTER multiplier
+      const serverPrize = data.prize;        // prize AFTER multiplier (from backend)
       const newBalance = data.balance;
-      const newSpins = data.spins_left;
+      const newSpins   = data.spins_left;
 
-      // 2) Use server index to build a spin animation
-      const spinsFull = randInt(4, 8); // full turns (shorter range for speed)
-      const jitter = (randFloat() * 0.8 - 0.4) * SEG_DEG; // small random offset
+      // 🔥 CRITICAL FIX: choose a segment whose amount * prizeMult == serverPrize
+      const candidates = [];
+      slots.forEach((slot, i) => {
+        const base = slot.amount || 0;
+        if (base * prizeMult === serverPrize) {
+          candidates.push(i);
+        }
+      });
+
+      let idx;
+      if (candidates.length > 0) {
+        idx = candidates[randInt(0, candidates.length - 1)];
+      } else if (typeof data.index === "number") {
+        // fallback: use backend index if mapping exists
+        idx = Math.max(0, Math.min(SEGMENTS_TOTAL - 1, data.index));
+      } else {
+        // absolute fallback: fully random segment
+        idx = randInt(0, SEGMENTS_TOTAL - 1);
+      }
+
+      // Build a nice spin to that index
+      const spinsFull = randInt(4, 8); // full turns
+      const jitter = (randFloat() * 0.8 - 0.4) * SEG_DEG;
       const center = idx * SEG_DEG + SEG_DEG / 2 + jitter;
       const toZero = (360 - (center % 360) + 360) % 360;
 
@@ -629,9 +599,8 @@ export default function App(){
       visualDelta += extraTurns * 360;
       const endVis = startVis + visualDelta;
 
-      const durationMs = randInt(1900, 2800); // quicker spin, but still juicy
+      const durationMs = randInt(1900, 2800);
 
-      // 3) Animate wheel to the correct index, then apply server numbers
       animateRotation(startVis, endVis, durationMs, () => {
         calcRotRef.current = finalCalc;
 
@@ -640,15 +609,13 @@ export default function App(){
         applyAngle(finalVis);
 
         try {
-          localStorage.setItem("rof_visAngle", String(finalVis));
           localStorage.setItem("rof_calcRot", String(finalCalc));
-          window.__rofAngle = finalVis;
         } catch {}
 
         setBank(newBalance);
         setSpinsLeft(newSpins);
 
-        setToast({ text: `+${won} $ROF`, key: Date.now() });
+        setToast({ text: `+${serverPrize} $ROF`, key: Date.now() });
         setTimeout(() => setToast(null), 1600);
 
         setSpinning(false);
@@ -661,30 +628,55 @@ export default function App(){
     }
   };
 
-  /* Premium purchase */
+  /* ===== Premium purchase – update DB & timer instantly ===== */
   const canAfford = (price) => bank >= price;
-  const buyTier = (key) => {
+  const buyTier = async (key) => {
     if (key === tierKey) return;
     if (!canAfford(TEST_PRICE_COINS)) {
       setToast({ text: "Not enough coins for Premium", key: Date.now() });
       setTimeout(() => setToast(null), 1600);
       return;
     }
+
     const t = TIERS[key];
+    const now = Date.now();
+
     setBank(b => b - TEST_PRICE_COINS);
     setTierKey(key);
     setSpinsLeft(s => Math.min(s, t.cap));
-    const now = Date.now();
-    setNextReadyAt(spinsLeft >= t.cap ? null : (nextReadyAt ?? now + Math.floor(BASE_REGEN_MS / t.regenMult)));
+
+    // 🔧 Adjust regen timer instantly when tier changes
+    if (spinsLeft >= t.cap) {
+      setNextReadyAt(null);
+      setNextInMs(0);
+      try { localStorage.removeItem("rof_nextReadyAt"); } catch {}
+    } else {
+      const ts = now + Math.floor(BASE_REGEN_MS / t.regenMult);
+      setNextReadyAt(ts);
+      setNextInMs(ts - now);
+      try { localStorage.setItem("rof_nextReadyAt", String(ts)); } catch {}
+    }
+
+    // Save premium tier to Supabase
+    if (tgId) {
+      try {
+        await supabase
+          .from("roff_users")
+          .update({ premium_tier: key, balance: bank - TEST_PRICE_COINS })
+          .eq("tg_id", tgId);
+      } catch (e) {
+        console.error("Failed to update premium_tier", e);
+      }
+    }
+
     setShowPremium(false);
     setToast({ text: `${t.name} activated!`, key: Date.now() });
     setTimeout(() => setToast(null), 1600);
   };
 
-  /* ===== Earn: referral code + link + claim handling (client-side demo) ===== */
+  /* ===== Earn: referral code + link + claim handling ===== */
   useEffect(()=>{
     const code = getOrCreateMyRefCode();
-    setMyRefCode(code);
     const origin = window.location.origin;
     const path = window.location.pathname.replace(/\/+$/,"");
     const link = `${origin}${path}?ref=${encodeURIComponent(code)}`;
@@ -726,9 +718,12 @@ export default function App(){
     // eslint-disable-next-line
   }, [spinCap]);
 
-  /* Earn UI actions */
   const copyLink = async ()=>{
-    try{ await navigator.clipboard.writeText(myRefLink); setToast({text:"Copied link", key:Date.now()}); setTimeout(()=>setToast(null),1200);}catch{}
+    try{
+      await navigator.clipboard.writeText(myRefLink);
+      setToast({text:"Copied link", key:Date.now()});
+      setTimeout(()=>setToast(null),1200);
+    }catch{}
   };
   const shareLink = ()=>{
     const text = `Spin & win on ROFFLE — we both get +20 spins & +200 $ROF:\n${myRefLink}`;
@@ -813,16 +808,89 @@ export default function App(){
   const PlayScreen = () => (
     <>
       <div className="wheel-wrap compact-no-scroll">
-        <Wheel
-          angleState={angleState}
-          wedges={wedges}
-          slots={slots}
-          cx={cx} cy={cy}
-          R_TRIM={R_TRIM} TRIM_W={TRIM_W}
-          R_FACE={R_FACE}
-          pointerBaseY={pointerBaseY} pointerTipY={pointerTipY}
-          prizeMult={prizeMult}
-        />
+        <svg className="wheel-svg" viewBox="0 0 1000 1000" aria-hidden>
+          <defs>
+            {Array.from({ length: SEGMENTS_TOTAL }, (_, i) => {
+              const sec1 = i + 1;
+              const id = `grad-${i}`;
+              if (sec1 === 1)
+                return (
+                  <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#43cda3" />
+                    <stop offset="100%" stopColor="#490e6d" />
+                  </linearGradient>
+                );
+              else if (sec1 % 2 === 0)
+                return (
+                  <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#404040" />
+                    <stop offset="100%" stopColor="#000000" />
+                  </linearGradient>
+                );
+              else
+                return (
+                  <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#ffffff" />
+                    <stop offset="100%" stopColor="#a8a8a8" />
+                  </linearGradient>
+                );
+            })}
+            <linearGradient id="goldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#f6e19a" />
+              <stop offset="50%" stopColor="#caa03a" />
+              <stop offset="100%" stopColor="#7a5d19" />
+            </linearGradient>
+            <filter id="textGlow" x="-50%" y="-50%" width="200%" height="200%">
+              <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#36125e" floodOpacity="1" />
+              <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#36125e" floodOpacity=".85" />
+              <feDropShadow dx="0" dy="0" stdDeviation="10" floodColor="#36125e" floodOpacity=".6" />
+            </filter>
+          </defs>
+
+          <g className="wheel-root" transform={`translate(${cx} ${cy})`}>
+            <circle r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
+
+            <g className="rotor" data-angle={angleState} transform={`rotate(${START_OFFSET + angleState})`}>
+              {wedges.map(({ i, path }) => (
+                <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />
+              ))}
+
+              {wedges.map(({ i, mid, labelR }) => {
+                const sec1 = i + 1;
+                const isMax = sec1 === 1;
+                const baseAmount = slots[i].amount || 0;
+                const shown = baseAmount * prizeMult;
+
+                const textFill = sec1 === 1 ? "#fff" : sec1 % 2 === 0 ? "#fff" : "#000";
+                const textAngle = (mid + 270) % 360;
+                const flip = textAngle > 90 && textAngle < 270;
+
+                return (
+                  <g key={`t${i}`} transform={`rotate(${mid})`}>
+                    <text
+                      x={labelR}
+                      y={0}
+                      transform={flip ? `rotate(180 ${labelR} 0)` : ""}
+                      className={`slice-txt ${isMax ? "is-max" : ""}`}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      fill={textFill}
+                      filter={isMax ? "url(#textGlow)" : undefined}
+                    >
+                      {shown}
+                    </text>
+                  </g>
+                );
+              })}
+            </g>
+          </g>
+
+          <polygon
+            className="pointer"
+            points={`${cx - 18},${pointerBaseY} ${cx + 18},${pointerBaseY} ${cx},${pointerTipY}`}
+          />
+        </svg>
+
         <div className="center-stack">
           <div className="center-ring" />
           <div className="center-cap" />
@@ -835,7 +903,9 @@ export default function App(){
         <button className="btn-spin" onClick={handleSpin} disabled={spinning || animBusyRef.current || spinsLeft<=0}>
           <span className="spin-count">{spinsLeft}/{spinCap} <span className="muted">Spins left</span></span>
           <span className="spin-cta">{spinning ? "Spinning…" : "Spin"}</span>
-          <span className="spin-timer">{spinsLeft<spinCap ? `Next spin in ${formatMs(nextInMs)}` : "Ready"}</span>
+          <span className="spin-timer">
+            {spinsLeft<spinCap ? `Next spin in ${formatMs(nextInMs)}` : "Ready"}
+          </span>
         </button>
       </div>
     </>
@@ -843,7 +913,7 @@ export default function App(){
 
   const LootScreen = () => <div className="placeholder-card">🎁 Lootboxes coming soon…</div>;
 
-  function Avatar({name, photo}){
+  function AvatarInline({name, photo}){
     if (photo) return <img className="lb-avatar" src={photo} alt={name} />;
     const bg = randomItem(DEMO_AVATAR_COLORS);
     return <div className="lb-avatar fallback" style={{ background: bg }}>{initials(name)}</div>;
@@ -895,7 +965,7 @@ export default function App(){
             )}
             {referrals.map((r,i)=>(
               <div key={r.id || i} className="ref-row">
-                <Avatar name={r.name || "User"} photo={r.photo || ""} />
+                <AvatarInline name={r.name || "User"} photo={r.photo || ""} />
                 <div className="ref-meta">
                   <div className="ref-name">{r.name || "User"}</div>
                   <div className="ref-sub">
