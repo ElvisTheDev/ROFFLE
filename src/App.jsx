@@ -12,6 +12,7 @@ const START_OFFSET = -90; // pointer at top
 const BASE_CAP = 20;
 const BASE_REGEN_MS = 10 * 60 * 1000; // 10 minutes (non-additive!)
 const TICK_MS = 1000;
+const API_BASE = "https://roffle-bot.onrender.com";
 
 /* Premium tiers (names per your mapping) */
 const TIERS = {
@@ -554,73 +555,93 @@ export default function App(){
   };
 
   /* Spin */
-    const handleSpin = () => {
+  const handleSpin = async () => {
     if (spinning || animBusyRef.current || spinsLeft <= 0) return;
+    if (!tgId) {
+      setToast({ text: "User not ready yet, try again", key: Date.now() });
+      setTimeout(() => setToast(null), 1500);
+      return;
+    }
 
     setSpinning(true);
     setToast(null);
 
-    // compute spins spent for this round
-    const newSpins = Math.max(0, spinsLeft - 1);
-    setSpinsLeft(newSpins);
-
-    if (spinsLeft === spinCap) {
-      const now = Date.now();
-      setNextReadyAt(now + regenMs);
-      setNextInMs(regenMs);
-    }
-
     const startVis = currentAngleRef.current;
-    // ...
 
-    const idx = randChoice(SEGMENTS_TOTAL);
-    const spins = randInt(5, 12);
-    const jitter = (randFloat() * 0.8 - 0.4) * SEG_DEG;
-    const center = idx * SEG_DEG + SEG_DEG / 2 + jitter;
-    const toZero = (360 - (center % 360) + 360) % 360;
-
-    const finalCalc = calcRotRef.current + spins * 360 + toZero;
-    const endMod = ((finalCalc % 360) + 360) % 360;
-
-    let visualDelta = endMod - startVis;
-    if (visualDelta <= 0) visualDelta += 360;
-    const extraTurns = spins - 1;
-    visualDelta += extraTurns * 360;
-    const endVis = startVis + visualDelta;
-
-    const durationMs = randInt(3200, 6200);
-
-    animateRotation(startVis, endVis, durationMs, () => {
-      calcRotRef.current = finalCalc;
-
-      const finalVis = ((endVis % 360) + 360) % 360;
-      applyAngle(finalVis);
-
-      try {
-        localStorage.setItem("rof_visAngle", String(finalVis));
-        localStorage.setItem("rof_calcRot", String(finalCalc));
-        window.__rofAngle = finalVis;
-      } catch {}
-
-      const landedIndex = indexFromRotation(finalCalc);
-      const baseWin = slots[landedIndex].amount || 0;
-      const won = baseWin * prizeMult;
-
-      // update bank + persist to Supabase
-      setBank(prev => {
-        const updatedBank = prev + won;
-        // use the newSpins we computed at start of handleSpin
-        saveGameState(updatedBank, newSpins);
-        return updatedBank;
+    try {
+      // 1) Call backend /spin
+      const response = await fetch(`${API_BASE}/spin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tg_id: tgId }),
       });
 
-      setToast({ text: `+${won} $ROF`, key: Date.now() });
-      setTimeout(() => setToast(null), 1600);
+      const data = await response.json().catch(() => null);
 
+      if (!response.ok || !data || !data.ok) {
+        console.error("Spin error", data);
+        if (data && data.error === "no_spins") {
+          setToast({ text: "No spins left", key: Date.now() });
+        } else {
+          setToast({ text: "Spin failed, try again", key: Date.now() });
+        }
+        setTimeout(() => setToast(null), 1500);
+        setSpinning(false);
+        return;
+      }
+
+      const idx = data.index;         // segment index 0..24 from server
+      const won = data.prize;         // prize AFTER multiplier
+      const newBalance = data.balance;
+      const newSpins = data.spins_left;
+
+      // 2) Use server index to build a spin animation
+      const spinsFull = randInt(5, 12); // full turns
+      const jitter = (randFloat() * 0.8 - 0.4) * SEG_DEG; // small random offset
+      const center = idx * SEG_DEG + SEG_DEG / 2 + jitter;
+      const toZero = (360 - (center % 360) + 360) % 360;
+
+      const finalCalc = calcRotRef.current + spinsFull * 360 + toZero;
+      const endMod = ((finalCalc % 360) + 360) % 360;
+
+      let visualDelta = endMod - startVis;
+      if (visualDelta <= 0) visualDelta += 360;
+      const extraTurns = spinsFull - 1;
+      visualDelta += extraTurns * 360;
+      const endVis = startVis + visualDelta;
+
+      const durationMs = randInt(3200, 6200);
+
+      // 3) Animate wheel to the correct index, then apply server numbers
+      animateRotation(startVis, endVis, durationMs, () => {
+        calcRotRef.current = finalCalc;
+
+        const finalVis = ((endVis % 360) + 360) % 360;
+        applyAngle(finalVis);
+
+        try {
+          localStorage.setItem("rof_visAngle", String(finalVis));
+          localStorage.setItem("rof_calcRot", String(finalCalc));
+          window.__rofAngle = finalVis;
+        } catch {}
+
+        // Set balance & spins EXACTLY to what server says
+        setBank(newBalance);
+        setSpinsLeft(newSpins);
+
+        setToast({ text: `+${won} $ROF`, key: Date.now() });
+        setTimeout(() => setToast(null), 1600);
+
+        setSpinning(false);
+      });
+    } catch (err) {
+      console.error("Spin request failed", err);
+      setToast({ text: "Network error, try again", key: Date.now() });
+      setTimeout(() => setToast(null), 1500);
       setSpinning(false);
-
-    });
+    }
   };
+
 
   /* Premium purchase */
   const canAfford = (price) => bank >= price;
