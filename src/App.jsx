@@ -12,6 +12,10 @@ const BASE_REGEN_MS = 10 * 60 * 1000; // 10 minutes (non-additive!)
 const TICK_MS = 1000;
 const API_BASE = "https://roffle-bot.onrender.com";
 
+/* Idle rotation: one full lap every 15 seconds */
+const IDLE_LAP_MS = 15000;
+const IDLE_SPEED_DEG_PER_MS = 360 / IDLE_LAP_MS;
+
 /* Premium tiers (names per your mapping) */
 const TIERS = {
   free: { key: "free", name: "Free", regenMult: 1, cap: 20, prizeMult: 1, inviteBonus: 0 },
@@ -96,11 +100,6 @@ function formatMs(ms) {
   const r = s % 60;
   const pad = (n) => (n < 10 ? `0${n}` : `${n}`);
   return `${m}:${pad(r)}`;
-}
-
-/* Easing */
-function easeOutCubic(t) {
-  return 1 - Math.pow(1 - t, 3);
 }
 
 /* Assets */
@@ -213,178 +212,89 @@ const Wheel = React.memo(
 
 /* ======= DEMO LEADERBOARD DATA (placeholder) ======= */
 const DEMO_NAMES = [
-  "Elena",
-  "Maks",
-  "Aya",
-  "Ramon",
-  "Nina",
-  "Leo",
-  "Kira",
-  "Owen",
-  "Aria",
-  "Felix",
-  "Mila",
-  "Dmitri",
-  "Zane",
-  "Ivy",
-  "Noah",
-  "Luna",
-  "Kai",
-  "Nova",
-  "Sasha",
-  "Mira",
-  "Ewan",
-  "Iris",
-  "Lars",
-  "Yuri",
-  "Vera",
-  "Maddox",
-  "Soren",
-  "Lia",
-  "Indie",
-  "Theo",
-  "Kato",
-  "Aiko",
-  "Rhea",
-  "Ezra",
-  "Ares",
-  "Rumi",
-  "Moss",
-  "Tess",
-  "Zoe",
-  "Rex",
-  "Juno",
-  "Oleg",
-  "Gwen",
-  "Finn",
-  "Jax",
-  "Maya",
-  "Oksana",
-  "Toma",
-  "Hugo",
-  "Eli",
+  "Elena","Maks","Aya","Ramon","Nina","Leo","Kira","Owen","Aria","Felix",
+  "Mila","Dmitri","Zane","Ivy","Noah","Luna","Kai","Nova","Sasha","Mira",
+  "Ewan","Iris","Lars","Yuri","Vera","Maddox","Soren","Lia","Indie","Theo",
+  "Kato","Aiko","Rhea","Ezra","Ares","Rumi","Moss","Tess","Zoe","Rex",
+  "Juno","Oleg","Gwen","Finn","Jax","Maya","Oksana","Toma","Hugo","Eli"
 ];
-const DEMO_AVATAR_COLORS = [
-  "#6c5ce7",
-  "#00cec9",
-  "#fd79a8",
-  "#ffeaa7",
-  "#55efc4",
-  "#a29bfe",
-  "#fab1a0",
-  "#81ecec",
-  "#ffd6a5",
-];
+const DEMO_AVATAR_COLORS = ["#6c5ce7","#00cec9","#fd79a8","#ffeaa7","#55efc4","#a29bfe","#fab1a0","#81ecec","#ffd6a5"];
 
-function initials(name) {
-  return name
-    .split(" ")
-    .map((s) => s[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+function initials(name){
+  return name.split(" ").map(s=>s[0]).join("").slice(0,2).toUpperCase();
 }
-function randomItem(a) {
-  return a[Math.floor(Math.random() * a.length)];
-}
+function randomItem(a){ return a[Math.floor(Math.random()*a.length)] }
 
-function buildDemoUsers(count = 150) {
-  const tiers = ["free", "plus", "pro", "prem"];
-  return Array.from({ length: count }, (_, i) => {
-    const name =
-      randomItem(DEMO_NAMES) + " " + (Math.random() < 0.5 ? randomItem(DEMO_NAMES) : "");
+function buildDemoUsers(count=150){
+  const tiers = ["free","plus","pro","prem"];
+  return Array.from({length:count}, (_,i)=>{
+    const name = (randomItem(DEMO_NAMES) + " " + (Math.random()<.5 ? randomItem(DEMO_NAMES) : "")).trim();
     return {
-      id: `u${i}`,
-      name: name.trim() || `User ${i + 1}`,
-      username: `@user${1000 + i}`,
-      photo: "",
-      balance: Math.floor(Math.random() * 50000),
-      invites: Math.floor(Math.random() * 1200),
-      tier: randomItem(tiers),
+      id:`u${i}`, name: name || `User ${i+1}`, username:`@user${1000+i}`, photo:"",
+      balance: Math.floor(Math.random()*50000),
+      invites: Math.floor(Math.random()*1200),
+      tier: randomItem(tiers)
     };
   });
 }
 const DEMO_USERS = buildDemoUsers();
 
-function TierBadge({ tierKey }) {
+function TierBadge({tierKey}){
   if (tierKey === "free") return <span className="badge free">No status</span>;
   if (tierKey === "plus") return <span className="badge premium">Premium⚡️</span>;
-  if (tierKey === "pro") return <span className="badge plus">Plus⭐️</span>;
+  if (tierKey === "pro")  return <span className="badge plus">Plus⭐️</span>;
   return <span className="badge pro">Pro👑</span>;
 }
 
 /* --------- Earn helpers (no-backend demo) --------- */
-function getTGUser() {
+function getTGUser(){
   const u = window.Telegram?.WebApp?.initDataUnsafe?.user;
   if (!u) return null;
   return {
     id: u.id,
-    name:
-      [u.first_name, u.last_name].filter(Boolean).join(" ") ||
-      u.username ||
-      `User ${u.id}`,
+    name: [u.first_name, u.last_name].filter(Boolean).join(" ") || u.username || `User ${u.id}`,
     username: u.username ? `@${u.username}` : "",
     photo: u.photo_url || "",
   };
 }
-function getOrCreateMyRefCode() {
-  try {
+function getOrCreateMyRefCode(){
+  try{
     const tgUser = getTGUser();
     const key = "rof_ref_code";
     let code = localStorage.getItem(key);
     if (!code) {
-      const seed = tgUser?.id
-        ? String(tgUser.id)
-        : String(Math.floor(Math.random() * 1e10));
-      code = Number.parseInt(seed, 10).toString(36);
+      const seed = tgUser?.id ? String(tgUser.id) : String(Math.floor(Math.random()*1e10));
+      code = Number.parseInt(seed,10).toString(36);
       localStorage.setItem(key, code);
     }
     return code;
-  } catch {
-    return Math.floor(Math.random() * 1e9).toString(36);
-  }
+  }catch{ return Math.floor(Math.random()*1e9).toString(36); }
 }
-function readReferrals() {
-  try {
-    return JSON.parse(localStorage.getItem("rof_referrals") || "[]");
-  } catch {
-    return [];
-  }
+function readReferrals(){
+  try { return JSON.parse(localStorage.getItem("rof_referrals")||"[]"); } catch { return []; }
 }
-function writeReferrals(arr) {
-  try {
-    localStorage.setItem("rof_referrals", JSON.stringify(arr));
-  } catch {}
+function writeReferrals(arr){
+  try { localStorage.setItem("rof_referrals", JSON.stringify(arr)); } catch {}
 }
-function addReferralRow(row) {
+function addReferralRow(row){
   const arr = readReferrals();
   arr.unshift(row);
-  writeReferrals(arr.slice(0, 500));
+  writeReferrals(arr.slice(0,500));
 }
 
 /* ==================== Top100 Screen ==================== */
 const TopScreen = React.memo(function TopScreen({ lbTab, tick, onTabChange }) {
-  const topPlayers = useMemo(
-    () => [...DEMO_USERS].sort((a, b) => b.balance - a.balance).slice(0, 100),
-    [tick]
-  );
-  const topInvites = useMemo(
-    () => [...DEMO_USERS].sort((a, b) => b.invites - a.invites).slice(0, 100),
-    [tick]
-  );
+  const topPlayers = useMemo(()=>[...DEMO_USERS].sort((a,b)=> b.balance - a.balance).slice(0,100),[tick]);
+  const topInvites = useMemo(()=>[...DEMO_USERS].sort((a,b)=> b.invites - a.invites).slice(0,100),[tick]);
   const active = lbTab === "players" ? topPlayers : topInvites;
 
-  function Avatar({ name, photo }) {
+  function Avatar({name, photo}){
     if (photo) return <img className="lb-avatar" src={photo} alt={name} />;
     const bg = randomItem(DEMO_AVATAR_COLORS);
-    return (
-      <div className="lb-avatar fallback" style={{ background: bg }}>
-        {initials(name)}
-      </div>
-    );
+    return <div className="lb-avatar fallback" style={{ background: bg }}>{initials(name)}</div>;
   }
 
-  function Row({ rank, user, mode }) {
+  function Row({rank, user, mode}){
     return (
       <div className="lb-row">
         <div className="lb-left">
@@ -418,31 +328,19 @@ const TopScreen = React.memo(function TopScreen({ lbTab, tick, onTabChange }) {
   return (
     <div className="lb-wrap">
       <div className="lb-tabs">
-        <button
-          className={`lb-tab ${lbTab === "players" ? "on" : ""}`}
-          onClick={() => onTabChange("players")}
-        >
-          Top Players
-        </button>
-        <button
-          className={`lb-tab ${lbTab === "invites" ? "on" : ""}`}
-          onClick={() => onTabChange("invites")}
-        >
-          Top Invites
-        </button>
+        <button className={`lb-tab ${lbTab==="players"?"on":""}`} onClick={()=>onTabChange("players")}>Top Players</button>
+        <button className={`lb-tab ${lbTab==="invites"?"on":""}`} onClick={()=>onTabChange("invites")}>Top Invites</button>
       </div>
 
       <div className="lb-head">
         <div className="lb-h-left">Rank</div>
         <div className="lb-h-mid">User</div>
-        <div className="lb-h-right">
-          {lbTab === "players" ? "Balance" : "Invites"}
-        </div>
+        <div className="lb-h-right">{lbTab==="players" ? "Balance" : "Invites"}</div>
       </div>
 
       <div className="lb-list">
-        {active.map((u, idx) => (
-          <Row key={`${lbTab}-${u.id}`} rank={idx + 1} user={u} mode={lbTab} />
+        {active.map((u,idx)=>(
+          <Row key={`${lbTab}-${u.id}`} rank={idx+1} user={u} mode={lbTab} />
         ))}
       </div>
     </div>
@@ -450,9 +348,9 @@ const TopScreen = React.memo(function TopScreen({ lbTab, tick, onTabChange }) {
 });
 
 /* ==================== APP ==================== */
-export default function App() {
+export default function App(){
   const slots = useMemo(buildSlots, []);
-  const [bank, setBank] = useState(0);
+  const [bank,setBank] = useState(0);
   const [tgId, setTgId] = useState(null);
 
   // Sync Telegram user into Supabase on app load
@@ -467,9 +365,7 @@ export default function App() {
         const baseUser = {
           tg_id: tgUser.id,
           username: tgUser.username || null,
-          full_name: [tgUser.first_name, tgUser.last_name]
-            .filter(Boolean)
-            .join(" "),
+          full_name: [tgUser.first_name, tgUser.last_name].filter(Boolean).join(" "),
           photo_url: tgUser.photo_url || null,
           last_seen: new Date().toISOString(),
         };
@@ -516,16 +412,20 @@ export default function App() {
   const currentAngleRef = useRef(0);
   const calcRotRef = useRef(0);
 
+  /* Idle rotation refs */
+  const idleRafRef = useRef(null);
+  const idleLastTimeRef = useRef(null);
+
   /* Spins/energy */
   const [spinsLeft, setSpinsLeft] = useState(BASE_CAP);
   const [nextReadyAt, setNextReadyAt] = useState(null);
   const [nextInMs, setNextInMs] = useState(0);
 
   /* UI */
-  const [spinning, setSpinning] = useState(false);
-  const [toast, setToast] = useState(null);
-  const [tab, setTab] = useState("play");
-  const [booting, setBooting] = useState(true);
+  const [spinning,setSpinning] = useState(false);
+  const [toast,setToast] = useState(null);
+  const [tab,setTab] = useState("play");
+  const [booting,setBooting] = useState(true);
   const [showPremium, setShowPremium] = useState(false);
 
   /* Leaderboard UI */
@@ -533,16 +433,16 @@ export default function App() {
   const [lbTick, setLbTick] = useState(0);
 
   /* Earn / referrals */
-  const [myRefCode, setMyRefCode] = useState("");
-  const [myRefLink, setMyRefLink] = useState("");
-  const [referrals, setReferrals] = useState(readReferrals());
+  const [myRefCode,setMyRefCode] = useState("");
+  const [myRefLink,setMyRefLink] = useState("");
+  const [referrals,setReferrals] = useState(readReferrals());
 
   /* Splash */
-  useEffect(() => {
-    const timer = setTimeout(() => {
+  useEffect(()=>{
+    const timer = setTimeout(()=>{
       setBooting(false);
       const tg = window.Telegram?.WebApp;
-      if (!tg) return;
+      if(!tg) return;
       tg.ready();
       tg.setHeaderColor("#000000");
       tg.setBackgroundColor("#000000");
@@ -550,155 +450,168 @@ export default function App() {
       tg.MainButton.hide();
       tg.MainButton.disable?.();
     }, 800);
-    return () => clearTimeout(timer);
-  }, []);
+    return ()=>clearTimeout(timer);
+  },[]);
 
   /* Theme follow */
-  const [theme, setTheme] = useState({ bg: "#000", text: "#e8ecf2" });
-  useEffect(() => {
+  const [theme,setTheme] = useState({ bg:"#000", text:"#e8ecf2" });
+  useEffect(()=>{
     const tg = window.Telegram?.WebApp;
-    if (!tg) return;
-    const sync = () => {
-      const p = tg.themeParams || {};
-      setTheme({ bg: p.bg_color || "#000", text: p.text_color || "#e8ecf2" });
+    if(!tg) return;
+    const sync = ()=> {
+      const p=tg.themeParams||{};
+      setTheme({ bg:p.bg_color||"#000", text:p.text_color||"#e8ecf2" });
     };
-    sync();
-    tg.onEvent?.("themeChanged", sync);
-    return () => tg.offEvent?.("themeChanged", sync);
-  }, []);
+    sync(); tg.onEvent?.("themeChanged",sync);
+    return ()=>tg.offEvent?.("themeChanged",sync);
+  },[]);
 
   /* Sizes */
-  const cx = 500,
-    cy = 500;
+  const cx=500, cy=500;
   const R_FACE = 440 * 0.74;
   const R_TRIM = 470 * 0.74;
   const TRIM_W = 40;
   const LABEL_R = 360 * 0.74;
-  const trimOuter = R_TRIM + TRIM_W / 2;
-  const pointerTipY = cy - trimOuter + 2;
+  const trimOuter = R_TRIM + TRIM_W/2;
+  const pointerTipY  = cy - trimOuter + 2;
   const pointerBaseY = pointerTipY - 26;
 
   /* Wedges */
-  const wedges = useMemo(() => {
-    return Array.from({ length: SEGMENTS_TOTAL }, (_, i) => {
-      const start = i * SEG_DEG;
-      const end = start + SEG_DEG;
-      const mid = (start + end) / 2;
+  const wedges = useMemo(()=>{
+    return Array.from({length:SEGMENTS_TOTAL}, (_,i)=>{
+      const start=i*SEG_DEG; const end=start+SEG_DEG; const mid=(start+end)/2;
       const path = wedgePathLocal(R_FACE, start, end);
       return { i, mid, path, labelR: LABEL_R };
     });
-  }, []);
+  },[]);
 
   /* Angle setters */
   const applyAngle = (angle) => {
     const norm = ((angle % 360) + 360) % 360;
     currentAngleRef.current = norm;
     setAngleState(norm);
-    try {
-      localStorage.setItem("rof_visAngle", String(norm));
-    } catch {}
-    try {
-      window.__rofAngle = norm;
-    } catch {}
+    try { localStorage.setItem("rof_visAngle", String(norm)); } catch {}
+    try { window.__rofAngle = norm; } catch {}
   };
 
   /* Restore last pose on mount */
-  useEffect(() => {
+  useEffect(()=>{
     let a = null;
     try {
       const ls = localStorage.getItem("rof_visAngle");
       if (ls != null) a = parseFloat(ls);
     } catch {}
     if (a == null || Number.isNaN(a)) {
-      try {
-        if (typeof window.__rofAngle === "number") a = window.__rofAngle;
-      } catch {}
+      try { if (typeof window.__rofAngle === "number") a = window.__rofAngle; } catch {}
     }
     if (a == null || Number.isNaN(a)) a = 0;
 
     applyAngle(a);
 
-    try {
+    try{
       const savedCalc = parseFloat(localStorage.getItem("rof_calcRot"));
-      if (!Number.isNaN(savedCalc)) calcRotRef.current = savedCalc;
-    } catch {}
-  }, []);
+      if(!Number.isNaN(savedCalc)) calcRotRef.current = savedCalc;
+    }catch{}
+  },[]);
 
-  /* Cancel RAF on unmount */
-  useEffect(() => () => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-  }, []);
+  /* Cancel main spin RAF on unmount */
+  useEffect(()=>()=>{ if(rafRef.current) cancelAnimationFrame(rafRef.current); },[]);
 
-  /* RAF tween */
-  function easeOutCubicLocal(t) {
-    return 1 - Math.pow(1 - t, 3);
-  }
+  /* RAF tween for main spins */
   const animateRotation = (from, to, durationMs, onDone) => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     animBusyRef.current = true;
     const start = performance.now();
     const step = (now) => {
       const t = Math.min(1, (now - start) / durationMs);
-      const eased = easeOutCubicLocal(t);
+      const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
       const angle = from + (to - from) * eased;
       applyAngle(angle);
       if (t < 1) rafRef.current = requestAnimationFrame(step);
-      else {
-        animBusyRef.current = false;
-        onDone?.();
-      }
+      else { animBusyRef.current = false; onDone?.(); }
     };
     applyAngle(from);
     rafRef.current = requestAnimationFrame(step);
   };
 
+  /* Idle slow rotation loop */
+  const startIdleSpin = () => {
+    if (idleRafRef.current) return;
+    idleLastTimeRef.current = performance.now();
+
+    const loop = (now) => {
+      const last = idleLastTimeRef.current || now;
+      const dt = now - last;
+      idleLastTimeRef.current = now;
+
+      // advance angle slowly
+      const nextAngle = currentAngleRef.current + dt * IDLE_SPEED_DEG_PER_MS;
+      applyAngle(nextAngle);
+
+      idleRafRef.current = requestAnimationFrame(loop);
+    };
+
+    idleRafRef.current = requestAnimationFrame(loop);
+  };
+
+  const stopIdleSpin = () => {
+    if (idleRafRef.current) {
+      cancelAnimationFrame(idleRafRef.current);
+      idleRafRef.current = null;
+    }
+  };
+
+  /* Start idle spin on mount, stop on unmount */
+  useEffect(()=>{
+    startIdleSpin();
+    return () => { stopIdleSpin(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[]);
+
   /* Top100 refresh once per minute */
-  useEffect(() => {
-    const id = setInterval(() => setLbTick((t) => t + 1), 60000);
-    return () => clearInterval(id);
-  }, []);
+  useEffect(()=>{
+    const id = setInterval(()=> setLbTick(t => t+1), 60000);
+    return ()=> clearInterval(id);
+  },[]);
 
   /* Non-additive cooldown ticker — pauses while Premium modal open */
-  useEffect(
-    () => {
-      if (showPremium) return;
-      const tick = () => {
-        const now = Date.now();
-        setSpinsLeft((s) => Math.min(s, spinCap));
+  useEffect(()=>{
+    if (showPremium) return;
+    const tick = () => {
+      const now = Date.now();
+      setSpinsLeft(s => Math.min(s, spinCap));
 
-        if (spinsLeft >= spinCap) {
-          if (nextReadyAt !== null) setNextReadyAt(null);
-          setNextInMs(0);
-          return;
-        }
+      if (spinsLeft >= spinCap) {
+        if (nextReadyAt !== null) setNextReadyAt(null);
+        setNextInMs(0);
+        return;
+      }
 
-        if (nextReadyAt == null) {
-          setNextReadyAt(now + regenMs);
-          setNextInMs(regenMs);
-          return;
-        }
+      if (nextReadyAt == null) {
+        setNextReadyAt(now + regenMs);
+        setNextInMs(regenMs);
+        return;
+      }
 
-        const remaining = nextReadyAt - now;
-        setNextInMs(remaining > 0 ? remaining : 0);
+      const remaining = nextReadyAt - now;
+      setNextInMs(remaining > 0 ? remaining : 0);
 
-        if (remaining <= 0) {
-          setSpinsLeft((s) => Math.min(spinCap, s + 1));
-          const nextCount = Math.min(spinCap, spinsLeft + 1);
-          setNextReadyAt(nextCount < spinCap ? now + regenMs : null);
-          setNextInMs(nextCount < spinCap ? regenMs : 0);
-        }
-      };
+      if (remaining <= 0) {
+        setSpinsLeft(s => Math.min(spinCap, s + 1));
+        const nextCount = Math.min(spinCap, spinsLeft + 1);
+        setNextReadyAt(nextCount < spinCap ? now + regenMs : null);
+        setNextInMs(nextCount < spinCap ? regenMs : 0);
+      }
+    };
 
-      const id = setInterval(tick, TICK_MS);
-      tick();
-      return () => clearInterval(id);
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [spinsLeft, nextReadyAt, regenMs, spinCap, showPremium]
-  );
+    const id = setInterval(tick, TICK_MS);
+    tick();
+    return ()=>clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spinsLeft, nextReadyAt, regenMs, spinCap, showPremium]);
 
-  /* Spin – hybrid pre-spin + server final spin */
-  const handleSpin = () => {
+  /* Spin – server-authoritative + idle rotation */
+  const handleSpin = async () => {
     if (spinning || animBusyRef.current || spinsLeft <= 0) return;
     if (!tgId) {
       setToast({ text: "User not ready yet, try again", key: Date.now() });
@@ -709,35 +622,55 @@ export default function App() {
     setSpinning(true);
     setToast(null);
 
-    const startVis = currentAngleRef.current;
-    let serverResult = null;
-    let preDone = false;
-    let failed = false;
+    try {
+      const response = await fetch(`${API_BASE}/spin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tg_id: tgId }),
+      });
 
-    const startFinalSpin = () => {
-      if (!serverResult || failed) return;
+      const data = await response.json().catch(() => null);
 
-      const { idx, won, newBalance, newSpins } = serverResult;
-      const baseAngleVis = currentAngleRef.current; // after pre-spin
+      if (!response.ok || !data || !data.ok) {
+        console.error("Spin error", data);
+        if (data && data.error === "no_spins") {
+          setToast({ text: "No spins left", key: Date.now() });
+        } else {
+          setToast({ text: "Spin failed, try again", key: Date.now() });
+        }
+        setTimeout(() => setToast(null), 1500);
+        setSpinning(false);
+        return;
+      }
 
-      const spinsFull = randInt(2, 5); // shorter, snappy
-      const jitter = (randFloat() * 0.8 - 0.4) * SEG_DEG;
+      const idx = data.index;         // segment index 0..24 from server
+      const won = data.prize;         // prize AFTER multiplier
+      const newBalance = data.balance;
+      const newSpins = data.spins_left;
 
+      // Stop idle rotation now and grab current angle as start
+      stopIdleSpin();
+      const startVis = currentAngleRef.current;
+
+      // Build a shorter but satisfying spin
+      const spinsFull = randInt(2, 5); // full turns
+      const jitter = (randFloat() * 0.8 - 0.4) * SEG_DEG; // small random offset
       const center = idx * SEG_DEG + SEG_DEG / 2 + jitter;
       const toZero = (360 - (center % 360) + 360) % 360;
 
       const finalCalc = calcRotRef.current + spinsFull * 360 + toZero;
       const endMod = ((finalCalc % 360) + 360) % 360;
 
-      let visualDelta = endMod - baseAngleVis;
+      let visualDelta = endMod - startVis;
       if (visualDelta <= 0) visualDelta += 360;
       const extraTurns = spinsFull - 1;
       visualDelta += extraTurns * 360;
-      const endVis = baseAngleVis + visualDelta;
+      const endVis = startVis + visualDelta;
 
-      const durationMs = randInt(1300, 2200); // shorter final spin
+      const durationMs = randInt(1300, 2200); // shorter attention-span spin
 
-      animateRotation(baseAngleVis, endVis, durationMs, () => {
+      // Animate wheel to the correct index, then apply server numbers
+      animateRotation(startVis, endVis, durationMs, () => {
         calcRotRef.current = finalCalc;
 
         const finalVis = ((endVis % 360) + 360) % 360;
@@ -757,79 +690,18 @@ export default function App() {
         setTimeout(() => setToast(null), 1600);
 
         setSpinning(false);
+
+        // small pause then resume idle slow rotation
+        setTimeout(() => {
+          startIdleSpin();
+        }, 200);
       });
-    };
-
-    // 🔄 Kick off backend /spin in parallel
-    (async () => {
-      try {
-        const response = await fetch(`${API_BASE}/spin`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tg_id: tgId }),
-        });
-
-        const data = await response.json().catch(() => null);
-
-        if (!response.ok || !data || !data.ok) {
-          console.error("Spin error", data);
-          failed = true;
-          if (data && data.error === "no_spins") {
-            setToast({ text: "No spins left", key: Date.now() });
-          } else {
-            setToast({ text: "Spin failed, try again", key: Date.now() });
-          }
-          setTimeout(() => setToast(null), 1500);
-          if (preDone) setSpinning(false);
-          return;
-        }
-
-        serverResult = {
-          idx: data.index,
-          won: data.prize,
-          newBalance: data.balance,
-          newSpins: data.spins_left,
-        };
-
-        if (preDone) startFinalSpin();
-      } catch (err) {
-        console.error("Spin request failed", err);
-        failed = true;
-        setToast({ text: "Network error, try again", key: Date.now() });
-        setTimeout(() => setToast(null), 1500);
-        if (preDone) setSpinning(false);
-      }
-    })();
-
-    // ⚙️ Instant pre-spin (no waiting for network)
-    const preSpinsFull = 3; // 3 quick turns
-    const preDuration = 550; // ~0.5s
-    const preDelta = preSpinsFull * 360;
-
-    const preFinalCalc = calcRotRef.current + preDelta;
-    const preEndVis = startVis + preDelta;
-
-    animateRotation(startVis, preEndVis, preDuration, () => {
-      calcRotRef.current = preFinalCalc;
-
-      const finalVis = ((preEndVis % 360) + 360) % 360;
-      currentAngleRef.current = finalVis;
-      applyAngle(finalVis);
-
-      try {
-        localStorage.setItem("rof_visAngle", String(finalVis));
-        localStorage.setItem("rof_calcRot", String(preFinalCalc));
-        window.__rofAngle = finalVis;
-      } catch {}
-
-      preDone = true;
-
-      if (serverResult) {
-        startFinalSpin();
-      } else if (failed) {
-        setSpinning(false);
-      }
-    });
+    } catch (err) {
+      console.error("Spin request failed", err);
+      setToast({ text: "Network error, try again", key: Date.now() });
+      setTimeout(() => setToast(null), 1500);
+      setSpinning(false);
+    }
   };
 
   /* Premium purchase */
@@ -842,167 +714,126 @@ export default function App() {
       return;
     }
     const t = TIERS[key];
-    setBank((b) => b - TEST_PRICE_COINS);
+    setBank(b => b - TEST_PRICE_COINS);
     setTierKey(key);
-    setSpinsLeft((s) => Math.min(s, t.cap));
+    setSpinsLeft(s => Math.min(s, t.cap));
     const now = Date.now();
-    setNextReadyAt(
-      spinsLeft >= t.cap ? null : nextReadyAt ?? now + Math.floor(BASE_REGEN_MS / t.regenMult)
-    );
+    setNextReadyAt(spinsLeft >= t.cap ? null : (nextReadyAt ?? now + Math.floor(BASE_REGEN_MS / t.regenMult)));
     setShowPremium(false);
     setToast({ text: `${t.name} activated!`, key: Date.now() });
     setTimeout(() => setToast(null), 1600);
   };
 
   /* ===== Earn: referral code + link + claim handling (client-side demo) ===== */
-  useEffect(() => {
+  useEffect(()=>{
     const code = getOrCreateMyRefCode();
     setMyRefCode(code);
     const origin = window.location.origin;
-    const path = window.location.pathname.replace(/\/+$/, "");
+    const path = window.location.pathname.replace(/\/+$/,"");
     const link = `${origin}${path}?ref=${encodeURIComponent(code)}`;
     setMyRefLink(link);
-  }, []);
+  },[]);
 
-  useEffect(
-    () => {
-      try {
-        const params = new URLSearchParams(window.location.search);
-        const ref = params.get("ref");
-        if (!ref) return;
-        const already = localStorage.getItem("rof_ref_claimed");
-        const myCode = localStorage.getItem("rof_ref_code");
-        if (already === "1") return;
-        if (myCode && ref === myCode) return;
+  useEffect(()=>{
+    // If app opened via ?ref=... give the invitee bonus ONCE.
+    try{
+      const params = new URLSearchParams(window.location.search);
+      const ref = params.get("ref");
+      if (!ref) return;
+      const already = localStorage.getItem("rof_ref_claimed");
+      const myCode = localStorage.getItem("rof_ref_code");
+      if (already === "1") return;
+      if (myCode && ref === myCode) return; // ignore self-ref
 
-        setBank((b) => b + 200);
-        setSpinsLeft((s) => Math.min(spinCap, s + 20));
-        setToast({ text: `+200 $ROF & +20 spins (invite)`, key: Date.now() });
-        setTimeout(() => setToast(null), 1600);
+      setBank(b => b + 200);
+      setSpinsLeft(s => Math.min(spinCap, s + 20));
+      setToast({ text: `+200 $ROF & +20 spins (invite)`, key: Date.now() });
+      setTimeout(() => setToast(null), 1600);
 
-        localStorage.setItem("rof_ref_claimed", "1");
-        localStorage.setItem("rof_referred_by", ref);
+      localStorage.setItem("rof_ref_claimed", "1");
+      localStorage.setItem("rof_referred_by", ref);
 
-        const u = getTGUser();
-        const row = {
-          id: `joined-${Date.now()}`,
-          name: u?.name || "You (joined)",
-          username: u?.username || "",
-          photo: u?.photo || "",
-          tier: "free",
-          when: new Date().toISOString(),
-          note: `Joined via ${ref}`,
-        };
-        addReferralRow(row);
-        setReferrals(readReferrals());
-      } catch {}
-      // eslint-disable-next-line
-    },
-    [spinCap]
-  );
+      const u = getTGUser();
+      const row = {
+        id: `joined-${Date.now()}`,
+        name: u?.name || "You (joined)",
+        username: u?.username || "",
+        photo: u?.photo || "",
+        tier: "free",
+        when: new Date().toISOString(),
+        note: `Joined via ${ref}`,
+      };
+      addReferralRow(row);
+      setReferrals(readReferrals());
+    }catch{}
+    // eslint-disable-next-line
+  }, [spinCap]);
 
   /* Earn UI actions */
-  const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(myRefLink);
-      setToast({ text: "Copied link", key: Date.now() });
-      setTimeout(() => setToast(null), 1200);
-    } catch {}
+  const copyLink = async ()=>{
+    try{ await navigator.clipboard.writeText(myRefLink); setToast({text:"Copied link", key:Date.now()}); setTimeout(()=>setToast(null),1200);}catch{}
   };
-  const shareLink = () => {
+  const shareLink = ()=>{
     const text = `Spin & win on ROFFLE — we both get +20 spins & +200 $ROF:\n${myRefLink}`;
     const tg = window.Telegram?.WebApp;
-    if (tg?.openTelegramLink)
-      tg.openTelegramLink(
-        `https://t.me/share/url?url=${encodeURIComponent(
-          myRefLink
-        )}&text=${encodeURIComponent(text)}`
-      );
-    else if (navigator.share)
-      navigator
-        .share({ title: "ROFFLE", text, url: myRefLink })
-        .catch(() => {});
-    else
-      window.open(
-        `https://t.me/share/url?url=${encodeURIComponent(
-          myRefLink
-        )}&text=${encodeURIComponent(text)}`,
-        "_blank"
-      );
+    if (tg?.openTelegramLink) tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(myRefLink)}&text=${encodeURIComponent(text)}`);
+    else if (navigator.share) navigator.share({ title:"ROFFLE", text, url:myRefLink }).catch(()=>{});
+    else window.open(`https://t.me/share/url?url=${encodeURIComponent(myRefLink)}&text=${encodeURIComponent(text)}`,'_blank');
   };
 
-  /* Premium modal */
   const PremiumModal = () => {
     const cards = [
-      {
-        t: TIERS.plus,
-        bullets: [
-          "Wheel spins regenerate ×2 faster",
-          "Wheel cap increases to 40/40",
-          "All wheel prizes ×2",
-          "Invite rewards +50% from base",
-        ],
-      },
-      {
-        t: TIERS.pro,
-        bullets: [
-          "Wheel spins regenerate ×3 faster",
-          "Wheel cap increases to 60/60",
-          "All wheel prizes ×3",
-          "Invite rewards +75% from base",
-        ],
-      },
-      {
-        t: TIERS.prem,
-        bullets: [
-          "Wheel spins regenerate ×5 faster",
-          "Wheel cap increases to 100/100",
-          "All wheel prizes ×5",
-          "Invite rewards +100% from base",
-        ],
-      },
+      { t: TIERS.plus, bullets: [
+        "Wheel spins regenerate ×2 faster",
+        "Wheel cap increases to 40/40",
+        "All wheel prizes ×2",
+        "Invite rewards +50% from base",
+      ]},
+      { t: TIERS.pro, bullets: [
+        "Wheel spins regenerate ×3 faster",
+        "Wheel cap increases to 60/60",
+        "All wheel prizes ×3",
+        "Invite rewards +75% from base",
+      ]},
+      { t: TIERS.prem, bullets: [
+        "Wheel spins regenerate ×5 faster",
+        "Wheel cap increases to 100/100",
+        "All wheel prizes ×5",
+        "Invite rewards +100% from base",
+      ]},
     ];
     return (
-      <div className="modal-overlay" onClick={() => setShowPremium(false)}>
-        <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-overlay" onClick={()=>setShowPremium(false)}>
+        <div className="modal" onClick={(e)=>e.stopPropagation()}>
           <div className="modal-head">
             <div className="mh-left">
               <span className="mh-icon">👑</span>
               <div className="mh-title">Go $ROF Premium</div>
             </div>
-            <button className="modal-close" onClick={() => setShowPremium(false)}>
-              ✕
-            </button>
+            <button className="modal-close" onClick={()=>setShowPremium(false)}>✕</button>
           </div>
 
           <div className="modal-body">
-            <div className="modal-sub">
-              Choose a tier (test price: <b>{TEST_PRICE_COINS} coin</b> each)
-            </div>
+            <div className="modal-sub">Choose a tier (test price: <b>{TEST_PRICE_COINS} coin</b> each)</div>
 
             <div className="tier-grid">
-              {cards.map(({ t, bullets }) => {
+              {cards.map(({t, bullets})=>{
                 const active = t.key === tierKey;
                 return (
-                  <div
-                    key={t.key}
-                    className={`tier-card gradient-border ${active ? "active" : ""}`}
-                  >
+                  <div key={t.key} className={`tier-card gradient-border ${active?"active":""}`}>
                     <div className="tc-top">
                       <div className="tc-name">{t.name}</div>
                       {active && <div className="tc-active">Active</div>}
                     </div>
                     <ul className="tc-list">
-                      {bullets.map((b, idx) => (
-                        <li key={idx}>{b}</li>
-                      ))}
+                      {bullets.map((b,idx)=><li key={idx}>{b}</li>)}
                     </ul>
                     <div className="tc-price">Price: {TEST_PRICE_COINS} coin</div>
                     <div className="tc-actions">
                       <button
                         className="tc-buy gradient-outline-btn"
                         disabled={active || !canAfford(TEST_PRICE_COINS)}
-                        onClick={() => buyTier(t.key)}
+                        onClick={()=>buyTier(t.key)}
                       >
                         {active ? "Current Plan" : `Buy ${t.name}`}
                       </button>
@@ -1013,12 +844,8 @@ export default function App() {
             </div>
 
             <div className="modal-foot">
-              <div className="mf-note">
-                Payments are test-mode. Real payments & pricing coming soon.
-              </div>
-              <button className="mf-back" onClick={() => setShowPremium(false)}>
-                Back
-              </button>
+              <div className="mf-note">Payments are test-mode. Real payments & pricing coming soon.</div>
+              <button className="mf-back" onClick={()=>setShowPremium(false)}>Back</button>
             </div>
           </div>
         </div>
@@ -1026,7 +853,6 @@ export default function App() {
     );
   };
 
-  /* Screens */
   const PlayScreen = () => (
     <>
       <div className="wheel-wrap compact-no-scroll">
@@ -1034,13 +860,10 @@ export default function App() {
           angleState={angleState}
           wedges={wedges}
           slots={slots}
-          cx={cx}
-          cy={cy}
-          R_TRIM={R_TRIM}
-          TRIM_W={TRIM_W}
+          cx={cx} cy={cy}
+          R_TRIM={R_TRIM} TRIM_W={TRIM_W}
           R_FACE={R_FACE}
-          pointerBaseY={pointerBaseY}
-          pointerTipY={pointerTipY}
+          pointerBaseY={pointerBaseY} pointerTipY={pointerTipY}
           prizeMult={prizeMult}
         />
         <div className="center-stack">
@@ -1052,50 +875,27 @@ export default function App() {
       </div>
 
       <div className="spin-row tight">
-        <button
-          className="btn-spin"
-          onClick={handleSpin}
-          disabled={spinning || animBusyRef.current || spinsLeft <= 0}
-        >
-          <span className="spin-count">
-            {spinsLeft}/{spinCap} <span className="muted">Spins left</span>
-          </span>
+        <button className="btn-spin" onClick={handleSpin} disabled={spinning || animBusyRef.current || spinsLeft<=0}>
+          <span className="spin-count">{spinsLeft}/{spinCap} <span className="muted">Spins left</span></span>
           <span className="spin-cta">{spinning ? "Spinning…" : "Spin"}</span>
-          <span className="spin-timer">
-            {spinsLeft < spinCap
-              ? `Next spin in ${formatMs(nextInMs)}`
-              : "Ready"}
-          </span>
+          <span className="spin-timer">{spinsLeft<spinCap ? `Next spin in ${formatMs(nextInMs)}` : "Ready"}</span>
         </button>
       </div>
     </>
   );
 
-  const LootScreen = () => (
-    <div className="placeholder-card">🎁 Lootboxes coming soon…</div>
-  );
+  const LootScreen = () => <div className="placeholder-card">🎁 Lootboxes coming soon…</div>;
 
-  /* ===== Earn Screen ===== */
-  function Avatar({ name, photo }) {
+  function Avatar({name, photo}){
     if (photo) return <img className="lb-avatar" src={photo} alt={name} />;
     const bg = randomItem(DEMO_AVATAR_COLORS);
-    return (
-      <div className="lb-avatar fallback" style={{ background: bg }}>
-        {initials(name)}
-      </div>
-    );
+    return <div className="lb-avatar fallback" style={{ background: bg }}>{initials(name)}</div>;
   }
-  function formatDate(iso) {
-    try {
+  function formatDate(iso){
+    try{
       const d = new Date(iso);
-      return d.toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
-    } catch {
-      return "";
-    }
+      return d.toLocaleDateString(undefined, { year:"numeric", month:"short", day:"numeric" });
+    }catch{return "";}
   }
 
   const EarnScreen = () => {
@@ -1106,26 +906,14 @@ export default function App() {
         <div className="card gradient-border">
           <div className="card-head">
             <div className="card-title">Invite friends</div>
-            <div className="reward-pill">
-              🎁 Both get <b>+20 spins</b> & <b>+200 $ROF</b>
-            </div>
+            <div className="reward-pill">🎁 Both get <b>+20 spins</b> & <b>+200 $ROF</b></div>
           </div>
 
           <div className="ref-link-box">
             <input className="ref-input" value={myRefLink} readOnly />
             <div className="ref-actions">
-              <button
-                className="btn small gradient-outline-btn"
-                onClick={copyLink}
-              >
-                Copy
-              </button>
-              <button
-                className="btn small gradient-outline-btn"
-                onClick={shareLink}
-              >
-                Share
-              </button>
+              <button className="btn small gradient-outline-btn" onClick={copyLink}>Copy</button>
+              <button className="btn small gradient-outline-btn" onClick={shareLink}>Share</button>
             </div>
           </div>
 
@@ -1139,29 +927,23 @@ export default function App() {
               <div className="stat-v">{estBonus}</div>
             </div>
           </div>
-          <div className="disclaimer">
-            *Inviter rewards require a backend to credit automatically.
-          </div>
+          <div className="disclaimer">*Inviter rewards require a backend to credit automatically.</div>
         </div>
 
         <div className="card list-card gradient-border">
           <div className="card-title">Recent sign-ups via your link</div>
           <div className="ref-list">
             {referrals.length === 0 && (
-              <div className="empty">
-                No referrals yet. Share your link to start earning!
-              </div>
+              <div className="empty">No referrals yet. Share your link to start earning!</div>
             )}
-            {referrals.map((r, i) => (
+            {referrals.map((r,i)=>(
               <div key={r.id || i} className="ref-row">
                 <Avatar name={r.name || "User"} photo={r.photo || ""} />
                 <div className="ref-meta">
                   <div className="ref-name">{r.name || "User"}</div>
                   <div className="ref-sub">
                     <TierBadge tierKey={r.tier || "free"} />
-                    {r.username && (
-                      <span className="ref-username">{r.username}</span>
-                    )}
+                    {r.username && <span className="ref-username">{r.username}</span>}
                   </div>
                 </div>
                 <div className="ref-when">{formatDate(r.when)}</div>
@@ -1173,53 +955,18 @@ export default function App() {
     );
   };
 
-  const TopScreenContainer = () => (
-    <TopScreen lbTab={lbTab} tick={lbTick} onTabChange={(t) => setLbTab(t)} />
+  const TopScreenContainer  = () => (
+    <TopScreen lbTab={lbTab} tick={lbTick} onTabChange={(t)=>setLbTab(t)} />
   );
-  const TasksScreen = () => (
-    <div className="placeholder-card">🕹 Tasks coming soon…</div>
-  );
+  const TasksScreen= () => <div className="placeholder-card">🕹 Tasks coming soon…</div>;
 
   const Menu = () => (
     <nav className="bottom-menu">
-      <button
-        className={`menu-item ${tab === "play" ? "on" : ""}`}
-        onClick={() => setTab("play")}
-      >
-        <span className="mi-emoji">🎮</span>
-        <span className="mi-text">Play</span>
-      </button>
-      <button
-        className={`menu-item ${tab === "loot" ? "on" : ""}`}
-        onClick={() => setTab("loot")}
-      >
-        <span className="mi-emoji">🎁</span>
-        <span className="mi-text">Loot</span>
-      </button>
-      <button
-        className={`menu-item ${tab === "top" ? "on" : ""}`}
-        onClick={() => {
-          setTab("top");
-          setLbTab("players");
-        }}
-      >
-        <span className="mi-emoji">🏆</span>
-        <span className="mi-text">Top100</span>
-      </button>
-      <button
-        className={`menu-item ${tab === "earn" ? "on" : ""}`}
-        onClick={() => setTab("earn")}
-      >
-        <span className="mi-emoji">🚀</span>
-        <span className="mi-text">Earn</span>
-      </button>
-      <button
-        className={`menu-item ${tab === "tasks" ? "on" : ""}`}
-        onClick={() => setTab("tasks")}
-      >
-        <span className="mi-emoji">🕹</span>
-        <span className="mi-text">Tasks</span>
-      </button>
+      <button className={`menu-item ${tab==="play"?"on":""}`}  onClick={()=>setTab("play")}><span className="mi-emoji">🎮</span><span className="mi-text">Play</span></button>
+      <button className={`menu-item ${tab==="loot"?"on":""}`}  onClick={()=>setTab("loot")}><span className="mi-emoji">🎁</span><span className="mi-text">Loot</span></button>
+      <button className={`menu-item ${tab==="top" ?"on":""}`}  onClick={()=>{ setTab("top"); setLbTab("players"); }} ><span className="mi-emoji">🏆</span><span className="mi-text">Top100</span></button>
+      <button className={`menu-item ${tab==="earn"?"on":""}`}  onClick={()=>setTab("earn")}><span className="mi-emoji">🚀</span><span className="mi-text">Earn</span></button>
+      <button className={`menu-item ${tab==="tasks"?"on":""}`} onClick={()=>setTab("tasks")}><span className="mi-emoji">🕹</span><span className="mi-text">Tasks</span></button>
     </nav>
   );
 
@@ -1227,15 +974,12 @@ export default function App() {
   const statusBadge = (() => {
     if (tierKey === "free") return { cls: "free", text: "No status" };
     if (tierKey === "plus") return { cls: "premium", text: "Premium⚡️" };
-    if (tierKey === "pro") return { cls: "plus", text: "Plus⭐️" };
+    if (tierKey === "pro")  return { cls: "plus",    text: "Plus⭐️" };
     return { cls: "pro", text: "Pro👑" }; // prem
   })();
 
   return (
-    <div
-      className={`tg-app bg-img ${showPremium ? "modal-open" : ""}`}
-      style={{ "--bg": theme.bg, "--text": theme.text }}
-    >
+    <div className={`tg-app bg-img ${showPremium ? "modal-open" : ""}`} style={{"--bg":theme.bg,"--text":theme.text}}>
       {booting && (
         <div className="splash">
           <img src={BRAND_LOGO_SRC} alt="ROFFLE" />
@@ -1258,19 +1002,17 @@ export default function App() {
             </div>
 
             <div className="premium-row">
-              <button className="btn-premium" onClick={() => setShowPremium(true)}>
-                👑 Go $ROF Premium
-              </button>
+              <button className="btn-premium" onClick={()=>setShowPremium(true)}>👑 Go $ROF Premium</button>
               <span className={`badge ${statusBadge.cls}`}>{statusBadge.text}</span>
             </div>
           </section>
 
           <div className="screen flex-grow">
-            {tab === "play" && <PlayScreen />}
-            {tab === "loot" && <LootScreen />}
-            {tab === "top" && <TopScreenContainer />}
-            {tab === "earn" && <EarnScreen />}
-            {tab === "tasks" && <TasksScreen />}
+            {tab==="play"   && <PlayScreen />}
+            {tab==="loot"   && <LootScreen />}
+            {tab==="top"    && <TopScreenContainer />}
+            {tab==="earn"   && <EarnScreen />}
+            {tab==="tasks"  && <TasksScreen />}
           </div>
 
           {toast && <div key={toast.key} className="toast-win">{toast.text}</div>}
