@@ -310,34 +310,53 @@ const TopScreen = React.memo(function TopScreen({ lbTab, tick, onTabChange }) {
 export default function App(){
   const slots = useMemo(buildSlots, []);
   const [bank,setBank] = useState(0);
-    // Sync Telegram user into Supabase on app load
+  // Sync Telegram user into Supabase on app load
+  // and load balance + spins from the database
   useEffect(() => {
     const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
     if (!tgUser) return;
 
-    const upsertUser = async () => {
+    const run = async () => {
       try {
-        await supabase
+        const baseUser = {
+          tg_id: tgUser.id,
+          username: tgUser.username || null,
+          full_name: [tgUser.first_name, tgUser.last_name]
+            .filter(Boolean)
+            .join(" "),
+          photo_url: tgUser.photo_url || null,
+          last_seen: new Date().toISOString(),
+        };
+
+        // Upsert and fetch the row in one go
+        const { data, error } = await supabase
           .from("roff_users")
-          .upsert(
-            {
-              tg_id: tgUser.id,
-              username: tgUser.username || null,
-              full_name: [tgUser.first_name, tgUser.last_name]
-                .filter(Boolean)
-                .join(" "),
-              photo_url: tgUser.photo_url || null,
-              last_seen: new Date().toISOString(),
-            },
-            { onConflict: "tg_id" }
-          );
+          .upsert(baseUser, { onConflict: "tg_id" })
+          .select("*")
+          .eq("tg_id", tgUser.id)
+          .single();
+
+        if (error) {
+          console.error("Supabase upsert/select error", error);
+          return;
+        }
+
+        if (data) {
+          if (typeof data.balance === "number") {
+            setBank(data.balance);
+          }
+          if (typeof data.spins_left === "number") {
+            setSpinsLeft(data.spins_left);
+          }
+        }
       } catch (err) {
-        console.error("Supabase upsert error", err);
+        console.error("Supabase sync error", err);
       }
     };
 
-    upsertUser();
+    run();
   }, []);
+
 
 
   /* Premium state */
