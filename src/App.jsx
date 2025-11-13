@@ -310,6 +310,8 @@ const TopScreen = React.memo(function TopScreen({ lbTab, tick, onTabChange }) {
 export default function App(){
   const slots = useMemo(buildSlots, []);
   const [bank,setBank] = useState(0);
+  const [tgId, setTgId] = useState(null);
+
   // Sync Telegram user into Supabase on app load
   // and load balance + spins from the database
   useEffect(() => {
@@ -318,6 +320,8 @@ export default function App(){
 
     const run = async () => {
       try {
+        // remember telegram id in state
+        setTgId(tgUser.id);
         const baseUser = {
           tg_id: tgUser.id,
           username: tgUser.username || null,
@@ -533,14 +537,33 @@ export default function App(){
     return ()=>clearInterval(id);
   }, [spinsLeft, nextReadyAt, regenMs, spinCap, showPremium]);
 
+    const saveGameState = async (nextBank, nextSpins) => {
+    if (!tgId) return;
+    try {
+      await supabase
+        .from("roff_users")
+        .update({
+          balance: nextBank,
+          spins_left: nextSpins,
+          last_seen: new Date().toISOString(),
+        })
+        .eq("tg_id", tgId);
+    } catch (err) {
+      console.error("Supabase update error", err);
+    }
+  };
+
   /* Spin */
-  const handleSpin = () => {
+    const handleSpin = () => {
     if (spinning || animBusyRef.current || spinsLeft <= 0) return;
 
     setSpinning(true);
     setToast(null);
 
-    setSpinsLeft(v => Math.max(0, v - 1));
+    // compute spins spent for this round
+    const newSpins = Math.max(0, spinsLeft - 1);
+    setSpinsLeft(newSpins);
+
     if (spinsLeft === spinCap) {
       const now = Date.now();
       setNextReadyAt(now + regenMs);
@@ -548,6 +571,7 @@ export default function App(){
     }
 
     const startVis = currentAngleRef.current;
+    // ...
 
     const idx = randChoice(SEGMENTS_TOTAL);
     const spins = randInt(5, 12);
@@ -581,11 +605,20 @@ export default function App(){
       const landedIndex = indexFromRotation(finalCalc);
       const baseWin = slots[landedIndex].amount || 0;
       const won = baseWin * prizeMult;
-      setBank(b => b + won);
+
+      // update bank + persist to Supabase
+      setBank(prev => {
+        const updatedBank = prev + won;
+        // use the newSpins we computed at start of handleSpin
+        saveGameState(updatedBank, newSpins);
+        return updatedBank;
+      });
+
       setToast({ text: `+${won} $ROF`, key: Date.now() });
       setTimeout(() => setToast(null), 1600);
 
       setSpinning(false);
+
     });
   };
 
