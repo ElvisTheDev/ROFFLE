@@ -12,16 +12,12 @@ const BASE_REGEN_MS = 10 * 60 * 1000; // 10 minutes (non-additive!)
 const TICK_MS = 1000;
 const API_BASE = "https://roffle-bot.onrender.com";
 
-/* Idle rotation: one full lap every 15 seconds */
-const IDLE_LAP_MS = 15000;
-const IDLE_SPEED_DEG_PER_MS = 360 / IDLE_LAP_MS;
-
 /* Premium tiers (names per your mapping) */
 const TIERS = {
   free: { key: "free", name: "Free", regenMult: 1, cap: 20, prizeMult: 1, inviteBonus: 0 },
   plus: { key: "plus", name: "$ROF Premium⚡️", regenMult: 2, cap: 40, prizeMult: 2, inviteBonus: 50 },
-  pro: { key: "pro", name: "$ROF Plus⭐️", regenMult: 3, cap: 60, prizeMult: 3, inviteBonus: 75 },
-  prem: { key: "prem", name: "$ROF Pro👑", regenMult: 5, cap: 100, prizeMult: 5, inviteBonus: 100 },
+  pro:  { key: "pro",  name: "$ROF Plus⭐️",    regenMult: 3, cap: 60, prizeMult: 3, inviteBonus: 75 },
+  prem: { key: "prem", name: "$ROF Pro👑",      regenMult: 5, cap: 100, prizeMult: 5, inviteBonus: 100 },
 };
 const TEST_PRICE_COINS = 1;
 
@@ -100,6 +96,11 @@ function formatMs(ms) {
   const r = s % 60;
   const pad = (n) => (n < 10 ? `0${n}` : `${n}`);
   return `${m}:${pad(r)}`;
+}
+
+/* Easing */
+function easeOutCubic(t) {
+  return 1 - Math.pow(1 - t, 3);
 }
 
 /* Assets */
@@ -412,10 +413,6 @@ export default function App(){
   const currentAngleRef = useRef(0);
   const calcRotRef = useRef(0);
 
-  /* Idle rotation refs */
-  const idleRafRef = useRef(null);
-  const idleLastTimeRef = useRef(null);
-
   /* Spins/energy */
   const [spinsLeft, setSpinsLeft] = useState(BASE_CAP);
   const [nextReadyAt, setNextReadyAt] = useState(null);
@@ -514,17 +511,17 @@ export default function App(){
     }catch{}
   },[]);
 
-  /* Cancel main spin RAF on unmount */
+  /* Cancel RAF on unmount */
   useEffect(()=>()=>{ if(rafRef.current) cancelAnimationFrame(rafRef.current); },[]);
 
-  /* RAF tween for main spins */
+  /* RAF tween */
   const animateRotation = (from, to, durationMs, onDone) => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     animBusyRef.current = true;
     const start = performance.now();
     const step = (now) => {
       const t = Math.min(1, (now - start) / durationMs);
-      const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
+      const eased = easeOutCubic(t);
       const angle = from + (to - from) * eased;
       applyAngle(angle);
       if (t < 1) rafRef.current = requestAnimationFrame(step);
@@ -533,40 +530,6 @@ export default function App(){
     applyAngle(from);
     rafRef.current = requestAnimationFrame(step);
   };
-
-  /* Idle slow rotation loop */
-  const startIdleSpin = () => {
-    if (idleRafRef.current) return;
-    idleLastTimeRef.current = performance.now();
-
-    const loop = (now) => {
-      const last = idleLastTimeRef.current || now;
-      const dt = now - last;
-      idleLastTimeRef.current = now;
-
-      // advance angle slowly
-      const nextAngle = currentAngleRef.current + dt * IDLE_SPEED_DEG_PER_MS;
-      applyAngle(nextAngle);
-
-      idleRafRef.current = requestAnimationFrame(loop);
-    };
-
-    idleRafRef.current = requestAnimationFrame(loop);
-  };
-
-  const stopIdleSpin = () => {
-    if (idleRafRef.current) {
-      cancelAnimationFrame(idleRafRef.current);
-      idleRafRef.current = null;
-    }
-  };
-
-  /* Start idle spin on mount, stop on unmount */
-  useEffect(()=>{
-    startIdleSpin();
-    return () => { stopIdleSpin(); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[]);
 
   /* Top100 refresh once per minute */
   useEffect(()=>{
@@ -610,7 +573,7 @@ export default function App(){
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spinsLeft, nextReadyAt, regenMs, spinCap, showPremium]);
 
-  /* Spin – server-authoritative + idle rotation */
+  /* Spin – simple, server-authoritative, no idle RAF */
   const handleSpin = async () => {
     if (spinning || animBusyRef.current || spinsLeft <= 0) return;
     if (!tgId) {
@@ -622,7 +585,10 @@ export default function App(){
     setSpinning(true);
     setToast(null);
 
+    const startVis = currentAngleRef.current;
+
     try {
+      // 1) Call backend /spin
       const response = await fetch(`${API_BASE}/spin`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -648,12 +614,8 @@ export default function App(){
       const newBalance = data.balance;
       const newSpins = data.spins_left;
 
-      // Stop idle rotation now and grab current angle as start
-      stopIdleSpin();
-      const startVis = currentAngleRef.current;
-
-      // Build a shorter but satisfying spin
-      const spinsFull = randInt(2, 5); // full turns
+      // 2) Use server index to build a spin animation
+      const spinsFull = randInt(4, 8); // full turns (shorter range for speed)
       const jitter = (randFloat() * 0.8 - 0.4) * SEG_DEG; // small random offset
       const center = idx * SEG_DEG + SEG_DEG / 2 + jitter;
       const toZero = (360 - (center % 360) + 360) % 360;
@@ -667,9 +629,9 @@ export default function App(){
       visualDelta += extraTurns * 360;
       const endVis = startVis + visualDelta;
 
-      const durationMs = randInt(1300, 2200); // shorter attention-span spin
+      const durationMs = randInt(1900, 2800); // quicker spin, but still juicy
 
-      // Animate wheel to the correct index, then apply server numbers
+      // 3) Animate wheel to the correct index, then apply server numbers
       animateRotation(startVis, endVis, durationMs, () => {
         calcRotRef.current = finalCalc;
 
@@ -690,11 +652,6 @@ export default function App(){
         setTimeout(() => setToast(null), 1600);
 
         setSpinning(false);
-
-        // small pause then resume idle slow rotation
-        setTimeout(() => {
-          startIdleSpin();
-        }, 200);
       });
     } catch (err) {
       console.error("Spin request failed", err);
