@@ -1,4 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { supabase } from "./supabaseClient";
+// ... maybe others
+
 
 /* ================= CORE WHEEL CONSTANTS ================= */
 const SEGMENTS_TOTAL = 25;
@@ -307,6 +310,35 @@ const TopScreen = React.memo(function TopScreen({ lbTab, tick, onTabChange }) {
 export default function App(){
   const slots = useMemo(buildSlots, []);
   const [bank,setBank] = useState(0);
+    // Sync Telegram user into Supabase on app load
+  useEffect(() => {
+    const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+    if (!tgUser) return;
+
+    const upsertUser = async () => {
+      try {
+        await supabase
+          .from("roff_users")
+          .upsert(
+            {
+              tg_id: tgUser.id,
+              username: tgUser.username || null,
+              full_name: [tgUser.first_name, tgUser.last_name]
+                .filter(Boolean)
+                .join(" "),
+              photo_url: tgUser.photo_url || null,
+              last_seen: new Date().toISOString(),
+            },
+            { onConflict: "tg_id" }
+          );
+      } catch (err) {
+        console.error("Supabase upsert error", err);
+      }
+    };
+
+    upsertUser();
+  }, []);
+
 
   /* Premium state */
   const [tierKey, setTierKey] = useState("free"); // "free" | "plus" | "pro" | "prem"
