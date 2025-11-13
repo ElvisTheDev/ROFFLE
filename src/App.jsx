@@ -21,6 +21,9 @@ const TIERS = {
 };
 const TEST_PRICE_COINS = 1;
 
+/* Tier ranking: used to prevent downgrade */
+const TIER_ORDER = { free: 0, plus: 1, pro: 2, prem: 3 };
+
 /* RNG helpers (cryptographically strong) */
 function randUint32() {
   const a = new Uint32Array(1);
@@ -98,7 +101,7 @@ const CENTER_LOGO_SRC = "/logo.png";
 const BRAND_LOGO_SRC = "/rof-lg.png";
 const ROF_ICON_SRC = "/rof-bn.png";
 
-/* ===== Avatar helpers & demo colors (for fallback visuals) ===== */
+/* ===== Avatar helpers & fallback colors ===== */
 const DEMO_AVATAR_COLORS = [
   "#6c5ce7","#00cec9","#fd79a8","#ffeaa7",
   "#55efc4","#a29bfe","#fab1a0","#81ecec","#ffd6a5"
@@ -153,8 +156,8 @@ function addReferralRow(row){
   writeReferrals(arr.slice(0,500));
 }
 
-/* ==================== Top100 Screen (LIVE from Supabase) ==================== */
-const TopScreen = React.memo(function TopScreen({ lbTab, tick, onTabChange }) {
+/* ==================== Top100 Screen (LIVE) ==================== */
+const TopScreen = React.memo(function TopScreen({ lbTab, tick, onTabChange, myTgId }) {
   const [players, setPlayers] = useState([]);
   const [invites, setInvites] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -183,9 +186,9 @@ const TopScreen = React.memo(function TopScreen({ lbTab, tick, onTabChange }) {
           .limit(100);
 
         if (error) throw error;
-        if (cancelled || !data) return;
+        if (cancelled) return;
 
-        const mapped = data.map((row) => ({
+        let mapped = (data || []).map((row) => ({
           id: row.tg_id,
           name: row.full_name || row.username || `User ${row.tg_id}`,
           username: row.username ? `@${row.username}` : "",
@@ -194,6 +197,30 @@ const TopScreen = React.memo(function TopScreen({ lbTab, tick, onTabChange }) {
           invites: row.invites ?? 0,
           tier: row.premium_tier || "free",
         }));
+
+        // Ensure current user is visible even if not in top 100
+        if (myTgId) {
+          const exists = mapped.some(u => String(u.id) === String(myTgId));
+          if (!exists) {
+            const { data: selfRow, error: selfErr } = await supabase
+              .from("roff_users")
+              .select("tg_id, username, full_name, photo_url, balance, invites, premium_tier")
+              .eq("tg_id", myTgId)
+              .maybeSingle();
+
+            if (!selfErr && selfRow) {
+              mapped = mapped.concat({
+                id: selfRow.tg_id,
+                name: selfRow.full_name || selfRow.username || `User ${selfRow.tg_id}`,
+                username: selfRow.username ? `@${selfRow.username}` : "",
+                photo: selfRow.photo_url || "",
+                balance: selfRow.balance ?? 0,
+                invites: selfRow.invites ?? 0,
+                tier: selfRow.premium_tier || "free",
+              });
+            }
+          }
+        }
 
         if (lbTab === "players") setPlayers(mapped);
         else setInvites(mapped);
@@ -207,7 +234,7 @@ const TopScreen = React.memo(function TopScreen({ lbTab, tick, onTabChange }) {
 
     fetchData();
     return () => { cancelled = true; };
-  }, [lbTab, tick]);
+  }, [lbTab, tick, myTgId]);
 
   const active = lbTab === "players" ? players : invites;
 
@@ -277,7 +304,7 @@ export default function App(){
   const [tgId, setTgId] = useState(null);
 
   /* Premium state */
-  const [tierKey, setTierKey] = useState("free"); // persisted in DB as premium_tier
+  const [tierKey, setTierKey] = useState("free"); // persisted in DB & localStorage
   const tier = TIERS[tierKey];
   const regenMs = Math.floor(BASE_REGEN_MS / tier.regenMult);
   const spinCap = tier.cap;
@@ -369,7 +396,7 @@ export default function App(){
     } catch {}
   };
 
-  /* Restore angle + saved timer from last session */
+  /* Restore angle + regen timer from storage */
   useEffect(()=>{
     // angle
     let a = null;
@@ -423,9 +450,9 @@ export default function App(){
     rafRef.current = requestAnimationFrame(step);
   };
 
-  /* Top100 refresh once per minute */
+  /* Top100 refresh once per 10 minutes */
   useEffect(()=>{
-    const id = setInterval(()=> setLbTick(t => t+1), 60000);
+    const id = setInterval(()=> setLbTick(t => t+1), 10 * 60 * 1000);
     return ()=> clearInterval(id);
   },[]);
 
@@ -464,9 +491,18 @@ export default function App(){
           if (typeof data.spins_left === "number") {
             setSpinsLeft(data.spins_left);
           }
+
+          // Tier: DB first, then localStorage fallback
+          let tKey = "free";
           if (typeof data.premium_tier === "string" && TIERS[data.premium_tier]) {
-            setTierKey(data.premium_tier);
+            tKey = data.premium_tier;
+          } else {
+            try {
+              const lsTier = localStorage.getItem("rof_premium_tier");
+              if (lsTier && TIERS[lsTier]) tKey = lsTier;
+            } catch {}
           }
+          setTierKey(tKey);
         }
       } catch (err) {
         console.error("Supabase sync error", err);
@@ -564,7 +600,7 @@ export default function App(){
       const newBalance = data.balance;
       const newSpins   = data.spins_left;
 
-      // 🔥 CRITICAL FIX: choose a segment whose amount * prizeMult == serverPrize
+      // Match prize with a segment on wheel (base * prizeMult === serverPrize)
       const candidates = [];
       slots.forEach((slot, i) => {
         const base = slot.amount || 0;
@@ -577,15 +613,12 @@ export default function App(){
       if (candidates.length > 0) {
         idx = candidates[randInt(0, candidates.length - 1)];
       } else if (typeof data.index === "number") {
-        // fallback: use backend index if mapping exists
         idx = Math.max(0, Math.min(SEGMENTS_TOTAL - 1, data.index));
       } else {
-        // absolute fallback: fully random segment
         idx = randInt(0, SEGMENTS_TOTAL - 1);
       }
 
-      // Build a nice spin to that index
-      const spinsFull = randInt(4, 8); // full turns
+      const spinsFull = randInt(4, 8);
       const jitter = (randFloat() * 0.8 - 0.4) * SEG_DEG;
       const center = idx * SEG_DEG + SEG_DEG / 2 + jitter;
       const toZero = (360 - (center % 360) + 360) % 360;
@@ -628,10 +661,18 @@ export default function App(){
     }
   };
 
-  /* ===== Premium purchase – update DB & timer instantly ===== */
+  /* ===== Premium purchase – permanent tier, only upgrades ===== */
   const canAfford = (price) => bank >= price;
   const buyTier = async (key) => {
     if (key === tierKey) return;
+
+    // prevent downgrades
+    if (TIER_ORDER[key] <= TIER_ORDER[tierKey]) {
+      setToast({ text: "You already have this or higher tier", key: Date.now() });
+      setTimeout(() => setToast(null), 1600);
+      return;
+    }
+
     if (!canAfford(TEST_PRICE_COINS)) {
       setToast({ text: "Not enough coins for Premium", key: Date.now() });
       setTimeout(() => setToast(null), 1600);
@@ -640,12 +681,15 @@ export default function App(){
 
     const t = TIERS[key];
     const now = Date.now();
+    const newBalance = bank - TEST_PRICE_COINS;
 
-    setBank(b => b - TEST_PRICE_COINS);
+    setBank(newBalance);
     setTierKey(key);
-    setSpinsLeft(s => Math.min(s, t.cap));
+    try { localStorage.setItem("rof_premium_tier", key); } catch {}
 
-    // 🔧 Adjust regen timer instantly when tier changes
+    setSpinsLeft((s) => Math.min(s, t.cap));
+
+    // adjust regen timer instantly
     if (spinsLeft >= t.cap) {
       setNextReadyAt(null);
       setNextInMs(0);
@@ -657,12 +701,11 @@ export default function App(){
       try { localStorage.setItem("rof_nextReadyAt", String(ts)); } catch {}
     }
 
-    // Save premium tier to Supabase
     if (tgId) {
       try {
         await supabase
           .from("roff_users")
-          .update({ premium_tier: key, balance: bank - TEST_PRICE_COINS })
+          .update({ premium_tier: key, balance: newBalance })
           .eq("tg_id", tgId);
       } catch (e) {
         console.error("Failed to update premium_tier", e);
@@ -684,7 +727,6 @@ export default function App(){
   },[]);
 
   useEffect(()=>{
-    // If app opened via ?ref=... give the invitee bonus ONCE.
     try{
       const params = new URLSearchParams(window.location.search);
       const ref = params.get("ref");
@@ -692,7 +734,7 @@ export default function App(){
       const already = localStorage.getItem("rof_ref_claimed");
       const myCode = localStorage.getItem("rof_ref_code");
       if (already === "1") return;
-      if (myCode && ref === myCode) return; // ignore self-ref
+      if (myCode && ref === myCode) return;
 
       setBank(b => b + 200);
       setSpinsLeft(s => Math.min(spinCap, s + 20));
@@ -983,7 +1025,7 @@ export default function App(){
   };
 
   const TopScreenContainer  = () => (
-    <TopScreen lbTab={lbTab} tick={lbTick} onTabChange={(t)=>setLbTab(t)} />
+    <TopScreen lbTab={lbTab} tick={lbTick} onTabChange={(t)=>setLbTab(t)} myTgId={tgId} />
   );
   const TasksScreen= () => <div className="placeholder-card">🕹 Tasks coming soon…</div>;
 
