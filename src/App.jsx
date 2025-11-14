@@ -598,54 +598,21 @@ export default function App(){
     const startVis = currentAngleRef.current;
 
     try {
-      const response = await fetch(`${API_BASE}/spin`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tg_id: tgId }),
-      });
+      // 1) Pick a random wheel segment locally
+      const idx = randInt(0, SEGMENTS_TOTAL - 1);
+      const baseAmount = slots[idx].amount || 0;
+      const won = baseAmount * prizeMult;
 
-      const data = await response.json().catch(() => null);
+      const newBalance = bank + won;
+      const newSpins = spinsLeft - 1;
 
-      if (!response.ok || !data || !data.ok) {
-        console.error("Spin error", data);
-        if (data && data.error === "no_spins") {
-          setToast({ text: "No spins left", key: Date.now() });
-        } else {
-          setToast({ text: "Spin failed, try again", key: Date.now() });
-        }
-        setTimeout(() => setToast(null), 1500);
-        setSpinning(false);
-        return;
-      }
-
-      const serverPrize = data.prize;        // prize AFTER multiplier (from backend)
-      const newBalance = data.balance;
-      const newSpins   = data.spins_left;
-
-      // Match prize with a segment on wheel (base * prizeMult === serverPrize)
-      const candidates = [];
-      slots.forEach((slot, i) => {
-        const base = slot.amount || 0;
-        if (base * prizeMult === serverPrize) {
-          candidates.push(i);
-        }
-      });
-
-      let idx;
-      if (candidates.length > 0) {
-        idx = candidates[randInt(0, candidates.length - 1)];
-      } else if (typeof data.index === "number") {
-        idx = Math.max(0, Math.min(SEGMENTS_TOTAL - 1, data.index));
-      } else {
-        idx = randInt(0, SEGMENTS_TOTAL - 1);
-      }
-
+      // 2) Compute a nice spin animation to that index
       const spinsFull = randInt(4, 8);
       const jitter = (randFloat() * 0.8 - 0.4) * SEG_DEG;
       const center = idx * SEG_DEG + SEG_DEG / 2 + jitter;
       const toZero = (360 - (center % 360) + 360) % 360;
 
-      const finalCalc = calcRotRef.current + spinsFull * 360 + toZero;
+      const finalCalc = (calcRotRef.current || 0) + spinsFull * 360 + toZero;
       const endMod = ((finalCalc % 360) + 360) % 360;
 
       let visualDelta = endMod - startVis;
@@ -656,9 +623,8 @@ export default function App(){
 
       const durationMs = randInt(1900, 2800);
 
-      animateRotation(startVis, endVis, durationMs, () => {
+      animateRotation(startVis, endVis, durationMs, async () => {
         calcRotRef.current = finalCalc;
-
         const finalVis = ((endVis % 360) + 360) % 360;
         currentAngleRef.current = finalVis;
         applyAngle(finalVis);
@@ -667,21 +633,37 @@ export default function App(){
           localStorage.setItem("rof_calcRot", String(finalCalc));
         } catch {}
 
+        // 3) Set balance & spins locally
         setBank(newBalance);
         setSpinsLeft(newSpins);
 
-        setToast({ text: `+${serverPrize} $ROF`, key: Date.now() });
+        // 4) Persist to Supabase (so database sees new balance/spins)
+        try {
+          await supabase
+            .from("roff_users")
+            .update({
+              balance: newBalance,
+              spins_left: newSpins,
+              last_seen: new Date().toISOString(),
+            })
+            .eq("tg_id", tgId);
+        } catch (e) {
+          console.error("Supabase update after spin failed", e);
+        }
+
+        setToast({ text: `+${won} $ROF`, key: Date.now() });
         setTimeout(() => setToast(null), 1600);
 
         setSpinning(false);
       });
     } catch (err) {
-      console.error("Spin request failed", err);
-      setToast({ text: "Network error, try again", key: Date.now() });
+      console.error("Spin failed", err);
+      setToast({ text: "Spin error, try again", key: Date.now() });
       setTimeout(() => setToast(null), 1500);
       setSpinning(false);
     }
   };
+
 
   /* ===== Premium purchase – permanent tier, only upgrades ===== */
   const canAfford = (price) => bank >= price;
