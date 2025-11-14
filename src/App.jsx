@@ -157,7 +157,7 @@ function addReferralRow(row){
 }
 
 /* ==================== Top100 Screen (LIVE) ==================== */
-const TopScreen = React.memo(function TopScreen({ lbTab, tick, onTabChange, myTgId }) {
+const TopScreen = React.memo(function TopScreen({ lbTab, onTabChange, myTgId }) {
   const [players, setPlayers] = useState([]);
   const [invites, setInvites] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -179,9 +179,10 @@ const TopScreen = React.memo(function TopScreen({ lbTab, tick, onTabChange, myTg
       try {
         const orderField = lbTab === "players" ? "balance" : "invites";
 
+        // Use select("*") to avoid errors if some columns are missing
         const { data, error } = await supabase
           .from("roff_users")
-          .select("tg_id, username, full_name, photo_url, balance, invites, premium_tier")
+          .select("*")
           .order(orderField, { ascending: false })
           .limit(100);
 
@@ -204,7 +205,7 @@ const TopScreen = React.memo(function TopScreen({ lbTab, tick, onTabChange, myTg
           if (!exists) {
             const { data: selfRow, error: selfErr } = await supabase
               .from("roff_users")
-              .select("tg_id, username, full_name, photo_url, balance, invites, premium_tier")
+              .select("*")
               .eq("tg_id", myTgId)
               .maybeSingle();
 
@@ -234,7 +235,7 @@ const TopScreen = React.memo(function TopScreen({ lbTab, tick, onTabChange, myTg
 
     fetchData();
     return () => { cancelled = true; };
-  }, [lbTab, tick, myTgId]);
+  }, [lbTab, myTgId]);
 
   const active = lbTab === "players" ? players : invites;
 
@@ -331,7 +332,6 @@ export default function App(){
 
   /* Leaderboard UI */
   const [lbTab, setLbTab] = useState("players");
-  const [lbTick, setLbTick] = useState(0);
 
   /* Earn / referrals */
   const [myRefLink,setMyRefLink] = useState("");
@@ -450,12 +450,6 @@ export default function App(){
     rafRef.current = requestAnimationFrame(step);
   };
 
-  /* Top100 refresh once per 10 minutes */
-  useEffect(()=>{
-    const id = setInterval(()=> setLbTick(t => t+1), 10 * 60 * 1000);
-    return ()=> clearInterval(id);
-  },[]);
-
   /* Sync Telegram user + balance/spins/tier from Supabase */
   useEffect(() => {
     const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
@@ -512,7 +506,7 @@ export default function App(){
     run();
   }, []);
 
-  /* Non-additive cooldown ticker (persists timer in localStorage) */
+  /* Non-additive cooldown ticker (persists timer in localStorage, client-side only) */
   useEffect(()=>{
     if (showPremium) return;
     const tick = () => {
@@ -703,12 +697,20 @@ export default function App(){
 
     if (tgId) {
       try {
-        await supabase
+        const { error } = await supabase
           .from("roff_users")
           .update({ premium_tier: key, balance: newBalance })
           .eq("tg_id", tgId);
+
+        if (error) {
+          console.error("Failed to update premium_tier in DB", error);
+          setToast({ text: "Tier saved locally, DB update failed", key: Date.now() });
+          setTimeout(() => setToast(null), 2000);
+        }
       } catch (e) {
-        console.error("Failed to update premium_tier", e);
+        console.error("Supabase error updating tier", e);
+        setToast({ text: "Tier saved locally, DB update failed", key: Date.now() });
+        setTimeout(() => setToast(null), 2000);
       }
     }
 
@@ -720,9 +722,8 @@ export default function App(){
   /* ===== Earn: referral code + link + claim handling ===== */
   useEffect(()=>{
     const code = getOrCreateMyRefCode();
-    const origin = window.location.origin;
-    const path = window.location.pathname.replace(/\/+$/,"");
-    const link = `${origin}${path}?ref=${encodeURIComponent(code)}`;
+    // ✅ New: link goes to bot, not webapp
+    const link = `https://t.me/roffleapp_bot?start=${encodeURIComponent(code)}`;
     setMyRefLink(link);
   },[]);
 
@@ -835,11 +836,6 @@ export default function App(){
                   </div>
                 );
               })}
-            </div>
-
-            <div className="modal-foot">
-              <div className="mf-note">Payments are test-mode. Real payments & pricing coming soon.</div>
-              <button className="mf-back" onClick={()=>setShowPremium(false)}>Back</button>
             </div>
           </div>
         </div>
@@ -1025,7 +1021,7 @@ export default function App(){
   };
 
   const TopScreenContainer  = () => (
-    <TopScreen lbTab={lbTab} tick={lbTick} onTabChange={(t)=>setLbTab(t)} myTgId={tgId} />
+    <TopScreen lbTab={lbTab} onTabChange={(t)=>setLbTab(t)} myTgId={tgId} />
   );
   const TasksScreen= () => <div className="placeholder-card">🕹 Tasks coming soon…</div>;
 
