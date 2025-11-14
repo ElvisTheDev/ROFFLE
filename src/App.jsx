@@ -287,7 +287,6 @@ const TopScreen = React.memo(function TopScreen({ lbTab, onTabChange, myTgId }) 
         <div className="lb-h-right">{lbTab==="players" ? "Balance" : "Invites"}</div>
       </div>
 
-      {loading && !loadedOnce && <div className="lb-loading">Loading…</div>}
       {errMsg && !loading && <div className="lb-error">{errMsg}</div>}
 
       <div className="lb-list">
