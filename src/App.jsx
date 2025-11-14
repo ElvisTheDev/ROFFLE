@@ -152,6 +152,17 @@ function getOrCreateMyRefCode(){
     return code;
   }catch{ return Math.floor(Math.random()*1e9).toString(36); }
 }
+function readReferrals(){
+  try { return JSON.parse(localStorage.getItem("rof_referrals")||"[]"); } catch { return []; }
+}
+function writeReferrals(arr){
+  try { localStorage.setItem("rof_referrals", JSON.stringify(arr)); } catch {}
+}
+function addReferralRow(row){
+  const arr = readReferrals();
+  arr.unshift(row);
+  writeReferrals(arr.slice(0,500));
+}
 
 /* ==================== Top100 Screen (LIVE) ==================== */
 const TopScreen = React.memo(
@@ -321,6 +332,7 @@ const TopScreen = React.memo(
       </div>
     );
   },
+  // Only re-render when the selected tab changes.
   (prev, next) => prev.lbTab === next.lbTab
 );
 
@@ -362,7 +374,7 @@ export default function App(){
 
   /* Earn / referrals */
   const [myRefLink,setMyRefLink] = useState("");
-  const [referrals,setReferrals] = useState([]);
+  const [referrals,setReferrals] = useState(readReferrals());
 
   /* Splash */
   useEffect(()=>{
@@ -483,6 +495,7 @@ export default function App(){
       try {
         setTgId(tgUser.id);
 
+        // basic user fields (NOTE: no last_seen here!)
         const baseUser = {
           tg_id: tgUser.id,
           username: tgUser.username || null,
@@ -490,6 +503,7 @@ export default function App(){
           photo_url: tgUser.photo_url || null,
         };
 
+        // Upsert without touching last_seen
         const { data, error } = await supabase
           .from("roff_users")
           .upsert(baseUser, { onConflict: "tg_id", ignoreDuplicates: false })
@@ -524,6 +538,7 @@ export default function App(){
             ? new Date(data.last_seen).getTime()
             : now;
 
+          // Offline regen: add spins for elapsed time, capped by tier cap
           if (dbSpins < capDb) {
             const elapsed = now - lastSeenMs;
             if (elapsed > 0) {
@@ -535,6 +550,7 @@ export default function App(){
             }
           }
 
+          // Compute nextReadyAt / nextInMs
           let nextReady = null;
           let nextMs = 0;
           if (dbSpins < capDb) {
@@ -550,6 +566,7 @@ export default function App(){
           setNextReadyAt(nextReady);
           setNextInMs(nextMs);
 
+          // Persist spins & last_seen back to DB
           await supabase
             .from("roff_users")
             .update({
@@ -568,44 +585,6 @@ export default function App(){
 
     run();
   }, []);
-
-  /* Load real referrals list from Supabase for Earn screen */
-  useEffect(() => {
-    if (!tgId) return;
-
-    const fetchRefs = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("roff_referrals")
-          .select("*")
-          .eq("inviter_tg_id", tgId)
-          .order("created_at", { ascending: false })
-          .limit(100);
-
-        if (error) {
-          console.error("Fetch referrals error", error);
-          return;
-        }
-
-        const mapped = (data || []).map((row) => ({
-          id: row.id,
-          name:
-            row.invitee_name ||
-            row.invitee_username ||
-            (row.invitee_tg_id ? `User ${row.invitee_tg_id}` : "User"),
-          username: row.invitee_username ? `@${row.invitee_username}` : "",
-          photo: row.invitee_photo_url || "",
-          tier: row.invitee_tier || "free",
-          when: row.created_at,
-        }));
-        setReferrals(mapped);
-      } catch (e) {
-        console.error("Fetch referrals error", e);
-      }
-    };
-
-    fetchRefs();
-  }, [tgId, invitesCount]);
 
   /* Non-additive cooldown ticker – online regen + DB write */
   useEffect(() => {
@@ -797,25 +776,45 @@ export default function App(){
     setTimeout(() => setToast(null), 1600);
   };
 
-  /* ===== Earn: referral code + link ===== */
+  /* ===== Earn: referral code + link + claim handling ===== */
   useEffect(()=>{
     const code = getOrCreateMyRefCode();
     const link = `https://t.me/roffleapp_bot?start=${encodeURIComponent(code)}`;
     setMyRefLink(link);
   },[]);
 
-  /* Small helpers for Earn list */
-  function AvatarInline({name, photo}){
-    if (photo) return <img className="lb-avatar" src={photo} alt={name} />;
-    const bg = randomItem(DEMO_AVATAR_COLORS);
-    return <div className="lb-avatar fallback" style={{ background: bg }}>{initials(name)}</div>;
-  }
-  function formatDate(iso){
+  useEffect(()=>{
     try{
-      const d = new Date(iso);
-      return d.toLocaleDateString(undefined, { year:"numeric", month:"short", day:"numeric" });
-    }catch{return "";}
-  }
+      const params = new URLSearchParams(window.location.search);
+      const ref = params.get("ref");
+      if (!ref) return;
+      const already = localStorage.getItem("rof_ref_claimed");
+      const myCode = localStorage.getItem("rof_ref_code");
+      if (already === "1") return;
+      if (myCode && ref === myCode) return;
+
+      setBank(b => b + 200);
+      setSpinsLeft(s => Math.min(spinCap, s + 20));
+      setToast({ text: `+200 $ROF & +20 spins (invite)`, key: Date.now() });
+      setTimeout(() => setToast(null), 1600);
+
+      localStorage.setItem("rof_ref_claimed", "1");
+      localStorage.setItem("rof_referred_by", ref);
+
+      const u = getTGUser();
+      const row = {
+        id: `joined-${Date.now()}`,
+        name: u?.name || "You (joined)",
+        username: u?.username || "",
+        photo: u?.photo || "",
+        tier: "free",
+        when: new Date().toISOString(),
+        note: `Joined via ${ref}`,
+      };
+      addReferralRow(row);
+      setReferrals(readReferrals());
+    }catch{}
+  }, [spinCap]);
 
   const copyLink = async ()=>{
     try{
@@ -907,6 +906,18 @@ export default function App(){
   };
 
   const LootScreen = () => <div className="placeholder-card">🎁 Lootboxes coming soon…</div>;
+
+  function AvatarInline({name, photo}){
+    if (photo) return <img className="lb-avatar" src={photo} alt={name} />;
+    const bg = randomItem(DEMO_AVATAR_COLORS);
+    return <div className="lb-avatar fallback" style={{ background: bg }}>{initials(name)}</div>;
+  }
+  function formatDate(iso){
+    try{
+      const d = new Date(iso);
+      return d.toLocaleDateString(undefined, { year:"numeric", month:"short", day:"numeric" });
+    }catch{return "";}
+  }
 
   const EarnScreen = () => {
     const invitedCount = invitesCount;
@@ -1031,7 +1042,7 @@ export default function App(){
                       x={labelR}
                       y={0}
                       transform={flip ? `rotate(180 ${labelR} 0)` : ""}
-                      className={`slice-txt ${is-max ? "is-max" : ""}`}
+                      className={`slice-txt ${isMax ? "is-max" : ""}`}
                       textAnchor="middle"
                       dominantBaseline="middle"
                       fill={textFill}
@@ -1137,4 +1148,3 @@ export default function App(){
     </div>
   );
 }
-
