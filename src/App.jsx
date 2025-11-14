@@ -478,69 +478,71 @@ export default function App(){
   };
 
   /* Sync Telegram user + balance/spins/tier from Supabase */
-  useEffect(() => {
+    useEffect(() => {
     const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
     if (!tgUser) return;
 
-      const run = async () => {
-    try {
-      // Remember Telegram id in state
-      setTgId(tgUser.id);
+    const run = async () => {
+      try {
+        // remember telegram id in state
+        setTgId(tgUser.id);
 
-      // Basic user fields to upsert
-      const baseUser = {
-        tg_id: tgUser.id,
-        username: tgUser.username || null,
-        full_name: [tgUser.first_name, tgUser.last_name].filter(Boolean).join(" "),
-        photo_url: tgUser.photo_url || null,
-        last_seen: new Date().toISOString(),
-      };
+        // basic user fields to upsert
+        const baseUser = {
+          tg_id: tgUser.id,
+          username: tgUser.username || null,
+          full_name: [tgUser.first_name, tgUser.last_name]
+            .filter(Boolean)
+            .join(" "),
+          photo_url: tgUser.photo_url || null,
+          last_seen: new Date().toISOString(),
+        };
 
-      // Upsert and fetch the row in one go
-      const { data, error } = await supabase
-        .from("roff_users")
-        .upsert(baseUser, { onConflict: "tg_id" })
-        .select("*")
-        .eq("tg_id", tgUser.id)
-        .single();
+        // Upsert and fetch the row in one go
+        const { data, error } = await supabase
+          .from("roff_users")
+          .upsert(baseUser, { onConflict: "tg_id" })
+          .select("*")
+          .eq("tg_id", tgUser.id)
+          .single();
 
-      if (error) {
-        console.error("Supabase upsert/select error", error);
-        return;
+        if (error) {
+          console.error("Supabase upsert/select error", error);
+          return;
+        }
+
+        if (data) {
+          // balance
+          if (typeof data.balance === "number") {
+            setBank(data.balance);
+          }
+
+          // spins
+          if (typeof data.spins_left === "number") {
+            setSpinsLeft(data.spins_left);
+          }
+
+          // invites (for Earn tab)
+          if (typeof data.invites === "number") {
+            setInvitesCount(data.invites);
+          }
+
+          // premium tier from DB, if valid
+          if (
+            typeof data.premium_tier === "string" &&
+            TIERS[data.premium_tier]
+          ) {
+            setTierKey(data.premium_tier);
+          }
+        }
+      } catch (err) {
+        console.error("Supabase sync error", err);
       }
-
-      if (data) {
-        // Balance
-        if (typeof data.balance === "number") {
-          setBank(data.balance);
-        }
-
-        // Spins
-        if (typeof data.spins_left === "number") {
-          setSpinsLeft(data.spins_left);
-        }
-
-        // Invites for Earn screen
-        if (typeof data.invites === "number") {
-          setInvitesCount(data.invites);
-        }
-
-        // Premium tier from DB if present
-        if (
-          typeof data.premium_tier === "string" &&
-          TIERS[data.premium_tier]
-        ) {
-          setTierKey(data.premium_tier);
-        }
-      }
-    } catch (err) {
-      console.error("Supabase sync error", err);
-    }
-  };
-
+    };
 
     run();
   }, []);
+
 
   /* Non-additive cooldown ticker (persists timer in localStorage, client-side only) */
   useEffect(()=>{
