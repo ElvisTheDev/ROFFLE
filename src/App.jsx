@@ -309,9 +309,6 @@ const TopScreen = React.memo(function TopScreen({ lbTab, onTabChange, myTgId }) 
       {errMsg && <div className="lb-error">{errMsg}</div>}
 
       <div className="lb-list">
-        {active.length === 0 && !errMsg && (
-          <div className="lb-empty">No data yet.</div>
-        )}
         {active.map((u, idx) => (
           <Row
             key={`${lbTab}-${u.id}-${idx}`}
@@ -331,6 +328,8 @@ export default function App(){
   const slots = useMemo(buildSlots, []);
   const [bank,setBank] = useState(0);
   const [tgId, setTgId] = useState(null);
+  const [invitesCount, setInvitesCount] = useState(0);
+
 
   /* Premium state */
   const [tierKey, setTierKey] = useState("free"); // persisted in DB & localStorage
@@ -506,13 +505,70 @@ export default function App(){
           return;
         }
 
-        if (data) {
-          if (typeof data.balance === "number") {
-            setBank(data.balance);
+                if (data) {
+          // 1) Load tier from DB (cross-device)
+          const dbTierKey =
+            data.premium_tier && TIERS[data.premium_tier]
+              ? data.premium_tier
+              : "free";
+          setTierKey(dbTierKey);
+
+          // 2) Base values from DB
+          let dbBalance = typeof data.balance === "number" ? data.balance : 0;
+          let dbSpins =
+            typeof data.spins_left === "number" ? data.spins_left : BASE_CAP;
+          const dbInvites =
+            typeof data.invites === "number" ? data.invites : 0;
+
+          // 3) Regen spins in background based on last_seen
+          const now = Date.now();
+          const regenMsDb = Math.floor(
+            BASE_REGEN_MS / TIERS[dbTierKey].regenMult
+          );
+          const capDb = TIERS[dbTierKey].cap;
+          let lastSeenMs = data.last_seen
+            ? new Date(data.last_seen).getTime()
+            : now;
+
+          if (dbSpins < capDb) {
+            const elapsed = now - lastSeenMs;
+            if (elapsed > 0) {
+              const regenCount = Math.floor(elapsed / regenMsDb);
+              if (regenCount > 0) {
+                dbSpins = Math.min(capDb, dbSpins + regenCount);
+                lastSeenMs = now;
+
+                // Save regenerated spins back to DB (fire-and-forget)
+                supabase
+                  .from("roff_users")
+                  .update({
+                    spins_left: dbSpins,
+                    last_seen: new Date(lastSeenMs).toISOString(),
+                  })
+                  .eq("tg_id", tgUser.id)
+                  .then(() => {})
+                  .catch(() => {});
+              }
+            }
           }
-          if (typeof data.spins_left === "number") {
-            setSpinsLeft(data.spins_left);
+
+          // 4) Setup timer to next regen
+          let nextReady = null;
+          let nextMs = 0;
+          if (dbSpins < capDb) {
+            const elapsed = now - lastSeenMs;
+            const leftover = regenMsDb - (elapsed % regenMsDb);
+            nextReady = now + leftover;
+            nextMs = leftover;
           }
+
+          setBank(dbBalance);
+          setSpinsLeft(dbSpins);
+          setInvitesCount(dbInvites);
+          setNextReadyAt(nextReady);
+          setNextInMs(nextMs);
+        }
+
 
           // Tier: DB first, then localStorage fallback
           let tKey = "free";
@@ -584,7 +640,7 @@ export default function App(){
   }, [spinsLeft, nextReadyAt, regenMs, spinCap, showPremium]);
 
   /* ===== Spin – server-authoritative payout, visual index matched to prize ===== */
-  const handleSpin = async () => {
+    const handleSpin = async () => {
     if (spinning || animBusyRef.current || spinsLeft <= 0) return;
     if (!tgId) {
       setToast({ text: "User not ready yet, try again", key: Date.now() });
@@ -598,46 +654,35 @@ export default function App(){
     const startVis = currentAngleRef.current;
 
     try {
-      // 1) Pick a random wheel segment locally
-      const idx = randInt(0, SEGMENTS_TOTAL - 1);
-      const baseAmount = slots[idx].amount || 0;
-      const won = baseAmount * prizeMult;
-
-      const newBalance = bank + won;
-      const newSpins = spinsLeft - 1;
-
-      // 2) Compute a nice spin animation to that index
-      const spinsFull = randInt(4, 8);
-      const jitter = (randFloat() * 0.8 - 0.4) * SEG_DEG;
-      const center = idx * SEG_DEG + SEG_DEG / 2 + jitter;
-      const toZero = (360 - (center % 360) + 360) % 360;
-
-      const finalCalc = (calcRotRef.current || 0) + spinsFull * 360 + toZero;
-      const endMod = ((finalCalc % 360) + 360) % 360;
-
-      let visualDelta = endMod - startVis;
-      if (visualDelta <= 0) visualDelta += 360;
-      const extraTurns = spinsFull - 1;
-      visualDelta += extraTurns * 360;
-      const endVis = startVis + visualDelta;
-
+      // 1) Choose a random spin amount (visual only)
+      const spinsFull = randInt(4, 8); // full rotations
+      const extraDeg = randFloat() * 360; // random extra partial turn
+      const endVis = startVis + spinsFull * 360 + extraDeg;
       const durationMs = randInt(1900, 2800);
 
       animateRotation(startVis, endVis, durationMs, async () => {
-        calcRotRef.current = finalCalc;
-        const finalVis = ((endVis % 360) + 360) % 360;
-        currentAngleRef.current = finalVis;
-        applyAngle(finalVis);
-
+        // 2) Normalise final angle and remember it
+        const norm = ((endVis % 360) + 360) % 360;
+        currentAngleRef.current = norm;
+        applyAngle(norm);
         try {
-          localStorage.setItem("rof_calcRot", String(finalCalc));
+          localStorage.setItem("rof_visAngle", String(norm));
+          localStorage.setItem("rof_calcRot", String(endVis));
         } catch {}
 
-        // 3) Set balance & spins locally
+        // 3) Work out which segment is actually at the pointer
+        const idx = indexFromRotation(norm);
+        const baseAmount = slots[idx].amount || 0;
+        const won = baseAmount * prizeMult;
+
+        // 4) Update bank + spins
+        const newBalance = bank + won;
+        const newSpins = spinsLeft - 1;
+
         setBank(newBalance);
         setSpinsLeft(newSpins);
 
-        // 4) Persist to Supabase (so database sees new balance/spins)
+        // 5) Save to Supabase
         try {
           await supabase
             .from("roff_users")
@@ -651,6 +696,7 @@ export default function App(){
           console.error("Supabase update after spin failed", e);
         }
 
+        // 6) Show toast
         setToast({ text: `+${won} $ROF`, key: Date.now() });
         setTimeout(() => setToast(null), 1600);
 
@@ -663,6 +709,7 @@ export default function App(){
       setSpinning(false);
     }
   };
+
 
 
   /* ===== Premium purchase – permanent tier, only upgrades ===== */
@@ -981,7 +1028,7 @@ export default function App(){
   }
 
   const EarnScreen = () => {
-    const invitedCount = referrals.length;
+    const invitedCount = invitesCount;
     const estBonus = invitedCount * 200;
     return (
       <div className="earn-wrap">
