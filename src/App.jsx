@@ -14,10 +14,10 @@ const API_BASE = "https://roffle-bot.onrender.com";
 
 /* Premium tiers (names per your mapping) */
 const TIERS = {
-  free: { key: "free", name: "Free",              regenMult: 1, cap: 20,  prizeMult: 1,  inviteBonus: 0 },
-  plus: { key: "plus", name: "$ROF Premium⚡️",   regenMult: 2, cap: 40,  prizeMult: 2,  inviteBonus: 50 },
-  pro:  { key: "pro",  name: "$ROF Plus⭐️",      regenMult: 3, cap: 60,  prizeMult: 3,  inviteBonus: 75 },
-  prem: { key: "prem", name: "$ROF Pro👑",        regenMult: 5, cap: 100, prizeMult: 5,  inviteBonus: 100 },
+  free: { key: "free", name: "Free", regenMult: 1, cap: 20, prizeMult: 1, inviteBonus: 0 },
+  plus: { key: "plus", name: "$ROF Premium⚡️", regenMult: 2, cap: 40, prizeMult: 2, inviteBonus: 50 },
+  pro:  { key: "pro",  name: "$ROF Plus⭐️",    regenMult: 3, cap: 60, prizeMult: 3, inviteBonus: 75 },
+  prem: { key: "prem", name: "$ROF Pro👑",      regenMult: 5, cap: 100, prizeMult: 5, inviteBonus: 100 },
 };
 const TEST_PRICE_COINS = 1;
 
@@ -79,6 +79,18 @@ function wedgePathLocal(r, startDeg, endDeg) {
   const end = polarToCartesianLocal(r, endDeg);
   const large = endDeg - startDeg > 180 ? 1 : 0;
   return `M 0 0 L ${start.x} ${start.y} A ${r} ${r} 0 ${large} 1 ${end.x} ${end.y} Z`;
+}
+
+/* Convert final angle -> which slice is at the pointer */
+function indexFromRotation(rotationDeg) {
+  // Normalise to [0, 360)
+  const rot = ((rotationDeg % 360) + 360) % 360;
+  // Pointer is at top, so we invert
+  const target = (360 - rot + 360) % 360;
+  // Work out slice index
+  let i = Math.round((target - SEG_DEG / 2) / SEG_DEG);
+  i = ((i % SEGMENTS_TOTAL) + SEGMENTS_TOTAL) % SEGMENTS_TOTAL;
+  return i;
 }
 
 /* Time */
@@ -157,174 +169,176 @@ function addReferralRow(row){
 }
 
 /* ==================== Top100 Screen (LIVE) ==================== */
-const TopScreen = React.memo(function TopScreen({ lbTab, onTabChange }) {
-  const [players, setPlayers] = useState([]);
-  const [invites, setInvites] = useState([]);
-  const [errMsg, setErrMsg] = useState(null);
-  const [loadedPlayers, setLoadedPlayers] = useState(false);
-  const [loadedInvites, setLoadedInvites] = useState(false);
+const TopScreen = React.memo(
+  function TopScreen({ lbTab, onTabChange }) {
+    const [players, setPlayers] = useState([]);
+    const [invites, setInvites] = useState([]);
+    const [errMsg, setErrMsg] = useState(null);
+    const [loadedPlayers, setLoadedPlayers] = useState(false);
+    const [loadedInvites, setLoadedInvites] = useState(false);
 
-  function Avatar({ name, photo }) {
-    if (photo) return <img className="lb-avatar" src={photo} alt={name} />;
-    const bg = randomItem(DEMO_AVATAR_COLORS);
-    return (
-      <div className="lb-avatar fallback" style={{ background: bg }}>
-        {initials(name)}
-      </div>
-    );
-  }
+    function Avatar({ name, photo }) {
+      if (photo) return <img className="lb-avatar" src={photo} alt={name} />;
+      const bg = randomItem(DEMO_AVATAR_COLORS);
+      return (
+        <div className="lb-avatar fallback" style={{ background: bg }}>
+          {initials(name)}
+        </div>
+      );
+    }
 
-  useEffect(() => {
-    let cancelled = false;
+    useEffect(() => {
+      let cancelled = false;
 
-    async function fetchPlayers() {
-      if (loadedPlayers) return; // already loaded once
-      setErrMsg(null);
-      try {
-        const { data, error } = await supabase
-          .from("roff_users")
-          .select("*")
-          .order("balance", { ascending: false })
-          .limit(100);
+      async function fetchPlayers() {
+        if (loadedPlayers) return; // already loaded once
+        setErrMsg(null);
+        try {
+          const { data, error } = await supabase
+            .from("roff_users")
+            .select("*")
+            .order("balance", { ascending: false })
+            .limit(100);
 
-        if (error) throw error;
-        if (cancelled) return;
+          if (error) throw error;
+          if (cancelled) return;
 
-        const mapped = (data || []).map((row) => ({
-          id: row.tg_id,
-          name: row.full_name || row.username || `User ${row.tg_id}`,
-          username: row.username ? `@${row.username}` : "",
-          photo: row.photo_url || "",
-          balance: row.balance ?? 0,
-          invites: row.invites ?? 0,
-          tier: row.premium_tier || "free",
-        }));
+          const mapped = (data || []).map((row) => ({
+            id: row.tg_id,
+            name: row.full_name || row.username || `User ${row.tg_id}`,
+            username: row.username ? `@${row.username}` : "",
+            photo: row.photo_url || "",
+            balance: row.balance ?? 0,
+            invites: row.invites ?? 0,
+            tier: row.premium_tier || "free",
+          }));
 
-        setPlayers(mapped);
-        setLoadedPlayers(true);
-      } catch (e) {
-        console.error("Top players error", e);
-        if (!cancelled) setErrMsg("Failed to load leaderboard");
+          setPlayers(mapped);
+          setLoadedPlayers(true);
+        } catch (e) {
+          console.error("Top players error", e);
+          if (!cancelled) setErrMsg("Failed to load leaderboard");
+        }
       }
-    }
 
-    async function fetchInvites() {
-      if (loadedInvites) return; // already loaded once
-      setErrMsg(null);
-      try {
-        const { data, error } = await supabase
-          .from("roff_users")
-          .select("*")
-          .order("invites", { ascending: false })
-          .limit(100);
+      async function fetchInvites() {
+        if (loadedInvites) return; // already loaded once
+        setErrMsg(null);
+        try {
+          const { data, error } = await supabase
+            .from("roff_users")
+            .select("*")
+            .order("invites", { ascending: false })
+            .limit(100);
 
-        if (error) throw error;
-        if (cancelled) return;
+          if (error) throw error;
+          if (cancelled) return;
 
-        const mapped = (data || []).map((row) => ({
-          id: row.tg_id,
-          name: row.full_name || row.username || `User ${row.tg_id}`,
-          username: row.username ? `@${row.username}` : "",
-          photo: row.photo_url || "",
-          balance: row.balance ?? 0,
-          invites: row.invites ?? 0,
-          tier: row.premium_tier || "free",
-        }));
+          const mapped = (data || []).map((row) => ({
+            id: row.tg_id,
+            name: row.full_name || row.username || `User ${row.tg_id}`,
+            username: row.username ? `@${row.username}` : "",
+            photo: row.photo_url || "",
+            balance: row.balance ?? 0,
+            invites: row.invites ?? 0,
+            tier: row.premium_tier || "free",
+          }));
 
-        setInvites(mapped);
-        setLoadedInvites(true);
-      } catch (e) {
-        console.error("Top invites error", e);
-        if (!cancelled) setErrMsg("Failed to load leaderboard");
+          setInvites(mapped);
+          setLoadedInvites(true);
+        } catch (e) {
+          console.error("Top invites error", e);
+          if (!cancelled) setErrMsg("Failed to load leaderboard");
+        }
       }
-    }
 
-    if (lbTab === "players") {
-      fetchPlayers();
-    } else {
-      fetchInvites();
-    }
+      if (lbTab === "players") {
+        fetchPlayers();
+      } else {
+        fetchInvites();
+      }
 
-    return () => {
-      cancelled = true;
-    };
-  }, [lbTab, loadedPlayers, loadedInvites]);
+      return () => {
+        cancelled = true;
+      };
+    }, [lbTab, loadedPlayers, loadedInvites]);
 
-  const active = lbTab === "players" ? players : invites;
+    const active = lbTab === "players" ? players : invites;
 
-  function Row({ rank, user, mode }) {
-    return (
-      <div className="lb-row">
-        <div className="lb-left">
-          <div className="lb-rank">{rank}</div>
-          <Avatar name={user.name} photo={user.photo} />
-          <div className="lb-namebox">
-            <div className="lb-name">{user.name}</div>
-            <div className="lb-meta">
-              <TierBadge tierKey={user.tier} />
-              <span className="lb-username">{user.username}</span>
+    function Row({ rank, user, mode }) {
+      return (
+        <div className="lb-row">
+          <div className="lb-left">
+            <div className="lb-rank">{rank}</div>
+            <Avatar name={user.name} photo={user.photo} />
+            <div className="lb-namebox">
+              <div className="lb-name">{user.name}</div>
+              <div className="lb-meta">
+                <TierBadge tierKey={user.tier} />
+                <span className="lb-username">{user.username}</span>
+              </div>
             </div>
           </div>
+          <div className="lb-right">
+            {mode === "players" ? (
+              <div className="lb-metric coins">
+                <img className="lb-coin" src={ROF_ICON_SRC} alt="$ROF" />
+                <span>{user.balance.toLocaleString()}</span>
+              </div>
+            ) : (
+              <div className="lb-metric invites">
+                <span className="lb-invites">{user.invites.toLocaleString()}</span>
+                <span className="lb-invites-lbl">invites</span>
+              </div>
+            )}
+          </div>
         </div>
-        <div className="lb-right">
-          {mode === "players" ? (
-            <div className="lb-metric coins">
-              <img className="lb-coin" src={ROF_ICON_SRC} alt="$ROF" />
-              <span>{user.balance.toLocaleString()}</span>
-            </div>
-          ) : (
-            <div className="lb-metric invites">
-              <span className="lb-invites">{user.invites.toLocaleString()}</span>
-              <span className="lb-invites-lbl">invites</span>
-            </div>
-          )}
+      );
+    }
+
+    return (
+      <div className="lb-wrap">
+        <div className="lb-tabs">
+          <button
+            className={`lb-tab ${lbTab === "players" ? "on" : ""}`}
+            onClick={() => onTabChange("players")}
+          >
+            Top Players
+          </button>
+          <button
+            className={`lb-tab ${lbTab === "invites" ? "on" : ""}`}
+            onClick={() => onTabChange("invites")}
+          >
+            Top Invites
+          </button>
+        </div>
+
+        <div className="lb-head">
+          <div className="lb-h-left">Rank</div>
+          <div className="lb-h-mid">User</div>
+          <div className="lb-h-right">
+            {lbTab === "players" ? "Balance" : "Invites"}
+          </div>
+        </div>
+
+        {errMsg && <div className="lb-error">{errMsg}</div>}
+
+        <div className="lb-list">
+          {active.map((u, idx) => (
+            <Row
+              key={`${lbTab}-${u.id}-${idx}`}
+              rank={idx + 1}
+              user={u}
+              mode={lbTab}
+            />
+          ))}
         </div>
       </div>
     );
-  }
-
-  return (
-    <div className="lb-wrap">
-      <div className="lb-tabs">
-        <button
-          className={`lb-tab ${lbTab === "players" ? "on" : ""}`}
-          onClick={() => onTabChange("players")}
-        >
-          Top Players
-        </button>
-        <button
-          className={`lb-tab ${lbTab === "invites" ? "on" : ""}`}
-          onClick={() => onTabChange("invites")}
-        >
-          Top Invites
-        </button>
-      </div>
-
-      <div className="lb-head">
-        <div className="lb-h-left">Rank</div>
-        <div className="lb-h-mid">User</div>
-        <div className="lb-h-right">
-          {lbTab === "players" ? "Balance" : "Invites"}
-        </div>
-      </div>
-
-      {errMsg && <div className="lb-error">{errMsg}</div>}
-
-      <div className="lb-list">
-        {active.map((u, idx) => (
-          <Row
-            key={`${lbTab}-${u.id}-${idx}`}
-            rank={idx + 1}
-            user={u}
-            mode={lbTab}
-          />
-        ))}
-      </div>
-    </div>
-  );
-});
-
-
+  },
+  // 👇 Only re-render when lbTab changes (ignore parent re-renders every second)
+  (prev, next) => prev.lbTab === next.lbTab
+);
 
 /* ==================== APP ==================== */
 export default function App(){
@@ -332,7 +346,6 @@ export default function App(){
   const [bank,setBank] = useState(0);
   const [tgId, setTgId] = useState(null);
   const [invitesCount, setInvitesCount] = useState(0);
-
 
   /* Premium state */
   const [tierKey, setTierKey] = useState("free"); // persisted in DB & localStorage
@@ -446,7 +459,7 @@ export default function App(){
       if(!Number.isNaN(savedCalc)) calcRotRef.current = savedCalc;
     }catch{}
 
-    // regen timer
+    // regen timer (optional, will be overridden by DB sync)
     try {
       const stored = localStorage.getItem("rof_nextReadyAt");
       if (stored) {
@@ -480,28 +493,23 @@ export default function App(){
     rafRef.current = requestAnimationFrame(step);
   };
 
-  /* Sync Telegram user + balance/spins/tier from Supabase */
-    useEffect(() => {
+  /* Sync Telegram user + balance/spins/tier from Supabase + offline regen */
+  useEffect(() => {
     const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
     if (!tgUser) return;
 
     const run = async () => {
       try {
-        // remember telegram id in state
         setTgId(tgUser.id);
 
-        // basic user fields to upsert
         const baseUser = {
           tg_id: tgUser.id,
           username: tgUser.username || null,
-          full_name: [tgUser.first_name, tgUser.last_name]
-            .filter(Boolean)
-            .join(" "),
+          full_name: [tgUser.first_name, tgUser.last_name].filter(Boolean).join(" "),
           photo_url: tgUser.photo_url || null,
           last_seen: new Date().toISOString(),
         };
 
-        // Upsert and fetch the row in one go
         const { data, error } = await supabase
           .from("roff_users")
           .upsert(baseUser, { onConflict: "tg_id" })
@@ -515,28 +523,66 @@ export default function App(){
         }
 
         if (data) {
-          // balance
-          if (typeof data.balance === "number") {
-            setBank(data.balance);
+          // Determine tier from DB or default
+          const dbTierKey =
+            data.premium_tier && TIERS[data.premium_tier]
+              ? data.premium_tier
+              : "free";
+          setTierKey(dbTierKey);
+
+          const tierCfg = TIERS[dbTierKey];
+          const capDb = tierCfg.cap;
+          const regenMsDb = Math.floor(BASE_REGEN_MS / tierCfg.regenMult);
+
+          let dbBalance = typeof data.balance === "number" ? data.balance : 0;
+          let dbSpins =
+            typeof data.spins_left === "number" ? data.spins_left : BASE_CAP;
+          const dbInvites =
+            typeof data.invites === "number" ? data.invites : 0;
+
+          const now = Date.now();
+          let lastSeenMs = data.last_seen
+            ? new Date(data.last_seen).getTime()
+            : now;
+
+          // Offline regen: add spins for elapsed time, capped by tier cap
+          if (dbSpins < capDb) {
+            const elapsed = now - lastSeenMs;
+            if (elapsed > 0) {
+              const regenCount = Math.floor(elapsed / regenMsDb);
+              if (regenCount > 0) {
+                dbSpins = Math.min(capDb, dbSpins + regenCount);
+                lastSeenMs = now;
+
+                // Persist regenerated spins
+                supabase
+                  .from("roff_users")
+                  .update({
+                    spins_left: dbSpins,
+                    last_seen: new Date(lastSeenMs).toISOString(),
+                  })
+                  .eq("tg_id", tgUser.id)
+                  .then(() => {})
+                  .catch(() => {});
+              }
+            }
           }
 
-          // spins
-          if (typeof data.spins_left === "number") {
-            setSpinsLeft(data.spins_left);
+          // Compute nextReadyAt / nextInMs
+          let nextReady = null;
+          let nextMs = 0;
+          if (dbSpins < capDb) {
+            const elapsed = now - lastSeenMs;
+            const leftover = regenMsDb - (elapsed % regenMsDb);
+            nextReady = now + leftover;
+            nextMs = leftover;
           }
 
-          // invites (for Earn tab)
-          if (typeof data.invites === "number") {
-            setInvitesCount(data.invites);
-          }
-
-          // premium tier from DB, if valid
-          if (
-            typeof data.premium_tier === "string" &&
-            TIERS[data.premium_tier]
-          ) {
-            setTierKey(data.premium_tier);
-          }
+          setBank(dbBalance);
+          setSpinsLeft(dbSpins);
+          setInvitesCount(dbInvites);
+          setNextReadyAt(nextReady);
+          setNextInMs(nextMs);
         }
       } catch (err) {
         console.error("Supabase sync error", err);
@@ -546,9 +592,8 @@ export default function App(){
     run();
   }, []);
 
-
-  /* Non-additive cooldown ticker (persists timer in localStorage, client-side only) */
-    useEffect(() => {
+  /* Non-additive cooldown ticker – online regen + DB write */
+  useEffect(() => {
     if (showPremium) return;
 
     const tick = () => {
@@ -569,6 +614,9 @@ export default function App(){
           const next = now + regenMs;
           setNextReadyAt(next);
           setNextInMs(regenMs);
+          try {
+            localStorage.setItem("rof_nextReadyAt", String(next));
+          } catch {}
           return currentSpins;
         }
 
@@ -587,6 +635,10 @@ export default function App(){
         const next = stillBelowCap ? now + regenMs : null;
         setNextReadyAt(next);
         setNextInMs(stillBelowCap ? regenMs : 0);
+        try {
+          if (next) localStorage.setItem("rof_nextReadyAt", String(next));
+          else localStorage.removeItem("rof_nextReadyAt");
+        } catch {}
 
         // Write new spins to Supabase (fire-and-forget)
         if (tgId) {
@@ -610,9 +662,8 @@ export default function App(){
     return () => clearInterval(id);
   }, [regenMs, spinCap, showPremium, nextReadyAt, tgId]);
 
-
-  /* ===== Spin – server-authoritative payout, visual index matched to prize ===== */
-      const handleSpin = () => {
+  /* ===== Spin – visual-only RNG, payout from final angle ===== */
+  const handleSpin = () => {
     if (spinning || animBusyRef.current || spinsLeft <= 0) return;
     if (!tgId) {
       setToast({ text: "User not ready yet, try again", key: Date.now() });
@@ -682,9 +733,6 @@ export default function App(){
     }
   };
 
-
-
-
   /* ===== Premium purchase – permanent tier, only upgrades ===== */
   const canAfford = (price) => bank >= price;
   const buyTier = async (key) => {
@@ -752,7 +800,7 @@ export default function App(){
   /* ===== Earn: referral code + link + claim handling ===== */
   useEffect(()=>{
     const code = getOrCreateMyRefCode();
-    // ✅ New: link goes to bot, not webapp
+    // link goes to bot, not webapp
     const link = `https://t.me/roffleapp_bot?start=${encodeURIComponent(code)}`;
     setMyRefLink(link);
   },[]);
@@ -1058,7 +1106,7 @@ export default function App(){
   };
 
   const TopScreenContainer  = () => (
-    <TopScreen lbTab={lbTab} onTabChange={(t)=>setLbTab(t)} myTgId={tgId} />
+    <TopScreen lbTab={lbTab} onTabChange={(t)=>setLbTab(t)} />
   );
   const TasksScreen= () => <div className="placeholder-card">🕹 Tasks coming soon…</div>;
 
