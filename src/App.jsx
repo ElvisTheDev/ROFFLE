@@ -162,6 +162,7 @@ const TopScreen = React.memo(function TopScreen({ lbTab, onTabChange, myTgId }) 
   const [invites, setInvites] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errMsg, setErrMsg] = useState(null);
+  const [loadedOnce, setLoadedOnce] = useState(false);
 
   function Avatar({name, photo}){
     if (photo) return <img className="lb-avatar" src={photo} alt={name} />;
@@ -223,8 +224,11 @@ const TopScreen = React.memo(function TopScreen({ lbTab, onTabChange, myTgId }) 
           }
         }
 
-        if (lbTab === "players") setPlayers(mapped);
-        else setInvites(mapped);
+        if (!cancelled) {
+      if (lbTab === "players") setPlayers(mapped);
+      else setInvites(mapped);
+      setLoadedOnce(true);
+      }
       } catch (e) {
         console.error("Leaderboard fetch error", e);
         if (!cancelled) setErrMsg("Failed to load leaderboard");
@@ -283,7 +287,7 @@ const TopScreen = React.memo(function TopScreen({ lbTab, onTabChange, myTgId }) 
         <div className="lb-h-right">{lbTab==="players" ? "Balance" : "Invites"}</div>
       </div>
 
-      {loading && <div className="lb-loading">Loading…</div>}
+      {loading && !loadedOnce && <div className="lb-loading">Loading…</div>}
       {errMsg && !loading && <div className="lb-error">{errMsg}</div>}
 
       <div className="lb-list">
