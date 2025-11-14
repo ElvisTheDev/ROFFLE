@@ -10,14 +10,13 @@ const START_OFFSET = -90; // pointer at top
 const BASE_CAP = 20;
 const BASE_REGEN_MS = 10 * 60 * 1000; // 10 minutes (non-additive!)
 const TICK_MS = 1000;
-const API_BASE = "https://roffle-bot.onrender.com";
 
 /* Premium tiers (names per your mapping) */
 const TIERS = {
-  free: { key: "free", name: "Free", regenMult: 1, cap: 20, prizeMult: 1, inviteBonus: 0 },
-  plus: { key: "plus", name: "$ROF Premium⚡️", regenMult: 2, cap: 40, prizeMult: 2, inviteBonus: 50 },
-  pro:  { key: "pro",  name: "$ROF Plus⭐️",    regenMult: 3, cap: 60, prizeMult: 3, inviteBonus: 75 },
-  prem: { key: "prem", name: "$ROF Pro👑",      regenMult: 5, cap: 100, prizeMult: 5, inviteBonus: 100 },
+  free: { key: "free", name: "Free",              regenMult: 1, cap: 20,  prizeMult: 1,  inviteBonus: 0 },
+  plus: { key: "plus", name: "$ROF Premium⚡️",   regenMult: 2, cap: 40,  prizeMult: 2,  inviteBonus: 50 },
+  pro:  { key: "pro",  name: "$ROF Plus⭐️",      regenMult: 3, cap: 60,  prizeMult: 3,  inviteBonus: 75 },
+  prem: { key: "prem", name: "$ROF Pro👑",        regenMult: 5, cap: 100, prizeMult: 5,  inviteBonus: 100 },
 };
 const TEST_PRICE_COINS = 1;
 
@@ -83,11 +82,8 @@ function wedgePathLocal(r, startDeg, endDeg) {
 
 /* Convert final angle -> which slice is at the pointer */
 function indexFromRotation(rotationDeg) {
-  // Normalise to [0, 360)
   const rot = ((rotationDeg % 360) + 360) % 360;
-  // Pointer is at top, so we invert
   const target = (360 - rot + 360) % 360;
-  // Work out slice index
   let i = Math.round((target - SEG_DEG / 2) / SEG_DEG);
   i = ((i % SEGMENTS_TOTAL) + SEGMENTS_TOTAL) % SEGMENTS_TOTAL;
   return i;
@@ -191,7 +187,7 @@ const TopScreen = React.memo(
       let cancelled = false;
 
       async function fetchPlayers() {
-        if (loadedPlayers) return; // already loaded once
+        if (loadedPlayers) return;
         setErrMsg(null);
         try {
           const { data, error } = await supabase
@@ -222,7 +218,7 @@ const TopScreen = React.memo(
       }
 
       async function fetchInvites() {
-        if (loadedInvites) return; // already loaded once
+        if (loadedInvites) return;
         setErrMsg(null);
         try {
           const { data, error } = await supabase
@@ -336,7 +332,7 @@ const TopScreen = React.memo(
       </div>
     );
   },
-  // 👇 Only re-render when lbTab changes (ignore parent re-renders every second)
+  // Only re-render when the selected tab changes.
   (prev, next) => prev.lbTab === next.lbTab
 );
 
@@ -348,7 +344,7 @@ export default function App(){
   const [invitesCount, setInvitesCount] = useState(0);
 
   /* Premium state */
-  const [tierKey, setTierKey] = useState("free"); // persisted in DB & localStorage
+  const [tierKey, setTierKey] = useState("free");
   const tier = TIERS[tierKey];
   const regenMs = Math.floor(BASE_REGEN_MS / tier.regenMult);
   const spinCap = tier.cap;
@@ -363,7 +359,7 @@ export default function App(){
 
   /* Spins/energy */
   const [spinsLeft, setSpinsLeft] = useState(BASE_CAP);
-  const [nextReadyAt, setNextReadyAt] = useState(null); // timestamp ms
+  const [nextReadyAt, setNextReadyAt] = useState(null);
   const [nextInMs, setNextInMs] = useState(0);
 
   /* UI */
@@ -439,9 +435,8 @@ export default function App(){
     } catch {}
   };
 
-  /* Restore angle + regen timer from storage */
+  /* Restore angle + local regen timer from storage */
   useEffect(()=>{
-    // angle
     let a = null;
     try {
       const ls = localStorage.getItem("rof_visAngle");
@@ -453,13 +448,11 @@ export default function App(){
     if (a == null || Number.isNaN(a)) a = 0;
     applyAngle(a);
 
-    // calcRot (optional)
     try{
       const savedCalc = parseFloat(localStorage.getItem("rof_calcRot"));
       if(!Number.isNaN(savedCalc)) calcRotRef.current = savedCalc;
     }catch{}
 
-    // regen timer (optional, will be overridden by DB sync)
     try {
       const stored = localStorage.getItem("rof_nextReadyAt");
       if (stored) {
@@ -502,17 +495,18 @@ export default function App(){
       try {
         setTgId(tgUser.id);
 
+        // basic user fields (NOTE: no last_seen here!)
         const baseUser = {
           tg_id: tgUser.id,
           username: tgUser.username || null,
           full_name: [tgUser.first_name, tgUser.last_name].filter(Boolean).join(" "),
           photo_url: tgUser.photo_url || null,
-          last_seen: new Date().toISOString(),
         };
 
+        // Upsert without touching last_seen
         const { data, error } = await supabase
           .from("roff_users")
-          .upsert(baseUser, { onConflict: "tg_id" })
+          .upsert(baseUser, { onConflict: "tg_id", ignoreDuplicates: false })
           .select("*")
           .eq("tg_id", tgUser.id)
           .single();
@@ -523,7 +517,6 @@ export default function App(){
         }
 
         if (data) {
-          // Determine tier from DB or default
           const dbTierKey =
             data.premium_tier && TIERS[data.premium_tier]
               ? data.premium_tier
@@ -553,17 +546,6 @@ export default function App(){
               if (regenCount > 0) {
                 dbSpins = Math.min(capDb, dbSpins + regenCount);
                 lastSeenMs = now;
-
-                // Persist regenerated spins
-                supabase
-                  .from("roff_users")
-                  .update({
-                    spins_left: dbSpins,
-                    last_seen: new Date(lastSeenMs).toISOString(),
-                  })
-                  .eq("tg_id", tgUser.id)
-                  .then(() => {})
-                  .catch(() => {});
               }
             }
           }
@@ -572,8 +554,8 @@ export default function App(){
           let nextReady = null;
           let nextMs = 0;
           if (dbSpins < capDb) {
-            const elapsed = now - lastSeenMs;
-            const leftover = regenMsDb - (elapsed % regenMsDb);
+            const elapsedForNext = now - lastSeenMs;
+            const leftover = regenMsDb - (elapsedForNext % regenMsDb);
             nextReady = now + leftover;
             nextMs = leftover;
           }
@@ -583,6 +565,18 @@ export default function App(){
           setInvitesCount(dbInvites);
           setNextReadyAt(nextReady);
           setNextInMs(nextMs);
+
+          // Persist spins & last_seen back to DB
+          await supabase
+            .from("roff_users")
+            .update({
+              spins_left: dbSpins,
+              last_seen: new Date(lastSeenMs).toISOString(),
+              username: baseUser.username,
+              full_name: baseUser.full_name,
+              photo_url: baseUser.photo_url,
+            })
+            .eq("tg_id", tgUser.id);
         }
       } catch (err) {
         console.error("Supabase sync error", err);
@@ -602,14 +596,12 @@ export default function App(){
       setSpinsLeft((currentSpins) => {
         const cap = spinCap;
 
-        // If already full, just keep timer clean
         if (currentSpins >= cap) {
           if (nextReadyAt !== null) setNextReadyAt(null);
           setNextInMs(0);
           return currentSpins;
         }
 
-        // If no nextReadyAt yet, start it now
         if (nextReadyAt == null) {
           const next = now + regenMs;
           setNextReadyAt(next);
@@ -620,18 +612,14 @@ export default function App(){
           return currentSpins;
         }
 
-        // Compute remaining ms to next spin
         const remaining = nextReadyAt - now;
         if (remaining > 0) {
           setNextInMs(remaining);
           return currentSpins;
         }
 
-        // Time to regen 1 spin
         const newSpins = Math.min(cap, currentSpins + 1);
         const stillBelowCap = newSpins < cap;
-
-        // Schedule next regen
         const next = stillBelowCap ? now + regenMs : null;
         setNextReadyAt(next);
         setNextInMs(stillBelowCap ? regenMs : 0);
@@ -640,7 +628,6 @@ export default function App(){
           else localStorage.removeItem("rof_nextReadyAt");
         } catch {}
 
-        // Write new spins to Supabase (fire-and-forget)
         if (tgId) {
           supabase
             .from("roff_users")
@@ -677,14 +664,12 @@ export default function App(){
     const startVis = currentAngleRef.current;
 
     try {
-      // 1) Choose a random spin amount (visual only)
-      const spinsFull = randInt(4, 8);           // full 360° rotations
-      const extraDeg = randFloat() * 360;        // random extra partial turn
+      const spinsFull = randInt(4, 8);
+      const extraDeg = randFloat() * 360;
       const endVis = startVis + spinsFull * 360 + extraDeg;
-      const durationMs = randInt(1900, 2800);    // 1.9s–2.8s spin
+      const durationMs = randInt(1900, 2800);
 
       animateRotation(startVis, endVis, durationMs, () => {
-        // 2) Normalise final angle and remember it
         const norm = ((endVis % 360) + 360) % 360;
         currentAngleRef.current = norm;
         applyAngle(norm);
@@ -693,19 +678,16 @@ export default function App(){
           localStorage.setItem("rof_calcRot", String(endVis));
         } catch {}
 
-        // 3) Figure out which segment is at the pointer
         const idx = indexFromRotation(norm);
         const baseAmount = slots[idx].amount || 0;
         const won = baseAmount * prizeMult;
 
-        // 4) Update bank + spins locally
         const newBalance = bank + won;
         const newSpins = spinsLeft - 1;
 
         setBank(newBalance);
         setSpinsLeft(newSpins);
 
-        // 5) Save to Supabase (fire-and-forget, no await)
         supabase
           .from("roff_users")
           .update({
@@ -719,7 +701,6 @@ export default function App(){
             console.error("Supabase update after spin failed", e);
           });
 
-        // 6) Show toast
         setToast({ text: `+${won} $ROF`, key: Date.now() });
         setTimeout(() => setToast(null), 1600);
 
@@ -738,7 +719,6 @@ export default function App(){
   const buyTier = async (key) => {
     if (key === tierKey) return;
 
-    // prevent downgrades
     if (TIER_ORDER[key] <= TIER_ORDER[tierKey]) {
       setToast({ text: "You already have this or higher tier", key: Date.now() });
       setTimeout(() => setToast(null), 1600);
@@ -761,7 +741,6 @@ export default function App(){
 
     setSpinsLeft((s) => Math.min(s, t.cap));
 
-    // adjust regen timer instantly
     if (spinsLeft >= t.cap) {
       setNextReadyAt(null);
       setNextInMs(0);
@@ -800,7 +779,6 @@ export default function App(){
   /* ===== Earn: referral code + link + claim handling ===== */
   useEffect(()=>{
     const code = getOrCreateMyRefCode();
-    // link goes to bot, not webapp
     const link = `https://t.me/roffleapp_bot?start=${encodeURIComponent(code)}`;
     setMyRefLink(link);
   },[]);
@@ -836,7 +814,6 @@ export default function App(){
       addReferralRow(row);
       setReferrals(readReferrals());
     }catch{}
-    // eslint-disable-next-line
   }, [spinCap]);
 
   const copyLink = async ()=>{
@@ -922,6 +899,77 @@ export default function App(){
                 );
               })}
             </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const LootScreen = () => <div className="placeholder-card">🎁 Lootboxes coming soon…</div>;
+
+  function AvatarInline({name, photo}){
+    if (photo) return <img className="lb-avatar" src={photo} alt={name} />;
+    const bg = randomItem(DEMO_AVATAR_COLORS);
+    return <div className="lb-avatar fallback" style={{ background: bg }}>{initials(name)}</div>;
+  }
+  function formatDate(iso){
+    try{
+      const d = new Date(iso);
+      return d.toLocaleDateString(undefined, { year:"numeric", month:"short", day:"numeric" });
+    }catch{return "";}
+  }
+
+  const EarnScreen = () => {
+    const invitedCount = invitesCount;
+    const estBonus = invitedCount * 200;
+    return (
+      <div className="earn-wrap">
+        <div className="card gradient-border">
+          <div className="card-head">
+            <div className="card-title">Invite friends</div>
+            <div className="reward-pill">🎁 Both get <b>+20 spins</b> & <b>+200 $ROF</b></div>
+          </div>
+
+          <div className="ref-link-box">
+            <input className="ref-input" value={myRefLink} readOnly />
+            <div className="ref-actions">
+              <button className="btn small gradient-outline-btn" onClick={copyLink}>Copy</button>
+              <button className="btn small gradient-outline-btn" onClick={shareLink}>Share</button>
+            </div>
+          </div>
+
+          <div className="stats-row">
+            <div className="statbox">
+              <div className="stat-h">Invited</div>
+              <div className="stat-v">{invitedCount}</div>
+            </div>
+            <div className="statbox">
+              <div className="stat-h">Coins earned*</div>
+              <div className="stat-v">{estBonus}</div>
+            </div>
+          </div>
+          <div className="disclaimer">*Inviter rewards require a backend to credit automatically.</div>
+        </div>
+
+        <div className="card list-card gradient-border">
+          <div className="card-title">Recent sign-ups via your link</div>
+          <div className="ref-list">
+            {referrals.length === 0 && (
+              <div className="empty">No referrals yet. Share your link to start earning!</div>
+            )}
+            {referrals.map((r,i)=>(
+              <div key={r.id || i} className="ref-row">
+                <AvatarInline name={r.name || "User"} photo={r.photo || ""} />
+                <div className="ref-meta">
+                  <div className="ref-name">{r.name || "User"}</div>
+                  <div className="ref-sub">
+                    <TierBadge tierKey={r.tier || "free"} />
+                    {r.username && <span className="ref-username">{r.username}</span>}
+                  </div>
+                </div>
+                <div className="ref-when">{formatDate(r.when)}</div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -1034,80 +1082,6 @@ export default function App(){
     </>
   );
 
-  const LootScreen = () => <div className="placeholder-card">🎁 Lootboxes coming soon…</div>;
-
-  function AvatarInline({name, photo}){
-    if (photo) return <img className="lb-avatar" src={photo} alt={name} />;
-    const bg = randomItem(DEMO_AVATAR_COLORS);
-    return <div className="lb-avatar fallback" style={{ background: bg }}>{initials(name)}</div>;
-  }
-  function formatDate(iso){
-    try{
-      const d = new Date(iso);
-      return d.toLocaleDateString(undefined, { year:"numeric", month:"short", day:"numeric" });
-    }catch{return "";}
-  }
-
-  const EarnScreen = () => {
-    const invitedCount = invitesCount;
-    const estBonus = invitedCount * 200;
-    return (
-      <div className="earn-wrap">
-        <div className="card gradient-border">
-          <div className="card-head">
-            <div className="card-title">Invite friends</div>
-            <div className="reward-pill">🎁 Both get <b>+20 spins</b> & <b>+200 $ROF</b></div>
-          </div>
-
-          <div className="ref-link-box">
-            <input className="ref-input" value={myRefLink} readOnly />
-            <div className="ref-actions">
-              <button className="btn small gradient-outline-btn" onClick={copyLink}>Copy</button>
-              <button className="btn small gradient-outline-btn" onClick={shareLink}>Share</button>
-            </div>
-          </div>
-
-          <div className="stats-row">
-            <div className="statbox">
-              <div className="stat-h">Invited</div>
-              <div className="stat-v">{invitedCount}</div>
-            </div>
-            <div className="statbox">
-              <div className="stat-h">Coins earned*</div>
-              <div className="stat-v">{estBonus}</div>
-            </div>
-          </div>
-          <div className="disclaimer">*Inviter rewards require a backend to credit automatically.</div>
-        </div>
-
-        <div className="card list-card gradient-border">
-          <div className="card-title">Recent sign-ups via your link</div>
-          <div className="ref-list">
-            {referrals.length === 0 && (
-              <div className="empty">No referrals yet. Share your link to start earning!</div>
-            )}
-            {referrals.map((r,i)=>(
-              <div key={r.id || i} className="ref-row">
-                <AvatarInline name={r.name || "User"} photo={r.photo || ""} />
-                <div className="ref-meta">
-                  <div className="ref-name">{r.name || "User"}</div>
-                  <div className="ref-sub">
-                    <TierBadge tierKey={r.tier || "free"} />
-                    {r.username && <span className="ref-username">{r.username}</span>}
-                  </div>
-                </div>
-                <div className="ref-when">{formatDate(r.when)}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const TopScreenContainer  = () => (
-    <TopScreen lbTab={lbTab} onTabChange={(t)=>setLbTab(t)} />
-  );
   const TasksScreen= () => <div className="placeholder-card">🕹 Tasks coming soon…</div>;
 
   const Menu = () => (
@@ -1120,12 +1094,11 @@ export default function App(){
     </nav>
   );
 
-  /* Badge mapping for current status (header) */
   const statusBadge = (() => {
     if (tierKey === "free") return { cls: "free", text: "No status" };
     if (tierKey === "plus") return { cls: "premium", text: "Premium⚡️" };
     if (tierKey === "pro")  return { cls: "plus",    text: "Plus⭐️" };
-    return { cls: "pro", text: "Pro👑" }; // prem
+    return { cls: "pro", text: "Pro👑" };
   })();
 
   return (
@@ -1160,7 +1133,7 @@ export default function App(){
           <div className="screen flex-grow">
             {tab==="play"   && <PlayScreen />}
             {tab==="loot"   && <LootScreen />}
-            {tab==="top"    && <TopScreenContainer />}
+            {tab==="top"    && <TopScreen lbTab={lbTab} onTabChange={setLbTab} />}
             {tab==="earn"   && <EarnScreen />}
             {tab==="tasks"  && <TasksScreen />}
           </div>
