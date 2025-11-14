@@ -160,37 +160,37 @@ function addReferralRow(row){
 const TopScreen = React.memo(function TopScreen({ lbTab, onTabChange, myTgId }) {
   const [players, setPlayers] = useState([]);
   const [invites, setInvites] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [errMsg, setErrMsg] = useState(null);
-  const [loadedOnce, setLoadedOnce] = useState(false);
+  const [loadedPlayers, setLoadedPlayers] = useState(false);
+  const [loadedInvites, setLoadedInvites] = useState(false);
 
-  function Avatar({name, photo}){
+  function Avatar({ name, photo }) {
     if (photo) return <img className="lb-avatar" src={photo} alt={name} />;
     const bg = randomItem(DEMO_AVATAR_COLORS);
-    return <div className="lb-avatar fallback" style={{ background: bg }}>{initials(name)}</div>;
+    return (
+      <div className="lb-avatar fallback" style={{ background: bg }}>
+        {initials(name)}
+      </div>
+    );
   }
 
   useEffect(() => {
     let cancelled = false;
 
-    async function fetchData() {
-      setLoading(true);
+    async function fetchPlayers() {
+      if (loadedPlayers) return; // already loaded once
       setErrMsg(null);
-
       try {
-        const orderField = lbTab === "players" ? "balance" : "invites";
-
-        // Use select("*") to avoid errors if some columns are missing
         const { data, error } = await supabase
           .from("roff_users")
           .select("*")
-          .order(orderField, { ascending: false })
+          .order("balance", { ascending: false })
           .limit(100);
 
         if (error) throw error;
         if (cancelled) return;
 
-        let mapped = (data || []).map((row) => ({
+        const mapped = (data || []).map((row) => ({
           id: row.tg_id,
           name: row.full_name || row.username || `User ${row.tg_id}`,
           username: row.username ? `@${row.username}` : "",
@@ -200,50 +200,59 @@ const TopScreen = React.memo(function TopScreen({ lbTab, onTabChange, myTgId }) 
           tier: row.premium_tier || "free",
         }));
 
-        // Ensure current user is visible even if not in top 100
-        if (myTgId) {
-          const exists = mapped.some(u => String(u.id) === String(myTgId));
-          if (!exists) {
-            const { data: selfRow, error: selfErr } = await supabase
-              .from("roff_users")
-              .select("*")
-              .eq("tg_id", myTgId)
-              .maybeSingle();
-
-            if (!selfErr && selfRow) {
-              mapped = mapped.concat({
-                id: selfRow.tg_id,
-                name: selfRow.full_name || selfRow.username || `User ${selfRow.tg_id}`,
-                username: selfRow.username ? `@${selfRow.username}` : "",
-                photo: selfRow.photo_url || "",
-                balance: selfRow.balance ?? 0,
-                invites: selfRow.invites ?? 0,
-                tier: selfRow.premium_tier || "free",
-              });
-            }
-          }
-        }
-
-        if (!cancelled) {
-          if (lbTab === "players") setPlayers(mapped);
-          else setInvites(mapped);
-          setLoadedOnce(true);
-        }
+        setPlayers(mapped);
+        setLoadedPlayers(true);
       } catch (e) {
-        console.error("Leaderboard fetch error", e);
+        console.error("Top players error", e);
         if (!cancelled) setErrMsg("Failed to load leaderboard");
-      } finally {
-        if (!cancelled) setLoading(false);
       }
     }
 
-    fetchData();
-    return () => { cancelled = true; };
-  }, [lbTab, myTgId]);
+    async function fetchInvites() {
+      if (loadedInvites) return; // already loaded once
+      setErrMsg(null);
+      try {
+        const { data, error } = await supabase
+          .from("roff_users")
+          .select("*")
+          .order("invites", { ascending: false })
+          .limit(100);
+
+        if (error) throw error;
+        if (cancelled) return;
+
+        const mapped = (data || []).map((row) => ({
+          id: row.tg_id,
+          name: row.full_name || row.username || `User ${row.tg_id}`,
+          username: row.username ? `@${row.username}` : "",
+          photo: row.photo_url || "",
+          balance: row.balance ?? 0,
+          invites: row.invites ?? 0,
+          tier: row.premium_tier || "free",
+        }));
+
+        setInvites(mapped);
+        setLoadedInvites(true);
+      } catch (e) {
+        console.error("Top invites error", e);
+        if (!cancelled) setErrMsg("Failed to load leaderboard");
+      }
+    }
+
+    if (lbTab === "players") {
+      fetchPlayers();
+    } else {
+      fetchInvites();
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [lbTab, loadedPlayers, loadedInvites]);
 
   const active = lbTab === "players" ? players : invites;
 
-  function Row({rank, user, mode}){
+  function Row({ rank, user, mode }) {
     return (
       <div className="lb-row">
         <div className="lb-left">
@@ -277,29 +286,45 @@ const TopScreen = React.memo(function TopScreen({ lbTab, onTabChange, myTgId }) 
   return (
     <div className="lb-wrap">
       <div className="lb-tabs">
-        <button className={`lb-tab ${lbTab==="players"?"on":""}`} onClick={()=>onTabChange("players")}>Top Players</button>
-        <button className={`lb-tab ${lbTab==="invites"?"on":""}`} onClick={()=>onTabChange("invites")}>Top Invites</button>
+        <button
+          className={`lb-tab ${lbTab === "players" ? "on" : ""}`}
+          onClick={() => onTabChange("players")}
+        >
+          Top Players
+        </button>
+        <button
+          className={`lb-tab ${lbTab === "invites" ? "on" : ""}`}
+          onClick={() => onTabChange("invites")}
+        >
+          Top Invites
+        </button>
       </div>
 
       <div className="lb-head">
         <div className="lb-h-left">Rank</div>
         <div className="lb-h-mid">User</div>
-        <div className="lb-h-right">{lbTab==="players" ? "Balance" : "Invites"}</div>
+        <div className="lb-h-right">{lbTab === "players" ? "Balance" : "Invites"}</div>
       </div>
 
-      {errMsg && !loading && <div className="lb-error">{errMsg}</div>}
+      {errMsg && <div className="lb-error">{errMsg}</div>}
 
       <div className="lb-list">
-        {!loading && !errMsg && active.length === 0 && (
+        {active.length === 0 && !errMsg && (
           <div className="lb-empty">No data yet.</div>
         )}
-        {active.map((u,idx)=>(
-          <Row key={`${lbTab}-${u.id}-${idx}`} rank={idx+1} user={u} mode={lbTab} />
+        {active.map((u, idx) => (
+          <Row
+            key={`${lbTab}-${u.id}-${idx}`}
+            rank={idx + 1}
+            user={u}
+            mode={lbTab}
+          />
         ))}
       </div>
     </div>
   );
 });
+
 
 /* ==================== APP ==================== */
 export default function App(){
