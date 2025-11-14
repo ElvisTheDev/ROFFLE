@@ -225,10 +225,10 @@ const TopScreen = React.memo(function TopScreen({ lbTab, onTabChange, myTgId }) 
         }
 
         if (!cancelled) {
-      if (lbTab === "players") setPlayers(mapped);
-      else setInvites(mapped);
-      setLoadedOnce(true);
-      }
+          if (lbTab === "players") setPlayers(mapped);
+          else setInvites(mapped);
+          setLoadedOnce(true);
+        }
       } catch (e) {
         console.error("Leaderboard fetch error", e);
         if (!cancelled) setErrMsg("Failed to load leaderboard");
@@ -818,6 +818,9 @@ export default function App(){
             <div className="tier-grid">
               {cards.map(({t, bullets})=>{
                 const active = t.key === tierKey;
+                const isLowerOrEqual = TIER_ORDER[t.key] <= TIER_ORDER[tierKey];
+                const disabled = isLowerOrEqual || !canAfford(TEST_PRICE_COINS);
+
                 return (
                   <div key={t.key} className={`tier-card gradient-border ${active?"active":""}`}>
                     <div className="tc-top">
@@ -829,21 +832,17 @@ export default function App(){
                     </ul>
                     <div className="tc-price">Price: {TEST_PRICE_COINS} coin</div>
                     <div className="tc-actions">
-                      const isLowerOrEqual = TIER_ORDER[t.key] <= TIER_ORDER[tierKey];
-                      const disabled = isLowerOrEqual || !canAfford(TEST_PRICE_COINS);
-
                       <button
-  className="tc-buy gradient-outline-btn"
-  disabled={disabled}
-  onClick={()=>!disabled && buyTier(t.key)}
->
-  {t.key === tierKey
-    ? "Current Plan"
-    : isLowerOrEqual
-    ? "Unavailable"
-    : `Buy ${t.name}`}
+                        className="tc-buy gradient-outline-btn"
+                        disabled={disabled}
+                        onClick={()=>!disabled && buyTier(t.key)}
+                      >
+                        {t.key === tierKey
+                          ? "Current Plan"
+                          : isLowerOrEqual
+                          ? "Unavailable"
+                          : `Buy ${t.name}`}
                       </button>
-
                     </div>
                   </div>
                 );
