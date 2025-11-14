@@ -482,110 +482,62 @@ export default function App(){
     const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
     if (!tgUser) return;
 
-    const run = async () => {
-      try {
-        setTgId(tgUser.id);
-        const baseUser = {
-          tg_id: tgUser.id,
-          username: tgUser.username || null,
-          full_name: [tgUser.first_name, tgUser.last_name].filter(Boolean).join(" "),
-          photo_url: tgUser.photo_url || null,
-          last_seen: new Date().toISOString(),
-        };
+      const run = async () => {
+    try {
+      // Remember Telegram id in state
+      setTgId(tgUser.id);
 
-        const { data, error } = await supabase
-          .from("roff_users")
-          .upsert(baseUser, { onConflict: "tg_id" })
-          .select("*")
-          .eq("tg_id", tgUser.id)
-          .single();
+      // Basic user fields to upsert
+      const baseUser = {
+        tg_id: tgUser.id,
+        username: tgUser.username || null,
+        full_name: [tgUser.first_name, tgUser.last_name].filter(Boolean).join(" "),
+        photo_url: tgUser.photo_url || null,
+        last_seen: new Date().toISOString(),
+      };
 
-        if (error) {
-          console.error("Supabase upsert/select error", error);
-          return;
-        }
+      // Upsert and fetch the row in one go
+      const { data, error } = await supabase
+        .from("roff_users")
+        .upsert(baseUser, { onConflict: "tg_id" })
+        .select("*")
+        .eq("tg_id", tgUser.id)
+        .single();
 
-                if (data) {
-          // 1) Load tier from DB (cross-device)
-          const dbTierKey =
-            data.premium_tier && TIERS[data.premium_tier]
-              ? data.premium_tier
-              : "free";
-          setTierKey(dbTierKey);
-
-          // 2) Base values from DB
-          let dbBalance = typeof data.balance === "number" ? data.balance : 0;
-          let dbSpins =
-            typeof data.spins_left === "number" ? data.spins_left : BASE_CAP;
-          const dbInvites =
-            typeof data.invites === "number" ? data.invites : 0;
-
-          // 3) Regen spins in background based on last_seen
-          const now = Date.now();
-          const regenMsDb = Math.floor(
-            BASE_REGEN_MS / TIERS[dbTierKey].regenMult
-          );
-          const capDb = TIERS[dbTierKey].cap;
-          let lastSeenMs = data.last_seen
-            ? new Date(data.last_seen).getTime()
-            : now;
-
-          if (dbSpins < capDb) {
-            const elapsed = now - lastSeenMs;
-            if (elapsed > 0) {
-              const regenCount = Math.floor(elapsed / regenMsDb);
-              if (regenCount > 0) {
-                dbSpins = Math.min(capDb, dbSpins + regenCount);
-                lastSeenMs = now;
-
-                // Save regenerated spins back to DB (fire-and-forget)
-                supabase
-                  .from("roff_users")
-                  .update({
-                    spins_left: dbSpins,
-                    last_seen: new Date(lastSeenMs).toISOString(),
-                  })
-                  .eq("tg_id", tgUser.id)
-                  .then(() => {})
-                  .catch(() => {});
-              }
-            }
-          }
-
-          // 4) Setup timer to next regen
-          let nextReady = null;
-          let nextMs = 0;
-          if (dbSpins < capDb) {
-            const elapsed = now - lastSeenMs;
-            const leftover = regenMsDb - (elapsed % regenMsDb);
-            nextReady = now + leftover;
-            nextMs = leftover;
-          }
-
-          setBank(dbBalance);
-          setSpinsLeft(dbSpins);
-          setInvitesCount(dbInvites);
-          setNextReadyAt(nextReady);
-          setNextInMs(nextMs);
-        }
-
-
-          // Tier: DB first, then localStorage fallback
-          let tKey = "free";
-          if (typeof data.premium_tier === "string" && TIERS[data.premium_tier]) {
-            tKey = data.premium_tier;
-          } else {
-            try {
-              const lsTier = localStorage.getItem("rof_premium_tier");
-              if (lsTier && TIERS[lsTier]) tKey = lsTier;
-            } catch {}
-          }
-          setTierKey(tKey);
-        }
-      } catch (err) {
-        console.error("Supabase sync error", err);
+      if (error) {
+        console.error("Supabase upsert/select error", error);
+        return;
       }
-    };
+
+      if (data) {
+        // Balance
+        if (typeof data.balance === "number") {
+          setBank(data.balance);
+        }
+
+        // Spins
+        if (typeof data.spins_left === "number") {
+          setSpinsLeft(data.spins_left);
+        }
+
+        // Invites for Earn screen
+        if (typeof data.invites === "number") {
+          setInvitesCount(data.invites);
+        }
+
+        // Premium tier from DB if present
+        if (
+          typeof data.premium_tier === "string" &&
+          TIERS[data.premium_tier]
+        ) {
+          setTierKey(data.premium_tier);
+        }
+      }
+    } catch (err) {
+      console.error("Supabase sync error", err);
+    }
+  };
+
 
     run();
   }, []);
