@@ -829,13 +829,21 @@ export default function App(){
                     </ul>
                     <div className="tc-price">Price: {TEST_PRICE_COINS} coin</div>
                     <div className="tc-actions">
+                      const isLowerOrEqual = TIER_ORDER[t.key] <= TIER_ORDER[tierKey];
+                      const disabled = isLowerOrEqual || !canAfford(TEST_PRICE_COINS);
+
                       <button
-                        className="tc-buy gradient-outline-btn"
-                        disabled={active || !canAfford(TEST_PRICE_COINS)}
-                        onClick={()=>buyTier(t.key)}
-                      >
-                        {active ? "Current Plan" : `Buy ${t.name}`}
+  className="tc-buy gradient-outline-btn"
+  disabled={disabled}
+  onClick={()=>!disabled && buyTier(t.key)}
+>
+  {t.key === tierKey
+    ? "Current Plan"
+    : isLowerOrEqual
+    ? "Unavailable"
+    : `Buy ${t.name}`}
                       </button>
+
                     </div>
                   </div>
                 );
