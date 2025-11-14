@@ -157,7 +157,7 @@ function addReferralRow(row){
 }
 
 /* ==================== Top100 Screen (LIVE) ==================== */
-const TopScreen = React.memo(function TopScreen({ lbTab, onTabChange, myTgId }) {
+const TopScreen = React.memo(function TopScreen({ lbTab, onTabChange }) {
   const [players, setPlayers] = useState([]);
   const [invites, setInvites] = useState([]);
   const [errMsg, setErrMsg] = useState(null);
@@ -303,7 +303,9 @@ const TopScreen = React.memo(function TopScreen({ lbTab, onTabChange, myTgId }) 
       <div className="lb-head">
         <div className="lb-h-left">Rank</div>
         <div className="lb-h-mid">User</div>
-        <div className="lb-h-right">{lbTab === "players" ? "Balance" : "Invites"}</div>
+        <div className="lb-h-right">
+          {lbTab === "players" ? "Balance" : "Invites"}
+        </div>
       </div>
 
       {errMsg && <div className="lb-error">{errMsg}</div>}
@@ -321,6 +323,7 @@ const TopScreen = React.memo(function TopScreen({ lbTab, onTabChange, myTgId }) 
     </div>
   );
 });
+
 
 
 /* ==================== APP ==================== */
@@ -545,56 +548,71 @@ export default function App(){
 
 
   /* Non-additive cooldown ticker (persists timer in localStorage, client-side only) */
-  useEffect(()=>{
+    useEffect(() => {
     if (showPremium) return;
+
     const tick = () => {
       const now = Date.now();
-      setSpinsLeft(s => Math.min(s, spinCap));
 
-      if (spinsLeft >= spinCap) {
-        if (nextReadyAt !== null) {
-          setNextReadyAt(null);
-          try { localStorage.removeItem("rof_nextReadyAt"); } catch {}
-        }
-        setNextInMs(0);
-        return;
-      }
+      setSpinsLeft((currentSpins) => {
+        const cap = spinCap;
 
-      if (nextReadyAt == null) {
-        const ts = now + regenMs;
-        setNextReadyAt(ts);
-        setNextInMs(regenMs);
-        try { localStorage.setItem("rof_nextReadyAt", String(ts)); } catch {}
-        return;
-      }
-
-      const remaining = nextReadyAt - now;
-      setNextInMs(remaining > 0 ? remaining : 0);
-
-      if (remaining <= 0) {
-        setSpinsLeft(s => Math.min(spinCap, s + 1));
-        const nextCount = Math.min(spinCap, spinsLeft + 1);
-        if (nextCount < spinCap) {
-          const ts = now + regenMs;
-          setNextReadyAt(ts);
-          setNextInMs(regenMs);
-          try { localStorage.setItem("rof_nextReadyAt", String(ts)); } catch {}
-        } else {
-          setNextReadyAt(null);
+        // If already full, just keep timer clean
+        if (currentSpins >= cap) {
+          if (nextReadyAt !== null) setNextReadyAt(null);
           setNextInMs(0);
-          try { localStorage.removeItem("rof_nextReadyAt"); } catch {}
+          return currentSpins;
         }
-      }
+
+        // If no nextReadyAt yet, start it now
+        if (nextReadyAt == null) {
+          const next = now + regenMs;
+          setNextReadyAt(next);
+          setNextInMs(regenMs);
+          return currentSpins;
+        }
+
+        // Compute remaining ms to next spin
+        const remaining = nextReadyAt - now;
+        if (remaining > 0) {
+          setNextInMs(remaining);
+          return currentSpins;
+        }
+
+        // Time to regen 1 spin
+        const newSpins = Math.min(cap, currentSpins + 1);
+        const stillBelowCap = newSpins < cap;
+
+        // Schedule next regen
+        const next = stillBelowCap ? now + regenMs : null;
+        setNextReadyAt(next);
+        setNextInMs(stillBelowCap ? regenMs : 0);
+
+        // Write new spins to Supabase (fire-and-forget)
+        if (tgId) {
+          supabase
+            .from("roff_users")
+            .update({
+              spins_left: newSpins,
+              last_seen: new Date().toISOString(),
+            })
+            .eq("tg_id", tgId)
+            .then(() => {})
+            .catch((e) => console.error("Regen update failed", e));
+        }
+
+        return newSpins;
+      });
     };
 
     const id = setInterval(tick, TICK_MS);
     tick();
-    return ()=>clearInterval(id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spinsLeft, nextReadyAt, regenMs, spinCap, showPremium]);
+    return () => clearInterval(id);
+  }, [regenMs, spinCap, showPremium, nextReadyAt, tgId]);
+
 
   /* ===== Spin – server-authoritative payout, visual index matched to prize ===== */
-    const handleSpin = async () => {
+      const handleSpin = () => {
     if (spinning || animBusyRef.current || spinsLeft <= 0) return;
     if (!tgId) {
       setToast({ text: "User not ready yet, try again", key: Date.now() });
@@ -609,12 +627,12 @@ export default function App(){
 
     try {
       // 1) Choose a random spin amount (visual only)
-      const spinsFull = randInt(4, 8); // full rotations
-      const extraDeg = randFloat() * 360; // random extra partial turn
+      const spinsFull = randInt(4, 8);           // full 360° rotations
+      const extraDeg = randFloat() * 360;        // random extra partial turn
       const endVis = startVis + spinsFull * 360 + extraDeg;
-      const durationMs = randInt(1900, 2800);
+      const durationMs = randInt(1900, 2800);    // 1.9s–2.8s spin
 
-      animateRotation(startVis, endVis, durationMs, async () => {
+      animateRotation(startVis, endVis, durationMs, () => {
         // 2) Normalise final angle and remember it
         const norm = ((endVis % 360) + 360) % 360;
         currentAngleRef.current = norm;
@@ -624,31 +642,31 @@ export default function App(){
           localStorage.setItem("rof_calcRot", String(endVis));
         } catch {}
 
-        // 3) Work out which segment is actually at the pointer
+        // 3) Figure out which segment is at the pointer
         const idx = indexFromRotation(norm);
         const baseAmount = slots[idx].amount || 0;
         const won = baseAmount * prizeMult;
 
-        // 4) Update bank + spins
+        // 4) Update bank + spins locally
         const newBalance = bank + won;
         const newSpins = spinsLeft - 1;
 
         setBank(newBalance);
         setSpinsLeft(newSpins);
 
-        // 5) Save to Supabase
-        try {
-          await supabase
-            .from("roff_users")
-            .update({
-              balance: newBalance,
-              spins_left: newSpins,
-              last_seen: new Date().toISOString(),
-            })
-            .eq("tg_id", tgId);
-        } catch (e) {
-          console.error("Supabase update after spin failed", e);
-        }
+        // 5) Save to Supabase (fire-and-forget, no await)
+        supabase
+          .from("roff_users")
+          .update({
+            balance: newBalance,
+            spins_left: newSpins,
+            last_seen: new Date().toISOString(),
+          })
+          .eq("tg_id", tgId)
+          .then(() => {})
+          .catch((e) => {
+            console.error("Supabase update after spin failed", e);
+          });
 
         // 6) Show toast
         setToast({ text: `+${won} $ROF`, key: Date.now() });
@@ -663,6 +681,7 @@ export default function App(){
       setSpinning(false);
     }
   };
+
 
 
 
