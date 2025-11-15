@@ -136,7 +136,8 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
 /* Placeholders */
 .placeholder-card{
   margin-top:8px;
-  background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+  /* was .06 / .03  → now .12 / .06 */
+  background:linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.06));
   border:1px solid rgba(255,255,255,.1);
   padding:14px; border-radius:12px; text-align:center; color:#d3d6d7; font-weight:700;
 }
@@ -172,7 +173,7 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
 }
 .tier-grid{ display:grid; grid-template-columns:1fr; gap:10px; margin-bottom:10px; }
 @media (min-width:480px){ .tier-grid{ grid-template-columns:1fr 1fr 1fr; } }
-.tier-card{ border-radius:14px; padding:10px; background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03)); }
+.tier-card{ border-radius:14px; padding:10px; background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.12)); }
 .tier-card.active{ box-shadow: inset 0 0 0 2px rgba(92,225,230,.25); }
 .tc-top{ display:flex; align-items:center; justify-content:space-between; }
 .tc-name{ font-weight:900; }
@@ -212,7 +213,7 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
 .lb-tab.on{ border-color:var(--brand-teal); box-shadow: inset 0 0 0 2px rgba(181,11,229,.35); }
 .lb-head{ display:grid; grid-template-columns:60px 1fr 120px; padding:6px 10px; border-bottom:1px solid rgba(255,255,255,.1); color:#b9c0c5; font-weight:800; font-size:12px; }
 .lb-list{ display:flex; flex-direction:column; gap:6px; padding-top:6px; max-height:52vh; overflow:auto; }
-.lb-row{ display:grid; grid-template-columns:1fr auto; align-items:center; background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03)); border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:8px 10px; }
+.lb-row{ display:grid; grid-template-columns:1fr auto; align-items:center; background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.12)); border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:8px 10px; }
 .lb-left{ display:flex; align-items:center; gap:10px; min-width:0; }
 .lb-rank{ font-weight:900; width:28px; text-align:right; color:#d3d6d7; }
 .lb-avatar{ width:36px; height:36px; border-radius:50%; object-fit:cover; border:1px solid rgba(255,255,255,.18); background:#1a1d24; display:block; }
@@ -232,7 +233,8 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
 /* ==================== Earn ==================== */
 .earn-wrap{ display:flex; flex-direction:column; gap:12px; margin-top:8px; }
 .card{
-  background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+  /* was .06 / .03 → now .12 / .06 */
+  background:linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.06));
   border:1px solid rgba(255,255,255,.12);
   border-radius:14px;
   padding:12px;
@@ -256,11 +258,15 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
 
 .stats-row{ display:flex; gap:10px; margin-top:10px; }
 .statbox{
-  flex:1 1 0; text-align:center;
-  background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+  flex:1 1 0;
+  text-align:center;
+  /* was .05 / .02 → now .10 / .04 */
+  background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.04));
   border:1px solid rgba(255,255,255,.12);
-  border-radius:12px; padding:10px;
+  border-radius:12px;
+  padding:10px;
 }
+
 .stat-h{ color:#b9c0c5; font-size:12px; font-weight:800; }
 .stat-v{ color:#fff; font-size:16px; font-weight:900; }
 
@@ -271,11 +277,17 @@ body{ margin:0; background:#000; color:#e8ecf2; font-family:Inter,system-ui,Sego
 .empty{ text-align:center; color:#aeb5bb; font-weight:800; font-size:12px; padding:10px; }
 
 .ref-row{
-  display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:10px;
-  background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  align-items:center;
+  gap:10px;
+  /* was .05 / .02 → now .10 / .04 */
+  background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.04));
   border:1px solid rgba(255,255,255,.1);
-  border-radius:12px; padding:8px 10px;
+  border-radius:12px;
+  padding:8px 10px;
 }
+
 .ref-meta{ min-width:0; }
 .ref-name{ font-weight:900; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .ref-sub{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
