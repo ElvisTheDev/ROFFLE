@@ -374,7 +374,7 @@ export default function App(){
 
   /* Earn / referrals */
   const [myRefLink,setMyRefLink] = useState("");
-  const [referrals,setReferrals] = useState(readReferrals());
+  const [referrals,setReferrals] = useState([]); // 🔹 now starts empty, will be filled from Supabase
 
   /* Splash */
   useEffect(()=>{
@@ -585,6 +585,45 @@ export default function App(){
 
     run();
   }, []);
+
+  /* 🔹 NEW: fetch referrals list from Supabase for Earn tab */
+  useEffect(() => {
+    if (!tgId) return;
+
+    const fetchRefs = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("roff_referrals")
+          .select("*")
+          .eq("inviter_tg_id", tgId)
+          .order("created_at", { ascending: false })
+          .limit(100);
+
+        if (error) {
+          console.error("Fetch referrals error", error);
+          return;
+        }
+
+        const mapped = (data || []).map((row) => ({
+          id: row.id,
+          name:
+            row.invitee_name ||
+            row.invitee_username ||
+            (row.invitee_tg_id ? `User ${row.invitee_tg_id}` : "User"),
+          username: row.invitee_username ? `@${row.invitee_username}` : "",
+          photo: row.invitee_photo_url || "",
+          tier: row.invitee_tier || "free",
+          when: row.created_at,
+        }));
+
+        setReferrals(mapped);
+      } catch (e) {
+        console.error("Fetch referrals error", e);
+      }
+    };
+
+    fetchRefs();
+  }, [tgId, invitesCount]);
 
   /* Non-additive cooldown ticker – online regen + DB write */
   useEffect(() => {
@@ -812,7 +851,8 @@ export default function App(){
         note: `Joined via ${ref}`,
       };
       addReferralRow(row);
-      setReferrals(readReferrals());
+      // This still writes to localStorage for legacy web flow,
+      // but Earn list itself now comes from Supabase.
     }catch{}
   }, [spinCap]);
 
