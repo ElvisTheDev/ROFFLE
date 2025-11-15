@@ -164,6 +164,56 @@ function addReferralRow(row){
   writeReferrals(arr.slice(0,500));
 }
 
+/* ✅ NEW: fetch referrals from Supabase (roff_referrals + roff_users) */
+async function fetchReferralsFromDB(tgId) {
+  try {
+    // 1) Get all rows where this user is the referrer
+    const { data, error } = await supabase
+      .from("roff_referrals")
+      .select("id, created_at, referred_tg_id")
+      .eq("referrer_tg_id", tgId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    if (!data || data.length === 0) return [];
+
+    // 2) Collect all referred tg_ids
+    const ids = [...new Set(data.map(r => r.referred_tg_id).filter(Boolean))];
+
+    // 3) Fetch their profile data from roff_users
+    let usersMap = {};
+    if (ids.length) {
+      const { data: users, error: usersErr } = await supabase
+        .from("roff_users")
+        .select("tg_id, full_name, username, photo_url, premium_tier")
+        .in("tg_id", ids);
+
+      if (usersErr) throw usersErr;
+
+      usersMap = Object.fromEntries(
+        (users || []).map(u => [u.tg_id, u])
+      );
+    }
+
+    // 4) Merge into referral rows for UI
+    return data.map(r => {
+      const u = usersMap[r.referred_tg_id] || {};
+      return {
+        id: r.id,
+        tg_id: r.referred_tg_id,
+        name: u.full_name || u.username || `User ${r.referred_tg_id}`,
+        username: u.username ? `@${u.username}` : "",
+        photo: u.photo_url || "",
+        tier: u.premium_tier || "free",
+        when: r.created_at,
+      };
+    });
+  } catch (e) {
+    console.error("fetchReferralsFromDB error", e);
+    return [];
+  }
+}
+
 /* ==================== Top100 Screen (LIVE) ==================== */
 const TopScreen = React.memo(
   function TopScreen({ lbTab, onTabChange }) {
@@ -374,7 +424,7 @@ export default function App(){
 
   /* Earn / referrals */
   const [myRefLink,setMyRefLink] = useState("");
-  const [referrals,setReferrals] = useState([]); // 🔹 now starts empty, will be filled from Supabase
+  const [referrals,setReferrals] = useState([]);   // <- now starts empty, will be filled from DB
 
   /* Splash */
   useEffect(()=>{
@@ -586,44 +636,13 @@ export default function App(){
     run();
   }, []);
 
-  /* 🔹 NEW: fetch referrals list from Supabase for Earn tab */
+  /* ✅ NEW: load referrals from DB whenever we know tgId */
   useEffect(() => {
     if (!tgId) return;
-
-    const fetchRefs = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("roff_referrals")
-          .select("*")
-          .eq("inviter_tg_id", tgId)
-          .order("created_at", { ascending: false })
-          .limit(100);
-
-        if (error) {
-          console.error("Fetch referrals error", error);
-          return;
-        }
-
-        const mapped = (data || []).map((row) => ({
-          id: row.id,
-          name:
-            row.invitee_name ||
-            row.invitee_username ||
-            (row.invitee_tg_id ? `User ${row.invitee_tg_id}` : "User"),
-          username: row.invitee_username ? `@${row.invitee_username}` : "",
-          photo: row.invitee_photo_url || "",
-          tier: row.invitee_tier || "free",
-          when: row.created_at,
-        }));
-
-        setReferrals(mapped);
-      } catch (e) {
-        console.error("Fetch referrals error", e);
-      }
-    };
-
-    fetchRefs();
-  }, [tgId, invitesCount]);
+    fetchReferralsFromDB(tgId).then((rows) => {
+      setReferrals(rows);
+    });
+  }, [tgId]);
 
   /* Non-additive cooldown ticker – online regen + DB write */
   useEffect(() => {
@@ -815,13 +834,14 @@ export default function App(){
     setTimeout(() => setToast(null), 1600);
   };
 
-  /* ===== Earn: referral code + link + claim handling ===== */
+  /* ===== Earn: referral code + link ===== */
   useEffect(()=>{
     const code = getOrCreateMyRefCode();
     const link = `https://t.me/roffleapp_bot?start=${encodeURIComponent(code)}`;
     setMyRefLink(link);
   },[]);
 
+  // (Old ?ref=… logic kept but effectively does nothing with bot deep-links)
   useEffect(()=>{
     try{
       const params = new URLSearchParams(window.location.search);
@@ -851,8 +871,7 @@ export default function App(){
         note: `Joined via ${ref}`,
       };
       addReferralRow(row);
-      // This still writes to localStorage for legacy web flow,
-      // but Earn list itself now comes from Supabase.
+      setReferrals(readReferrals());
     }catch{}
   }, [spinCap]);
 
