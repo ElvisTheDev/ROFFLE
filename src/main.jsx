@@ -17,7 +17,7 @@ if (tg) {
 // ✅ Wrap <App /> with <TonConnectUIProvider>
 createRoot(document.getElementById("root")).render(
   <TonConnectUIProvider
-    manifestUrl="https://YOUR-DOMAIN-HERE/tonconnect-manifest.json"
+    manifestUrl="https://roffle.vercel.app/tonconnect-manifest.json"
   >
     <App />
   </TonConnectUIProvider>
