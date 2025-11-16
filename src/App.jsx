@@ -1293,7 +1293,7 @@ export default function App(){
     );
   };
 
-  const LootScreen = () => {
+    const LootScreen = () => {
     return (
       <div className="loot-wrap">
         <div className="loot-tabs">
@@ -1317,6 +1317,7 @@ export default function App(){
           </button>
         </div>
 
+        {/* WHEEL SKINS */}
         {lootTab === "skins" && (
           <div className="loot-section">
             <div className="loot-title">🎨 Wheel Skins</div>
@@ -1324,51 +1325,11 @@ export default function App(){
               {WHEEL_SKINS.map((skin) => {
                 const isActive = skin.id === wheelSkinId;
                 const previewStyle = getWheelPreviewStyle(skin);
-                return (
-                  <div
-                    key={skin.id}
-                    className={`loot-row ${isActive ? "active" : ""}`}
-                  >
-                    <div className="loot-left">
-                      <div className="loot-preview" style={previewStyle} />
-                      <div className="loot-text">
-                        <div className="loot-row-name">
-  {skin.name}
-</div>
+                const priceLabel =
+                  skin.priceTon === 0 && skin.priceStars === 0
+                    ? "Included"
+                    : `${skin.priceTon} TON or ${skin.priceStars} ⭐`;
 
-                        <div className="loot-right">
-  <div className="loot-price">
-    {skin.priceTon === 0 && skin.priceStars === 0
-      ? "Included"
-      : `${skin.priceTon} TON or ${skin.priceStars} ⭐`}
-  </div>
-  <button
-    className="loot-btn gradient-outline-btn"
-    disabled={isActive}
-    onClick={() => equipWheelSkin(skin.id)}
-  >
-    {isActive ? "Equipped" : "Buy"}
-  </button>
-</div>
-
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {lootTab === "mood" && (
-          <div className="loot-section">
-            <div className="loot-title">🖼 Background Skins</div>
-            <div className="loot-list">
-              {BG_SKINS.map((skin) => {
-                const isActive = skin.id === bgSkinId;
-                const previewStyle = {
-                  backgroundImage: `url(${skin.file})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                };
                 return (
                   <div
                     key={skin.id}
@@ -1381,21 +1342,17 @@ export default function App(){
                         <div className="loot-row-tag">{skin.tagline}</div>
                       </div>
                     </div>
-                    <div className="loot-right">
-  <div className="loot-price">
-    {skin.priceTon === 0 && skin.priceStars === 0
-      ? "Included"
-      : `${skin.priceTon} TON or ${skin.priceStars} ⭐`}
-  </div>
-  <button
-    className="loot-btn gradient-outline-btn"
-    disabled={isActive}
-    onClick={() => equipBgSkin(skin.id)}
-  >
-    {isActive ? "Equipped" : "Buy"}
-  </button>
-</div>
 
+                    <div className="loot-right">
+                      <div className="loot-price">{priceLabel}</div>
+                      <button
+                        className="loot-btn gradient-outline-btn"
+                        disabled={isActive}
+                        onClick={() => equipWheelSkin(skin.id)}
+                      >
+                        {isActive ? "Equipped" : "Buy"}
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -1403,6 +1360,54 @@ export default function App(){
           </div>
         )}
 
+        {/* BACKGROUND SKINS */}
+        {lootTab === "mood" && (
+          <div className="loot-section">
+            <div className="loot-title">🖼 Background Skins</div>
+            <div className="loot-list">
+              {BG_SKINS.map((skin) => {
+                const isActive = skin.id === bgSkinId;
+                const previewStyle = {
+                  backgroundImage: `url(${skin.file})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                };
+                const priceLabel =
+                  skin.priceTon === 0 && skin.priceStars === 0
+                    ? "Included"
+                    : `${skin.priceTon} TON or ${skin.priceStars} ⭐`;
+
+                return (
+                  <div
+                    key={skin.id}
+                    className={`loot-row ${isActive ? "active" : ""}`}
+                  >
+                    <div className="loot-left">
+                      <div className="loot-preview" style={previewStyle} />
+                      <div className="loot-text">
+                        <div className="loot-row-name">{skin.name}</div>
+                        <div className="loot-row-tag">{skin.tagline}</div>
+                      </div>
+                    </div>
+
+                    <div className="loot-right">
+                      <div className="loot-price">{priceLabel}</div>
+                      <button
+                        className="loot-btn gradient-outline-btn"
+                        disabled={isActive}
+                        onClick={() => equipBgSkin(skin.id)}
+                      >
+                        {isActive ? "Equipped" : "Buy"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* COLLECTIBLES PLACEHOLDER */}
         {lootTab === "collectibles" && (
           <div className="loot-section">
             <div className="loot-title">🎁 Collectibles</div>
@@ -1414,6 +1419,7 @@ export default function App(){
       </div>
     );
   };
+
 
   function AvatarInline({name, photo}){
     if (photo) return <img className="lb-avatar" src={photo} alt={name} />;
