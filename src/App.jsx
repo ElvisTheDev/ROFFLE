@@ -1350,32 +1350,152 @@ export default function App(){
       <>
         <div className="wheel-wrap compact-no-scroll">
           <svg className="wheel-svg" viewBox="0 0 1000 1000" aria-hidden>
-           <defs>
-  {/* Slice gradients (unchanged) */}
+          <defs>
+  {/* ===== Slice gradients that depend on the active wheel skin ===== */}
   {Array.from({ length: SEGMENTS_TOTAL }, (_, i) => {
     const sec1 = i + 1;
     const id = `grad-${i}`;
-    if (sec1 === 1)
-      return (
-        <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#43cda3" />
-          <stop offset="100%" stopColor="#490e6d" />
-        </linearGradient>
-      );
-    else if (sec1 % 2 === 0)
-      return (
-        <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#404040" />
-          <stop offset="100%" stopColor="#000000" />
-        </linearGradient>
-      );
-    else
-      return (
-        <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="100%" stopColor="#a8a8a8" />
-        </linearGradient>
-      );
+    const skin = wheelSkin.id || "classic";
+
+    let top = "#ffffff";
+    let bottom = "#a8a8a8";
+
+    switch (skin) {
+      case "bloody": {
+        // I See Red – hot red / dark casino
+        if (sec1 === 1) {
+          top = "#fee2e2";
+          bottom = "#b91c1c";
+        } else if (sec1 % 2 === 0) {
+          top = "#450a0a";
+          bottom = "#7f1d1d";
+        } else {
+          top = "#111827";
+          bottom = "#020617";
+        }
+        break;
+      }
+      case "emerald": {
+        // Fresh – minty green
+        if (sec1 === 1) {
+          top = "#bbf7d0";
+          bottom = "#16a34a";
+        } else if (sec1 % 2 === 0) {
+          top = "#022c22";
+          bottom = "#065f46";
+        } else {
+          top = "#0f172a";
+          bottom = "#020617";
+        }
+        break;
+      }
+      case "ice": {
+        // Ice Shards – cold blues
+        if (sec1 === 1) {
+          top = "#dbeafe";
+          bottom = "#1d4ed8";
+        } else if (sec1 % 2 === 0) {
+          top = "#0f172a";
+          bottom = "#1e293b";
+        } else {
+          top = "#020617";
+          bottom = "#0b1120";
+        }
+        break;
+      }
+      case "cyber": {
+        // Emerald Luck – matrix emerald vibes
+        if (sec1 === 1) {
+          top = "#a7f3d0";
+          bottom = "#10b981";
+        } else if (sec1 % 2 === 0) {
+          top = "#022c22";
+          bottom = "#064e3b";
+        } else {
+          top = "#020617";
+          bottom = "#111827";
+        }
+        break;
+      }
+      case "royal": {
+        // Afterglow – deep purple glow
+        if (sec1 === 1) {
+          top = "#e9d5ff";
+          bottom = "#7c3aed";
+        } else if (sec1 % 2 === 0) {
+          top = "#2e1065";
+          bottom = "#4c1d95";
+        } else {
+          top = "#020617";
+          bottom = "#111827";
+        }
+        break;
+      }
+      case "retro": {
+        // Retro Arcade – neon pink/blue
+        if (sec1 === 1) {
+          top = "#f9a8d4";
+          bottom = "#ec4899";
+        } else if (sec1 % 2 === 0) {
+          top = "#1d4ed8";
+          bottom = "#1e40af";
+        } else {
+          top = "#020617";
+          bottom = "#0b1120";
+        }
+        break;
+      }
+      case "candy": {
+        // Candy Pop – pastel fun
+        if (sec1 === 1) {
+          top = "#fef3c7";
+          bottom = "#fb7185";
+        } else if (sec1 % 2 === 0) {
+          top = "#f9a8d4";
+          bottom = "#f97316";
+        } else {
+          top = "#fee2e2";
+          bottom = "#fed7aa";
+        }
+        break;
+      }
+      case "stealth": {
+        // Stealth Ops – tactical dark greys
+        if (sec1 === 1) {
+          top = "#e5e7eb";
+          bottom = "#9ca3af";
+        } else if (sec1 % 2 === 0) {
+          top = "#020617";
+          bottom = "#111827";
+        } else {
+          top = "#111827";
+          bottom = "#4b5563";
+        }
+        break;
+      }
+      case "classic":
+      default: {
+        // Classic ROFFLE – what you had originally
+        if (sec1 === 1) {
+          top = "#43cda3";
+          bottom = "#490e6d";
+        } else if (sec1 % 2 === 0) {
+          top = "#404040";
+          bottom = "#000000";
+        } else {
+          top = "#ffffff";
+          bottom = "#a8a8a8";
+        }
+        break;
+      }
+    }
+
+    return (
+      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor={top} />
+        <stop offset="100%" stopColor={bottom} />
+      </linearGradient>
+    );
   })}
 
   {/* ===== Rim gradients per wheel skin ===== */}
@@ -1488,13 +1608,14 @@ export default function App(){
     <feDropShadow dx="0" dy="0" stdDeviation="14" floodColor="#9ca3af" floodOpacity="0.55" />
   </filter>
 
-  {/* Existing text glow (unchanged) */}
+  {/* Existing text glow for MAX slice */}
   <filter id="textGlow" x="-50%" y="-50%" width="200%" height="200%">
     <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#36125e" floodOpacity="1" />
     <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#36125e" floodOpacity=".85" />
     <feDropShadow dx="0" dy="0" stdDeviation="10" floodColor="#36125e" floodOpacity=".6" />
   </filter>
 </defs>
+
 
 
             <g className="wheel-root" transform={`translate(${cx} ${cy})`}>
