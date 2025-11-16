@@ -1,8 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { TonConnectButton, useTonConnectUI, useTonWallet } from "@tonconnect/ui-react"; // ✅ NEW
+import { TonConnectButton, useTonConnectUI, useTonWallet } from "@tonconnect/ui-react";
 import { supabase } from "./supabaseClient";
-
-
 
 /* ================= CORE WHEEL CONSTANTS ================= */
 const SEGMENTS_TOTAL = 25;
@@ -33,8 +31,8 @@ const TIERS = {
     cap: 40,
     prizeMult: 2,
     inviteBonus: 50,
-    priceTon: 5,      // 5 TON
-    priceStars: 700,  // 700 Stars
+    priceTon: 5, // 5 TON
+    priceStars: 700, // 700 Stars
   },
   pro: {
     key: "pro",
@@ -43,7 +41,7 @@ const TIERS = {
     cap: 60,
     prizeMult: 3,
     inviteBonus: 75,
-    priceTon: 10,     // 10 TON
+    priceTon: 10, // 10 TON
     priceStars: 1400, // 1400 Stars
   },
   prem: {
@@ -53,26 +51,25 @@ const TIERS = {
     cap: 100,
     prizeMult: 5,
     inviteBonus: 100,
-    priceTon: 15,     // 15 TON
+    priceTon: 15, // 15 TON
     priceStars: 2100, // 2100 Stars
   },
 };
 
 /**
- * For now we keep TEST_PRICE_COINS = 0 so Premium upgrades are "free test"
- * from balance. Later we’ll gate this via TON / Stars on the backend.
+ * Coins test price – not used for TON flow anymore, but left in case you
+ * want to gate tiers by in-game coins later.
  */
 const TEST_PRICE_COINS = 0;
 
 /* ================= SKINS CONFIG ================= */
 
-/* 13 wheel skins (themes); visuals are driven by id in the SVG + preview helper */
+/* Wheel skins (themes) */
 const WHEEL_SKINS = [
   {
     id: "classic",
     name: "Classic ROFFLE",
     tagline: "Gold max, black & silver fillers",
-    // Classic base skin: free / included
     priceTon: 0,
     priceStars: 0,
   },
@@ -134,8 +131,6 @@ const WHEEL_SKINS = [
   },
 ];
 
-
-
 /* Background skins (ROF Mood) */
 const BG_SKINS = [
   {
@@ -144,7 +139,7 @@ const BG_SKINS = [
     tagline: "Original ROFFLE backdrop",
     file: "/app-bg.png",
     priceTon: 0,
-    priceStars: 0, // included / free
+    priceStars: 0,
   },
   {
     id: "space",
@@ -211,7 +206,6 @@ const BG_SKINS = [
     priceStars: 299,
   },
 ];
-
 
 /* Tier ranking: used to prevent downgrade */
 const TIER_ORDER = { free: 0, plus: 1, pro: 2, prem: 3 };
@@ -297,72 +291,99 @@ function easeOutCubic(t) {
   return 1 - Math.pow(1 - t, 3);
 }
 
-/* Assets */
+/* Assets & TON treasury wallet */
 const CENTER_LOGO_SRC = "/logo.png";
 const BRAND_LOGO_SRC = "/rof-lg.png";
 const ROF_ICON_SRC = "/rof-bn.png";
 const TREASURY_WALLET = "UQDXJshWTZc6KTvmA3zSlqElus_9LPTRIGz-VFi6Bxt4yXqo";
 
-
 /* ===== Avatar helpers & fallback colors ===== */
 const DEMO_AVATAR_COLORS = [
-  "#6c5ce7","#00cec9","#fd79a8","#ffeaa7",
-  "#55efc4","#a29bfe","#fab1a0","#81ecec","#ffd6a5"
+  "#6c5ce7",
+  "#00cec9",
+  "#fd79a8",
+  "#ffeaa7",
+  "#55efc4",
+  "#a29bfe",
+  "#fab1a0",
+  "#81ecec",
+  "#ffd6a5",
 ];
 
-function initials(name){
-  return name.split(" ").map(s=>s[0]).join("").slice(0,2).toUpperCase();
+function initials(name) {
+  return name
+    .split(" ")
+    .map((s) => s[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 }
-function randomItem(a){ return a[Math.floor(Math.random()*a.length)] }
+function randomItem(a) {
+  return a[Math.floor(Math.random() * a.length)];
+}
 
 /* Tier badges for UI */
-function TierBadge({tierKey}){
-  if (tierKey === "free" || !tierKey) return <span className="badge free">No status</span>;
-  if (tierKey === "plus") return <span className="badge premium">Premium⚡️</span>;
-  if (tierKey === "pro")  return <span className="badge plus">Plus⭐️</span>;
+function TierBadge({ tierKey }) {
+  if (tierKey === "free" || !tierKey)
+    return <span className="badge free">No status</span>;
+  if (tierKey === "plus")
+    return <span className="badge premium">Premium⚡️</span>;
+  if (tierKey === "pro") return <span className="badge plus">Plus⭐️</span>;
   return <span className="badge pro">Pro👑</span>;
 }
 
 /* --------- Earn helpers --------- */
-function getTGUser(){
+function getTGUser() {
   const u = window.Telegram?.WebApp?.initDataUnsafe?.user;
   if (!u) return null;
   return {
     id: u.id,
-    name: [u.first_name, u.last_name].filter(Boolean).join(" ") || u.username || `User ${u.id}`,
+    name:
+      [u.first_name, u.last_name].filter(Boolean).join(" ") ||
+      u.username ||
+      `User ${u.id}`,
     username: u.username ? `@${u.username}` : "",
     photo: u.photo_url || "",
   };
 }
-function getOrCreateMyRefCode(){
-  try{
+function getOrCreateMyRefCode() {
+  try {
     const tgUser = getTGUser();
     const key = "rof_ref_code";
     let code = localStorage.getItem(key);
     if (!code) {
-      const seed = tgUser?.id ? String(tgUser.id) : String(Math.floor(Math.random()*1e10));
-      code = Number.parseInt(seed,10).toString(36);
+      const seed = tgUser?.id
+        ? String(tgUser.id)
+        : String(Math.floor(Math.random() * 1e10));
+      code = Number.parseInt(seed, 10).toString(36);
       localStorage.setItem(key, code);
     }
     return code;
-  }catch{ return Math.floor(Math.random()*1e9).toString(36); }
+  } catch {
+    return Math.floor(Math.random() * 1e9).toString(36);
+  }
 }
-function readReferrals(){
-  try { return JSON.parse(localStorage.getItem("rof_referrals")||"[]"); } catch { return []; }
+function readReferrals() {
+  try {
+    return JSON.parse(localStorage.getItem("rof_referrals") || "[]");
+  } catch {
+    return [];
+  }
 }
-function writeReferrals(arr){
-  try { localStorage.setItem("rof_referrals", JSON.stringify(arr)); } catch {}
+function writeReferrals(arr) {
+  try {
+    localStorage.setItem("rof_referrals", JSON.stringify(arr));
+  } catch {}
 }
-function addReferralRow(row){
+function addReferralRow(row) {
   const arr = readReferrals();
   arr.unshift(row);
-  writeReferrals(arr.slice(0,500));
+  writeReferrals(arr.slice(0, 500));
 }
 
 /* ✅ NEW: fetch referrals from Supabase (roff_referrals + roff_users) */
 async function fetchReferralsFromDB(tgId) {
   try {
-    // 1) Get all rows where this user is the referrer
     const { data, error } = await supabase
       .from("roff_referrals")
       .select("id, created_at, referred_tg_id")
@@ -372,10 +393,8 @@ async function fetchReferralsFromDB(tgId) {
     if (error) throw error;
     if (!data || data.length === 0) return [];
 
-    // 2) Collect all referred tg_ids
-    const ids = [...new Set(data.map(r => r.referred_tg_id).filter(Boolean))];
+    const ids = [...new Set(data.map((r) => r.referred_tg_id).filter(Boolean))];
 
-    // 3) Fetch their profile data from roff_users
     let usersMap = {};
     if (ids.length) {
       const { data: users, error: usersErr } = await supabase
@@ -385,13 +404,10 @@ async function fetchReferralsFromDB(tgId) {
 
       if (usersErr) throw usersErr;
 
-      usersMap = Object.fromEntries(
-        (users || []).map(u => [u.tg_id, u])
-      );
+      usersMap = Object.fromEntries((users || []).map((u) => [u.tg_id, u]));
     }
 
-    // 4) Merge into referral rows for UI
-    return data.map(r => {
+    return data.map((r) => {
       const u = usersMap[r.referred_tg_id] || {};
       return {
         id: r.id,
@@ -446,7 +462,8 @@ const TopScreen = React.memo(
 
           const mapped = (data || []).map((row) => ({
             id: row.tg_id,
-            name: row.full_name || row.username || `User ${row.tg_id}`,
+            name:
+              row.full_name || row.username || `User ${row.tg_id}`,
             username: row.username ? `@${row.username}` : "",
             photo: row.photo_url || "",
             balance: row.balance ?? 0,
@@ -477,7 +494,8 @@ const TopScreen = React.memo(
 
           const mapped = (data || []).map((row) => ({
             id: row.tg_id,
-            name: row.full_name || row.username || `User ${row.tg_id}`,
+            name:
+              row.full_name || row.username || `User ${row.tg_id}`,
             username: row.username ? `@${row.username}` : "",
             photo: row.photo_url || "",
             balance: row.balance ?? 0,
@@ -528,7 +546,9 @@ const TopScreen = React.memo(
               </div>
             ) : (
               <div className="lb-metric invites">
-                <span className="lb-invites">{user.invites.toLocaleString()}</span>
+                <span className="lb-invites">
+                  {user.invites.toLocaleString()}
+                </span>
                 <span className="lb-invites-lbl">invites</span>
               </div>
             )}
@@ -577,7 +597,6 @@ const TopScreen = React.memo(
       </div>
     );
   },
-  // Only re-render when the selected tab changes.
   (prev, next) => prev.lbTab === next.lbTab
 );
 
@@ -627,62 +646,52 @@ function getWheelPreviewStyle(skin) {
 }
 function getCenterLogoSrc(styleKey) {
   switch (styleKey) {
-    case "classic": // Classic ROFFLE
+    case "classic":
       return "/logo.png";
-
-    case "bloody":  // I See Red
+    case "bloody":
       return "/r-red.png";
-
-    case "ice":     // Ice Shards
+    case "ice":
       return "/r-ice.png";
-
-    case "cyber":   // Emerald Luck
+    case "cyber":
       return "/r-emerald.png";
-    
-    case "emerald":   // Fresh
+    case "emerald":
       return "/r-leaf.png";
-
-    case "retro":   // Retro Arcade
+    case "retro":
       return "/r-retro.png";
-
-    case "royal":   // Afterglow
+    case "royal":
       return "/r-afterglow.png";
-
-    case "candy":   // Candy Pop
+    case "candy":
       return "/r-candypop.png";
-
-    case "stealth": // Stealth Ops
+    case "stealth":
       return "/r-stealth.png";
-
-    // future "Leaf" skin
     case "leaf":
       return "/r-leaf.png";
-
     default:
       return "/logo.png";
   }
 }
 
-
 /* ==================== APP ==================== */
-export default function App(){
+export default function App() {
   const slots = useMemo(buildSlots, []);
-  const [bank,setBank] = useState(0);
+  const [bank, setBank] = useState(0);
   const [tgId, setTgId] = useState(null);
   const [invitesCount, setInvitesCount] = useState(0);
 
-   // 🚀 Inventory: which skins the user owns (wheel + background)
-  const [ownedWheelIds, setOwnedWheelIds] = useState(() => new Set(["classic"])); // default wheel always owned
-  const [ownedBgIds, setOwnedBgIds] = useState(() => new Set(["default"]));      // default bg always owned
+  // Inventory: which skins the user owns (wheel + background)
+  const [ownedWheelIds, setOwnedWheelIds] = useState(
+    () => new Set(["classic"])
+  );
+  const [ownedBgIds, setOwnedBgIds] = useState(() => new Set(["default"]));
 
-  // Small helpers to check ownership
   const hasWheelSkin = (id) => ownedWheelIds.has(id);
   const hasBgSkin = (id) => ownedBgIds.has(id);
 
-  // ✅ TON wallet & UI (from TonConnect)
+  // TON wallet & UI
   const [tonConnectUI] = useTonConnectUI();
   const wallet = useTonWallet();
-    // 🔹 Generic TON payment helper (amountTon = number, e.g. 2, 5, 10...)
+
+  // Generic TON payment helper
   const sendTonPayment = async (amountTon, purposeText = "Payment") => {
     if (!wallet) {
       setToast({ text: "Connect TON wallet first", key: Date.now() });
@@ -691,8 +700,8 @@ export default function App(){
     }
 
     try {
-      const validUntil = Math.floor(Date.now() / 1000) + 300; // 5 minutes
-      const nanoAmount = (amountTon * 1_000_000_000).toString(); // TON → nanoTON
+      const validUntil = Math.floor(Date.now() / 1000) + 300;
+      const nanoAmount = (amountTon * 1_000_000_000).toString();
 
       await tonConnectUI.sendTransaction({
         validUntil,
@@ -719,35 +728,31 @@ export default function App(){
     }
   };
 
-  // 🔹 Buy handlers for TON-gated unlocks
-  const handleBuyWheelSkinTon = async (skin) => {
-    // Free / included skin
-    if (skin.priceTon === 0) {
-      equipWheelSkin(skin.id);
+  // TON-gated purchase for tiers
+  const handleBuyTierTon = async (key) => {
+    const t = TIERS[key];
+
+    if (TIER_ORDER[key] <= TIER_ORDER[tierKey]) {
+      setToast({
+        text: "You already have this or higher tier",
+        key: Date.now(),
+      });
+      setTimeout(() => setToast(null), 1600);
       return;
     }
 
-    const ok = await sendTonPayment(skin.priceTon, `Wheel skin: ${skin.name}`);
-    if (!ok) return;
-
-    // After successful payment → equip skin
-    equipWheelSkin(skin.id);
-  };
-
-  const handleBuyBgSkinTon = async (skin) => {
-    if (skin.priceTon === 0) {
-      equipBgSkin(skin.id);
+    if (t.priceTon === 0) {
+      await buyTier(key);
       return;
     }
 
-    const ok = await sendTonPayment(skin.priceTon, `Background: ${skin.name}`);
+    const ok = await sendTonPayment(t.priceTon, `Premium tier: ${t.name}`);
     if (!ok) return;
 
-    equipBgSkin(skin.id);
+    await buyTier(key);
   };
 
-
-  // Skins: wheel + background
+  // Skins: current equipped wheel + bg
   const [wheelSkinId, setWheelSkinId] = useState("classic");
   const [bgSkinId, setBgSkinId] = useState("default");
 
@@ -760,7 +765,21 @@ export default function App(){
     [bgSkinId]
   );
 
-  // Store skins in localStorage
+  const equipWheelSkin = (id) => {
+    setWheelSkinId(id);
+    try {
+      localStorage.setItem("rof_wheel_skin", id);
+    } catch {}
+  };
+
+  const equipBgSkin = (id) => {
+    setBgSkinId(id);
+    try {
+      localStorage.setItem("rof_bg_skin", id);
+    } catch {}
+  };
+
+  // Load equipped skins from localStorage
   useEffect(() => {
     try {
       const savedWheel = localStorage.getItem("rof_wheel_skin");
@@ -773,16 +792,6 @@ export default function App(){
       }
     } catch {}
   }, []);
-
-  const equipWheelSkin = (id) => {
-    setWheelSkinId(id);
-    try { localStorage.setItem("rof_wheel_skin", id); } catch {}
-  };
-
-  const equipBgSkin = (id) => {
-    setBgSkinId(id);
-    try { localStorage.setItem("rof_bg_skin", id); } catch {}
-  };
 
   /* Premium state */
   const [tierKey, setTierKey] = useState("free");
@@ -804,28 +813,28 @@ export default function App(){
   const [nextInMs, setNextInMs] = useState(0);
 
   /* UI */
-  const [spinning,setSpinning] = useState(false);
-  const [toast,setToast] = useState(null);
-  const [tab,setTab] = useState("play");
-  const [booting,setBooting] = useState(true);
+  const [spinning, setSpinning] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [tab, setTab] = useState("play");
+  const [booting, setBooting] = useState(true);
   const [showPremium, setShowPremium] = useState(false);
 
   /* Leaderboard UI */
   const [lbTab, setLbTab] = useState("players");
 
-  /* Loot tabs: ROF Skins / ROF Mood / Collectibles */
+  /* Loot tabs */
   const [lootTab, setLootTab] = useState("skins");
 
   /* Earn / referrals */
-  const [myRefLink,setMyRefLink] = useState("");
-  const [referrals,setReferrals] = useState([]);   // <- now starts empty, will be filled from DB
+  const [myRefLink, setMyRefLink] = useState("");
+  const [referrals, setReferrals] = useState([]);
 
   /* Splash */
-  useEffect(()=>{
-    const timer = setTimeout(()=>{
+  useEffect(() => {
+    const timer = setTimeout(() => {
       setBooting(false);
       const tg = window.Telegram?.WebApp;
-      if(!tg) return;
+      if (!tg) return;
       tg.ready();
       tg.setHeaderColor("#000000");
       tg.setBackgroundColor("#000000");
@@ -833,40 +842,44 @@ export default function App(){
       tg.MainButton.hide();
       tg.MainButton.disable?.();
     }, 800);
-    return ()=>clearTimeout(timer);
-  },[]);
+    return () => clearTimeout(timer);
+  }, []);
 
   /* Theme follow */
-  const [theme,setTheme] = useState({ bg:"#000", text:"#e8ecf2" });
-  useEffect(()=>{
+  const [theme, setTheme] = useState({ bg: "#000", text: "#e8ecf2" });
+  useEffect(() => {
     const tg = window.Telegram?.WebApp;
-    if(!tg) return;
-    const sync = ()=> {
-      const p=tg.themeParams||{};
-      setTheme({ bg:p.bg_color||"#000", text:p.text_color||"#e8ecf2" });
+    if (!tg) return;
+    const sync = () => {
+      const p = tg.themeParams || {};
+      setTheme({ bg: p.bg_color || "#000", text: p.text_color || "#e8ecf2" });
     };
-    sync(); tg.onEvent?.("themeChanged",sync);
-    return ()=>tg.offEvent?.("themeChanged",sync);
-  },[]);
+    sync();
+    tg.onEvent?.("themeChanged", sync);
+    return () => tg.offEvent?.("themeChanged", sync);
+  }, []);
 
   /* Sizes */
-  const cx=500, cy=500;
+  const cx = 500,
+    cy = 500;
   const R_FACE = 440 * 0.74;
   const R_TRIM = 470 * 0.74;
   const TRIM_W = 40;
   const LABEL_R = 360 * 0.74;
-  const trimOuter = R_TRIM + TRIM_W/2;
-  const pointerTipY  = cy - trimOuter + 2;
+  const trimOuter = R_TRIM + TRIM_W / 2;
+  const pointerTipY = cy - trimOuter + 2;
   const pointerBaseY = pointerTipY - 26;
 
   /* Wedges */
-  const wedges = useMemo(()=>{
-    return Array.from({length:SEGMENTS_TOTAL}, (_,i)=>{
-      const start=i*SEG_DEG; const end=start+SEG_DEG; const mid=(start+end)/2;
+  const wedges = useMemo(() => {
+    return Array.from({ length: SEGMENTS_TOTAL }, (_, i) => {
+      const start = i * SEG_DEG;
+      const end = start + SEG_DEG;
+      const mid = (start + end) / 2;
       const path = wedgePathLocal(R_FACE, start, end);
       return { i, mid, path, labelR: LABEL_R };
     });
-  },[]);
+  }, []);
 
   /* Angle setters + persist angle */
   const applyAngle = (angle) => {
@@ -880,22 +893,24 @@ export default function App(){
   };
 
   /* Restore angle + local regen timer from storage */
-  useEffect(()=>{
+  useEffect(() => {
     let a = null;
     try {
       const ls = localStorage.getItem("rof_visAngle");
       if (ls != null) a = parseFloat(ls);
     } catch {}
     if (a == null || Number.isNaN(a)) {
-      try { if (typeof window.__rofAngle === "number") a = window.__rofAngle; } catch {}
+      try {
+        if (typeof window.__rofAngle === "number") a = window.__rofAngle;
+      } catch {}
     }
     if (a == null || Number.isNaN(a)) a = 0;
     applyAngle(a);
 
-    try{
+    try {
       const savedCalc = parseFloat(localStorage.getItem("rof_calcRot"));
-      if(!Number.isNaN(savedCalc)) calcRotRef.current = savedCalc;
-    }catch{}
+      if (!Number.isNaN(savedCalc)) calcRotRef.current = savedCalc;
+    } catch {}
 
     try {
       const stored = localStorage.getItem("rof_nextReadyAt");
@@ -908,10 +923,15 @@ export default function App(){
         }
       }
     } catch {}
-  },[]);
+  }, []);
 
   /* Cancel RAF on unmount */
-  useEffect(()=>()=>{ if(rafRef.current) cancelAnimationFrame(rafRef.current); },[]);
+  useEffect(
+    () => () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    },
+    []
+  );
 
   /* RAF tween for main spin */
   const animateRotation = (from, to, durationMs, onDone) => {
@@ -924,7 +944,10 @@ export default function App(){
       const angle = from + (to - from) * eased;
       applyAngle(angle);
       if (t < 1) rafRef.current = requestAnimationFrame(step);
-      else { animBusyRef.current = false; onDone?.(); }
+      else {
+        animBusyRef.current = false;
+        onDone?.();
+      }
     };
     applyAngle(from);
     rafRef.current = requestAnimationFrame(step);
@@ -939,15 +962,15 @@ export default function App(){
       try {
         setTgId(tgUser.id);
 
-        // basic user fields (NOTE: no last_seen here!)
         const baseUser = {
           tg_id: tgUser.id,
           username: tgUser.username || null,
-          full_name: [tgUser.first_name, tgUser.last_name].filter(Boolean).join(" "),
+          full_name: [tgUser.first_name, tgUser.last_name]
+            .filter(Boolean)
+            .join(" "),
           photo_url: tgUser.photo_url || null,
         };
 
-        // Upsert without touching last_seen
         const { data, error } = await supabase
           .from("roff_users")
           .upsert(baseUser, { onConflict: "tg_id", ignoreDuplicates: false })
@@ -971,9 +994,12 @@ export default function App(){
           const capDb = tierCfg.cap;
           const regenMsDb = Math.floor(BASE_REGEN_MS / tierCfg.regenMult);
 
-          let dbBalance = typeof data.balance === "number" ? data.balance : 0;
+          let dbBalance =
+            typeof data.balance === "number" ? data.balance : 0;
           let dbSpins =
-            typeof data.spins_left === "number" ? data.spins_left : BASE_CAP;
+            typeof data.spins_left === "number"
+              ? data.spins_left
+              : BASE_CAP;
           const dbInvites =
             typeof data.invites === "number" ? data.invites : 0;
 
@@ -982,7 +1008,6 @@ export default function App(){
             ? new Date(data.last_seen).getTime()
             : now;
 
-          // Offline regen: add spins for elapsed time, capped by tier cap
           if (dbSpins < capDb) {
             const elapsed = now - lastSeenMs;
             if (elapsed > 0) {
@@ -994,7 +1019,6 @@ export default function App(){
             }
           }
 
-          // Compute nextReadyAt / nextInMs
           let nextReady = null;
           let nextMs = 0;
           if (dbSpins < capDb) {
@@ -1010,7 +1034,6 @@ export default function App(){
           setNextReadyAt(nextReady);
           setNextInMs(nextMs);
 
-          // Persist spins & last_seen back to DB
           await supabase
             .from("roff_users")
             .update({
@@ -1030,7 +1053,7 @@ export default function App(){
     run();
   }, []);
 
-    /* 🔐 Load owned skins from roff_inventory when tgId is known */
+  /* Load owned skins from roff_inventory when tgId is known */
   useEffect(() => {
     if (!tgId) return;
 
@@ -1068,8 +1091,7 @@ export default function App(){
     loadInventory();
   }, [tgId]);
 
-
-  /* ✅ NEW: load referrals from DB whenever we know tgId */
+  /* Referrals load from DB */
   useEffect(() => {
     if (!tgId) return;
     fetchReferralsFromDB(tgId).then((rows) => {
@@ -1140,7 +1162,7 @@ export default function App(){
     return () => clearInterval(id);
   }, [regenMs, spinCap, showPremium, nextReadyAt, tgId]);
 
-  /* ===== Spin – visual-only RNG, payout from final angle ===== */
+  /* Spin */
   const handleSpin = () => {
     if (spinning || animBusyRef.current || spinsLeft <= 0) return;
     if (!tgId) {
@@ -1205,12 +1227,15 @@ export default function App(){
     }
   };
 
-    /* ===== Premium purchase – permanent tier, only upgrades ===== */
+  /* Tier upgrade (after payment) */
   const buyTier = async (key) => {
     if (key === tierKey) return;
 
     if (TIER_ORDER[key] <= TIER_ORDER[tierKey]) {
-      setToast({ text: "You already have this or higher tier", key: Date.now() });
+      setToast({
+        text: "You already have this or higher tier",
+        key: Date.now(),
+      });
       setTimeout(() => setToast(null), 1600);
       return;
     }
@@ -1218,16 +1243,13 @@ export default function App(){
     const t = TIERS[key];
     const now = Date.now();
 
-    // Update tier locally
     setTierKey(key);
     try {
       localStorage.setItem("rof_premium_tier", key);
     } catch {}
 
-    // Adjust spins cap
     setSpinsLeft((s) => Math.min(s, t.cap));
 
-    // Reset / recalc regen timer
     if (spinsLeft >= t.cap) {
       setNextReadyAt(null);
       setNextInMs(0);
@@ -1243,7 +1265,6 @@ export default function App(){
       } catch {}
     }
 
-    // Save tier to DB (no balance change here)
     if (tgId) {
       try {
         const { error } = await supabase
@@ -1274,40 +1295,144 @@ export default function App(){
     setTimeout(() => setToast(null), 1600);
   };
 
-  // 🔹 TON-gated purchase for tiers
-  const handleBuyTierTon = async (key) => {
-    const t = TIERS[key];
-
-    if (TIER_ORDER[key] <= TIER_ORDER[tierKey]) {
-      setToast({ text: "You already have this or higher tier", key: Date.now() });
-      setTimeout(() => setToast(null), 1600);
-      return;
+  /* Unlock helpers (DB inventory) */
+  const handleUnlockWheelSkin = async (skin) => {
+    if (!tgId) {
+      setToast({ text: "User not ready yet", key: Date.now() });
+      setTimeout(() => setToast(null), 1500);
+      return false;
     }
 
-    // Some future promo could set priceTon = 0 → free upgrade.
-    if (t.priceTon === 0) {
-      await buyTier(key);
-      return;
+    if (hasWheelSkin(skin.id)) {
+      equipWheelSkin(skin.id);
+      return true;
     }
 
-    const ok = await sendTonPayment(t.priceTon, `Premium tier: ${t.name}`);
-    if (!ok) return;
+    try {
+      const { error } = await supabase.from("roff_inventory").insert({
+        tg_id: tgId,
+        item_type: "wheel",
+        item_id: skin.id,
+      });
 
-    // After payment succeeds → activate tier
-    await buyTier(key);
+      if (error) {
+        console.error("Failed to unlock wheel skin", error);
+        setToast({ text: "Unlock failed, try again", key: Date.now() });
+        setTimeout(() => setToast(null), 1500);
+        return false;
+      }
+
+      setOwnedWheelIds((prev) => {
+        const next = new Set(prev);
+        next.add(skin.id);
+        return next;
+      });
+
+      equipWheelSkin(skin.id);
+      setToast({ text: `${skin.name} unlocked`, key: Date.now() });
+      setTimeout(() => setToast(null), 1500);
+      return true;
+    } catch (e) {
+      console.error("Unlock wheel skin error", e);
+      return false;
+    }
   };
 
+  const handleUnlockBgSkin = async (skin) => {
+    if (!tgId) {
+      setToast({ text: "User not ready yet", key: Date.now() });
+      setTimeout(() => setToast(null), 1500);
+      return false;
+    }
 
-  /* ===== Earn: referral code + link ===== */
-  useEffect(()=>{
+    if (hasBgSkin(skin.id)) {
+      equipBgSkin(skin.id);
+      return true;
+    }
+
+    try {
+      const { error } = await supabase.from("roff_inventory").insert({
+        tg_id: tgId,
+        item_type: "bg",
+        item_id: skin.id,
+      });
+
+      if (error) {
+        console.error("Failed to unlock bg skin", error);
+        setToast({ text: "Unlock failed, try again", key: Date.now() });
+        setTimeout(() => setToast(null), 1500);
+        return false;
+      }
+
+      setOwnedBgIds((prev) => {
+        const next = new Set(prev);
+        next.add(skin.id);
+        return next;
+      });
+
+      equipBgSkin(skin.id);
+      setToast({ text: `${skin.name} unlocked`, key: Date.now() });
+      setTimeout(() => setToast(null), 1500);
+      return true;
+    } catch (e) {
+      console.error("Unlock bg skin error", e);
+      return false;
+    }
+  };
+
+  // TON-gated unlock for wheel skins
+  const handleBuyWheelSkinTon = async (skin) => {
+    // Already owned → just equip
+    if (hasWheelSkin(skin.id)) {
+      equipWheelSkin(skin.id);
+      return;
+    }
+
+    // Free skin → just unlock in DB and equip
+    if (skin.priceTon === 0) {
+      await handleUnlockWheelSkin(skin);
+      return;
+    }
+
+    const ok = await sendTonPayment(
+      skin.priceTon,
+      `Wheel skin: ${skin.name}`
+    );
+    if (!ok) return;
+
+    await handleUnlockWheelSkin(skin);
+  };
+
+  // TON-gated unlock for background skins
+  const handleBuyBgSkinTon = async (skin) => {
+    if (hasBgSkin(skin.id)) {
+      equipBgSkin(skin.id);
+      return;
+    }
+
+    if (skin.priceTon === 0) {
+      await handleUnlockBgSkin(skin);
+      return;
+    }
+
+    const ok = await sendTonPayment(
+      skin.priceTon,
+      `Background: ${skin.name}`
+    );
+    if (!ok) return;
+
+    await handleUnlockBgSkin(skin);
+  };
+
+  /* Referral link */
+  useEffect(() => {
     const code = getOrCreateMyRefCode();
     const link = `https://t.me/roffleapp_bot?start=${encodeURIComponent(code)}`;
     setMyRefLink(link);
-  },[]);
+  }, []);
 
-  // (Old ?ref=… logic kept but effectively does nothing with bot deep-links)
-  useEffect(()=>{
-    try{
+  useEffect(() => {
+    try {
       const params = new URLSearchParams(window.location.search);
       const ref = params.get("ref");
       if (!ref) return;
@@ -1316,9 +1441,12 @@ export default function App(){
       if (already === "1") return;
       if (myCode && ref === myCode) return;
 
-      setBank(b => b + 200);
-      setSpinsLeft(s => Math.min(spinCap, s + 20));
-      setToast({ text: `+200 $ROF & +20 spins (invite)`, key: Date.now() });
+      setBank((b) => b + 200);
+      setSpinsLeft((s) => Math.min(spinCap, s + 20));
+      setToast({
+        text: `+200 $ROF & +20 spins (invite)`,
+        key: Date.now(),
+      });
       setTimeout(() => setToast(null), 1600);
 
       localStorage.setItem("rof_ref_claimed", "1");
@@ -1336,25 +1464,39 @@ export default function App(){
       };
       addReferralRow(row);
       setReferrals(readReferrals());
-    }catch{}
+    } catch {}
   }, [spinCap]);
 
-  const copyLink = async ()=>{
-    try{
+  const copyLink = async () => {
+    try {
       await navigator.clipboard.writeText(myRefLink);
-      setToast({text:"Copied link", key:Date.now()});
-      setTimeout(()=>setToast(null),1200);
-    }catch{}
+      setToast({ text: "Copied link", key: Date.now() });
+      setTimeout(() => setToast(null), 1200);
+    } catch {}
   };
-  const shareLink = ()=>{
+  const shareLink = () => {
     const text = `Spin & win on ROFFLE — we both get +20 spins & +200 $ROF:\n${myRefLink}`;
     const tg = window.Telegram?.WebApp;
-    if (tg?.openTelegramLink) tg.openTelegramLink(`https://t.me/share/url?url=${encodeURIComponent(myRefLink)}&text=${encodeURIComponent(text)}`);
-    else if (navigator.share) navigator.share({ title:"ROFFLE", text, url:myRefLink }).catch(()=>{});
-    else window.open(`https://t.me/share/url?url=${encodeURIComponent(myRefLink)}&text=${encodeURIComponent(text)}`,'_blank');
+    if (tg?.openTelegramLink)
+      tg.openTelegramLink(
+        `https://t.me/share/url?url=${encodeURIComponent(
+          myRefLink
+        )}&text=${encodeURIComponent(text)}`
+      );
+    else if (navigator.share)
+      navigator
+        .share({ title: "ROFFLE", text, url: myRefLink })
+        .catch(() => {});
+    else
+      window.open(
+        `https://t.me/share/url?url=${encodeURIComponent(
+          myRefLink
+        )}&text=${encodeURIComponent(text)}`,
+        "_blank"
+      );
   };
 
-    const PremiumModal = () => {
+  const PremiumModal = () => {
     const cards = [
       {
         t: TIERS.plus,
@@ -1411,7 +1553,7 @@ export default function App(){
                 const active = t.key === tierKey;
                 const isLowerOrEqual =
                   TIER_ORDER[t.key] <= TIER_ORDER[tierKey];
-                const disabled = isLowerOrEqual; // block downgrades / same tier
+                const disabled = isLowerOrEqual;
 
                 return (
                   <div
@@ -1424,19 +1566,16 @@ export default function App(){
                       <div className="tc-name">{t.name}</div>
                       {active && <div className="tc-active">Active</div>}
                     </div>
-
                     <ul className="tc-list">
                       {bullets.map((b, idx) => (
                         <li key={idx}>{b}</li>
                       ))}
                     </ul>
-
                     <div className="tc-price">
                       {t.priceTon === 0 && t.priceStars === 0
                         ? "Included"
                         : `Price: ${t.priceTon} TON or ${t.priceStars} ⭐`}
                     </div>
-
                     <div className="tc-actions">
                       <button
                         className="tc-buy gradient-outline-btn"
@@ -1462,97 +1601,7 @@ export default function App(){
     );
   };
 
-
-    /* 🛒 TEST UNLOCK: grant wheel skin (no real TON/Stars payment yet) */
-  const handleUnlockWheelSkin = async (skin) => {
-    if (!tgId) {
-      setToast({ text: "User not ready yet", key: Date.now() });
-      setTimeout(() => setToast(null), 1500);
-      return;
-    }
-
-    // Already owned => just equip
-    if (hasWheelSkin(skin.id)) {
-      equipWheelSkin(skin.id);
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from("roff_inventory")
-        .insert({
-          tg_id: tgId,
-          item_type: "wheel",
-          item_id: skin.id,
-        });
-
-      if (error) {
-        console.error("Failed to unlock wheel skin", error);
-        setToast({ text: "Unlock failed, try again", key: Date.now() });
-        setTimeout(() => setToast(null), 1500);
-        return;
-      }
-
-      // Update local state
-      setOwnedWheelIds((prev) => {
-        const next = new Set(prev);
-        next.add(skin.id);
-        return next;
-      });
-
-      equipWheelSkin(skin.id);
-      setToast({ text: `${skin.name} unlocked (test)`, key: Date.now() });
-      setTimeout(() => setToast(null), 1500);
-    } catch (e) {
-      console.error("Unlock wheel skin error", e);
-    }
-  };
-
-  /* 🛒 TEST UNLOCK: grant background skin (no real TON/Stars payment yet) */
-  const handleUnlockBgSkin = async (skin) => {
-    if (!tgId) {
-      setToast({ text: "User not ready yet", key: Date.now() });
-      setTimeout(() => setToast(null), 1500);
-      return;
-    }
-
-    if (hasBgSkin(skin.id)) {
-      equipBgSkin(skin.id);
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from("roff_inventory")
-        .insert({
-          tg_id: tgId,
-          item_type: "bg",
-          item_id: skin.id,
-        });
-
-      if (error) {
-        console.error("Failed to unlock bg skin", error);
-        setToast({ text: "Unlock failed, try again", key: Date.now() });
-        setTimeout(() => setToast(null), 1500);
-        return;
-      }
-
-      setOwnedBgIds((prev) => {
-        const next = new Set(prev);
-        next.add(skin.id);
-        return next;
-      });
-
-      equipBgSkin(skin.id);
-      setToast({ text: `${skin.name} unlocked (test)`, key: Date.now() });
-      setTimeout(() => setToast(null), 1500);
-    } catch (e) {
-      console.error("Unlock bg skin error", e);
-    }
-  };
-
-
-      const LootScreen = () => {
+  const LootScreen = () => {
     return (
       <div className="loot-wrap">
         <div className="loot-tabs">
@@ -1581,45 +1630,55 @@ export default function App(){
           <div className="loot-section">
             <div className="loot-title">🎨 Wheel Skins</div>
             <div className="loot-list">
-                          {WHEEL_SKINS.map((skin) => {
-              const isActive = skin.id === wheelSkinId;
-              const previewStyle = getWheelPreviewStyle(skin);
-              return (
-                <div
-                  key={skin.id}
-                  className={`loot-row ${isActive ? "active" : ""}`}
-                >
-                  <div className="loot-left">
-                    <div
-                      className="loot-preview"
-                      style={previewStyle}
-                    />
-                    <div className="loot-text">
-                      <div className="loot-row-name">{skin.name}</div>
-                      <div className="loot-row-tag">
-                        {skin.tagline}
+              {WHEEL_SKINS.map((skin) => {
+                const isActive = skin.id === wheelSkinId;
+                const owned =
+                  hasWheelSkin(skin.id) ||
+                  (skin.priceTon === 0 && skin.priceStars === 0);
+
+                const previewStyle = getWheelPreviewStyle(skin);
+                const priceLabel =
+                  skin.priceTon === 0 && skin.priceStars === 0
+                    ? "Included"
+                    : `${skin.priceTon} TON or ${skin.priceStars} ⭐`;
+
+                let buttonText;
+                if (isActive) buttonText = "Equipped";
+                else if (owned) buttonText = "Equip";
+                else buttonText = `Buy for ${skin.priceTon} TON`;
+
+                return (
+                  <div
+                    key={skin.id}
+                    className={`loot-row ${isActive ? "active" : ""}`}
+                  >
+                    <div className="loot-left">
+                      <div className="loot-preview" style={previewStyle} />
+                      <div className="loot-text">
+                        <div className="loot-row-name">{skin.name}</div>
+                        <div className="loot-row-tag">{skin.tagline}</div>
                       </div>
                     </div>
-                  </div>
-                                      <div className="loot-right">
-                      <div className="loot-price">
-                        {skin.priceTon === 0 && skin.priceStars === 0
-                          ? "Included"
-                          : `${skin.priceTon} TON or ${skin.priceStars} ⭐`}
-                      </div>
+
+                    <div className="loot-right">
+                      <div className="loot-price">{priceLabel}</div>
                       <button
                         className="loot-btn gradient-outline-btn"
                         disabled={isActive}
-                        onClick={() => handleBuyBgSkinTon(skin)}
+                        onClick={() => {
+                          if (owned) {
+                            equipWheelSkin(skin.id);
+                          } else {
+                            handleBuyWheelSkinTon(skin);
+                          }
+                        }}
                       >
-                        {isActive ? "Equipped" : `Buy for ${skin.priceTon} TON`}
+                        {buttonText}
                       </button>
                     </div>
-
-                </div>
-              );
-            })}
-
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -1648,7 +1707,7 @@ export default function App(){
                 let buttonText;
                 if (isActive) buttonText = "Equipped";
                 else if (owned) buttonText = "Equip";
-                else buttonText = "Buy (test unlock)";
+                else buttonText = `Buy for ${skin.priceTon} TON`;
 
                 return (
                   <div
@@ -1672,7 +1731,7 @@ export default function App(){
                           if (owned) {
                             equipBgSkin(skin.id);
                           } else {
-                            handleUnlockBgSkin(skin);
+                            handleBuyBgSkinTon(skin);
                           }
                         }}
                       >
@@ -1699,18 +1758,26 @@ export default function App(){
     );
   };
 
-
-
-  function AvatarInline({name, photo}){
+  function AvatarInline({ name, photo }) {
     if (photo) return <img className="lb-avatar" src={photo} alt={name} />;
     const bg = randomItem(DEMO_AVATAR_COLORS);
-    return <div className="lb-avatar fallback" style={{ background: bg }}>{initials(name)}</div>;
+    return (
+      <div className="lb-avatar fallback" style={{ background: bg }}>
+        {initials(name)}
+      </div>
+    );
   }
-  function formatDate(iso){
-    try{
+  function formatDate(iso) {
+    try {
       const d = new Date(iso);
-      return d.toLocaleDateString(undefined, { year:"numeric", month:"short", day:"numeric" });
-    }catch{return "";}
+      return d.toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    } catch {
+      return "";
+    }
   }
 
   const EarnScreen = () => {
@@ -1721,14 +1788,26 @@ export default function App(){
         <div className="card gradient-border">
           <div className="card-head">
             <div className="card-title">Invite friends</div>
-            <div className="reward-pill">🎁 Both get <b>+20 spins</b> & <b>+200 $ROF</b></div>
+            <div className="reward-pill">
+              🎁 Both get <b>+20 spins</b> & <b>+200 $ROF</b>
+            </div>
           </div>
 
           <div className="ref-link-box">
             <input className="ref-input" value={myRefLink} readOnly />
             <div className="ref-actions">
-              <button className="btn small gradient-outline-btn" onClick={copyLink}>Copy</button>
-              <button className="btn small gradient-outline-btn" onClick={shareLink}>Share</button>
+              <button
+                className="btn small gradient-outline-btn"
+                onClick={copyLink}
+              >
+                Copy
+              </button>
+              <button
+                className="btn small gradient-outline-btn"
+                onClick={shareLink}
+              >
+                Share
+              </button>
             </div>
           </div>
 
@@ -1742,23 +1821,32 @@ export default function App(){
               <div className="stat-v">{estBonus}</div>
             </div>
           </div>
-          <div className="disclaimer">*Inviter rewards require a backend to credit automatically.</div>
+          <div className="disclaimer">
+            *Inviter rewards require a backend to credit automatically.
+          </div>
         </div>
 
         <div className="card list-card gradient-border">
           <div className="card-title">Recent sign-ups via your link</div>
           <div className="ref-list">
             {referrals.length === 0 && (
-              <div className="empty">No referrals yet. Share your link to start earning!</div>
+              <div className="empty">
+                No referrals yet. Share your link to start earning!
+              </div>
             )}
-            {referrals.map((r,i)=>(
+            {referrals.map((r, i) => (
               <div key={r.id || i} className="ref-row">
-                <AvatarInline name={r.name || "User"} photo={r.photo || ""} />
+                <AvatarInline
+                  name={r.name || "User"}
+                  photo={r.photo || ""}
+                />
                 <div className="ref-meta">
                   <div className="ref-name">{r.name || "User"}</div>
                   <div className="ref-sub">
                     <TierBadge tierKey={r.tier || "free"} />
-                    {r.username && <span className="ref-username">{r.username}</span>}
+                    {r.username && (
+                      <span className="ref-username">{r.username}</span>
+                    )}
                   </div>
                 </div>
                 <div className="ref-when">{formatDate(r.when)}</div>
@@ -1773,28 +1861,28 @@ export default function App(){
   const PlayScreen = ({ wheelSkin }) => {
     const styleKey = wheelSkin.id;
     const rimGradientId = (() => {
-    switch (styleKey) {
-      case "bloody":      // I See Red
-        return "rim-bloody";
-      case "emerald":     // Fresh
-        return "rim-emerald";
-      case "ice":         // Ice Shards
-        return "rim-ice";
-      case "cyber":       // Emerald Luck
-        return "rim-cyber";
-      case "royal":       // Afterglow
-        return "rim-royal";
-      case "retro":       // Retro Arcade
-        return "rim-retro";
-      case "candy":       // Candy Pop
-        return "rim-candy";
-      case "stealth":     // Stealth Ops
-        return "rim-stealth";
-      case "classic":     // Classic ROFFLE
-      default:
-        return "rim-classic";
-    }
-  })();
+      switch (styleKey) {
+        case "bloody":
+          return "rim-bloody";
+        case "emerald":
+          return "rim-emerald";
+        case "ice":
+          return "rim-ice";
+        case "cyber":
+          return "rim-cyber";
+        case "royal":
+          return "rim-royal";
+        case "retro":
+          return "rim-retro";
+        case "candy":
+          return "rim-candy";
+        case "stealth":
+          return "rim-stealth";
+        case "classic":
+        default:
+          return "rim-classic";
+      }
+    })();
 
     return (
       <>
@@ -1805,25 +1893,45 @@ export default function App(){
                 const sec1 = i + 1;
                 const id = `grad-${i}`;
 
-                // Different gradient families per styleKey
                 if (styleKey === "classic") {
                   if (sec1 === 1) {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#43cda3" />
                         <stop offset="100%" stopColor="#490e6d" />
                       </linearGradient>
                     );
                   } else if (sec1 % 2 === 0) {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#404040" />
                         <stop offset="100%" stopColor="#000000" />
                       </linearGradient>
                     );
                   } else {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#ffffff" />
                         <stop offset="100%" stopColor="#a8a8a8" />
                       </linearGradient>
@@ -1834,7 +1942,14 @@ export default function App(){
                 if (styleKey === "neon") {
                   if (sec1 === 1) {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="100%" y2="0%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="100%"
+                        y2="0%"
+                      >
                         <stop offset="0%" stopColor="#19FB9B" />
                         <stop offset="50%" stopColor="#5ce1e6" />
                         <stop offset="100%" stopColor="#b50be5" />
@@ -1842,14 +1957,28 @@ export default function App(){
                     );
                   } else if (sec1 % 2 === 0) {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="100%" y2="0%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="100%"
+                        y2="0%"
+                      >
                         <stop offset="0%" stopColor="#111827" />
                         <stop offset="100%" stopColor="#312e81" />
                       </linearGradient>
                     );
                   } else {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="100%" y2="0%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="100%"
+                        y2="0%"
+                      >
                         <stop offset="0%" stopColor="#0f172a" />
                         <stop offset="100%" stopColor="#22d3ee" />
                       </linearGradient>
@@ -1860,21 +1989,42 @@ export default function App(){
                 if (styleKey === "bloody") {
                   if (sec1 === 1) {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#ffef9a" />
                         <stop offset="100%" stopColor="#c2410c" />
                       </linearGradient>
                     );
                   } else if (sec1 % 2 === 0) {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#7f1d1d" />
                         <stop offset="100%" stopColor="#111827" />
                       </linearGradient>
                     );
                   } else {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#b91c1c" />
                         <stop offset="100%" stopColor="#000000" />
                       </linearGradient>
@@ -1885,21 +2035,42 @@ export default function App(){
                 if (styleKey === "emerald") {
                   if (sec1 === 1) {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#bbf7d0" />
                         <stop offset="100%" stopColor="#166534" />
                       </linearGradient>
                     );
                   } else if (sec1 % 2 === 0) {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#064e3b" />
                         <stop offset="100%" stopColor="#020617" />
                       </linearGradient>
                     );
                   } else {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#16a34a" />
                         <stop offset="100%" stopColor="#052e16" />
                       </linearGradient>
@@ -1910,21 +2081,42 @@ export default function App(){
                 if (styleKey === "ice") {
                   if (sec1 === 1) {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#e0f2fe" />
                         <stop offset="100%" stopColor="#0369a1" />
                       </linearGradient>
                     );
                   } else if (sec1 % 2 === 0) {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#0f172a" />
                         <stop offset="100%" stopColor="#0b1120" />
                       </linearGradient>
                     );
                   } else {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#38bdf8" />
                         <stop offset="100%" stopColor="#e0f2fe" />
                       </linearGradient>
@@ -1935,21 +2127,42 @@ export default function App(){
                 if (styleKey === "lava") {
                   if (sec1 === 1) {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#fee2e2" />
                         <stop offset="100%" stopColor="#b91c1c" />
                       </linearGradient>
                     );
                   } else if (sec1 % 2 === 0) {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#7f1d1d" />
                         <stop offset="100%" stopColor="#111827" />
                       </linearGradient>
                     );
                   } else {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#f97316" />
                         <stop offset="100%" stopColor="#450a0a" />
                       </linearGradient>
@@ -1960,21 +2173,42 @@ export default function App(){
                 if (styleKey === "cyber") {
                   if (sec1 === 1) {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="100%" y2="0%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="100%"
+                        y2="0%"
+                      >
                         <stop offset="0%" stopColor="#22c55e" />
                         <stop offset="100%" stopColor="#4c1d95" />
                       </linearGradient>
                     );
                   } else if (sec1 % 2 === 0) {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="100%" y2="0%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="100%"
+                        y2="0%"
+                      >
                         <stop offset="0%" stopColor="#020617" />
                         <stop offset="100%" stopColor="#111827" />
                       </linearGradient>
                     );
                   } else {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="100%" y2="0%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="100%"
+                        y2="0%"
+                      >
                         <stop offset="0%" stopColor="#22c55e" />
                         <stop offset="100%" stopColor="#22d3ee" />
                       </linearGradient>
@@ -1985,21 +2219,42 @@ export default function App(){
                 if (styleKey === "royal") {
                   if (sec1 === 1) {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#f5e7ff" />
                         <stop offset="100%" stopColor="#5b21b6" />
                       </linearGradient>
                     );
                   } else if (sec1 % 2 === 0) {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#1e1b4b" />
                         <stop offset="100%" stopColor="#020617" />
                       </linearGradient>
                     );
                   } else {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#7c3aed" />
                         <stop offset="100%" stopColor="#fbbf24" />
                       </linearGradient>
@@ -2010,21 +2265,42 @@ export default function App(){
                 if (styleKey === "toxic") {
                   if (sec1 === 1) {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#ecfccb" />
                         <stop offset="100%" stopColor="#65a30d" />
                       </linearGradient>
                     );
                   } else if (sec1 % 2 === 0) {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#14532d" />
                         <stop offset="100%" stopColor="#022c22" />
                       </linearGradient>
                     );
                   } else {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#22c55e" />
                         <stop offset="100%" stopColor="#a3e635" />
                       </linearGradient>
@@ -2035,21 +2311,42 @@ export default function App(){
                 if (styleKey === "retro") {
                   if (sec1 === 1) {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#f9a8d4" />
                         <stop offset="100%" stopColor="#7e22ce" />
                       </linearGradient>
                     );
                   } else if (sec1 % 2 === 0) {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#0f172a" />
                         <stop offset="100%" stopColor="#1f2933" />
                       </linearGradient>
                     );
                   } else {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#fb7185" />
                         <stop offset="100%" stopColor="#38bdf8" />
                       </linearGradient>
@@ -2060,21 +2357,42 @@ export default function App(){
                 if (styleKey === "galaxy") {
                   if (sec1 === 1) {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#e5e7eb" />
                         <stop offset="100%" stopColor="#0f172a" />
                       </linearGradient>
                     );
                   } else if (sec1 % 2 === 0) {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#020617" />
                         <stop offset="100%" stopColor="#111827" />
                       </linearGradient>
                     );
                   } else {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#4f46e5" />
                         <stop offset="100%" stopColor="#22d3ee" />
                       </linearGradient>
@@ -2085,21 +2403,42 @@ export default function App(){
                 if (styleKey === "candy") {
                   if (sec1 === 1) {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#fecaca" />
                         <stop offset="100%" stopColor="#f97316" />
                       </linearGradient>
                     );
                   } else if (sec1 % 2 === 0) {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#f9a8d4" />
                         <stop offset="100%" stopColor="#a855f7" />
                       </linearGradient>
                     );
                   } else {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#bef264" />
                         <stop offset="100%" stopColor="#fb7185" />
                       </linearGradient>
@@ -2110,21 +2449,42 @@ export default function App(){
                 if (styleKey === "stealth") {
                   if (sec1 === 1) {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#e5e7eb" />
                         <stop offset="100%" stopColor="#4b5563" />
                       </linearGradient>
                     );
                   } else if (sec1 % 2 === 0) {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#020617" />
                         <stop offset="100%" stopColor="#111827" />
                       </linearGradient>
                     );
                   } else {
                     return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
                         <stop offset="0%" stopColor="#111827" />
                         <stop offset="100%" stopColor="#374151" />
                       </linearGradient>
@@ -2132,161 +2492,236 @@ export default function App(){
                   }
                 }
 
-                // Fallback: classic
                 if (sec1 === 1) {
                   return (
-                    <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                    <linearGradient
+                      id={id}
+                      key={id}
+                      x1="0%"
+                      y1="0%"
+                      x2="0%"
+                      y2="100%"
+                    >
                       <stop offset="0%" stopColor="#43cda3" />
                       <stop offset="100%" stopColor="#490e6d" />
                     </linearGradient>
                   );
                 } else if (sec1 % 2 === 0) {
                   return (
-                    <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                    <linearGradient
+                      id={id}
+                      key={id}
+                      x1="0%"
+                      y1="0%"
+                      x2="0%"
+                      y2="100%"
+                    >
                       <stop offset="0%" stopColor="#404040" />
                       <stop offset="100%" stopColor="#000000" />
                     </linearGradient>
                   );
                 } else {
                   return (
-                    <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                    <linearGradient
+                      id={id}
+                      key={id}
+                      x1="0%"
+                      y1="0%"
+                      x2="0%"
+                      y2="100%"
+                    >
                       <stop offset="0%" stopColor="#ffffff" />
                       <stop offset="100%" stopColor="#a8a8a8" />
                     </linearGradient>
                   );
                 }
               })}
-                  {/* Classic gold rim (default) */}
-    <linearGradient id="rim-classic" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stopColor="#f6e19a" />
-      <stop offset="50%" stopColor="#caa03a" />
-      <stop offset="100%" stopColor="#7a5d19" />
-    </linearGradient>
 
-    {/* I See Red – dark red rim */}
-    <linearGradient id="rim-bloody" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stopColor="#fecaca" />
-      <stop offset="50%" stopColor="#b91c1c" />
-      <stop offset="100%" stopColor="#450a0a" />
-    </linearGradient>
+              <linearGradient id="rim-classic" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#f6e19a" />
+                <stop offset="50%" stopColor="#caa03a" />
+                <stop offset="100%" stopColor="#7a5d19" />
+              </linearGradient>
 
-    {/* Fresh – dark green / emerald rim */}
-    <linearGradient id="rim-emerald" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stopColor="#bbf7d0" />
-      <stop offset="50%" stopColor="#16a34a" />
-      <stop offset="100%" stopColor="#022c22" />
-    </linearGradient>
+              <linearGradient id="rim-bloody" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#fecaca" />
+                <stop offset="50%" stopColor="#b91c1c" />
+                <stop offset="100%" stopColor="#450a0a" />
+              </linearGradient>
 
-    {/* Ice Shards – cold blue rim */}
-    <linearGradient id="rim-ice" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stopColor="#e0f2fe" />
-      <stop offset="50%" stopColor="#38bdf8" />
-      <stop offset="100%" stopColor="#020617" />
-    </linearGradient>
+              <linearGradient
+                id="rim-emerald"
+                x1="0%"
+                y1="0%"
+                x2="0%"
+                y2="100%"
+              >
+                <stop offset="0%" stopColor="#bbf7d0" />
+                <stop offset="50%" stopColor="#16a34a" />
+                <stop offset="100%" stopColor="#022c22" />
+              </linearGradient>
 
-    {/* Emerald Luck – teal / blue rim */}
-    <linearGradient id="rim-cyber" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stopColor="#a7f3d0" />
-      <stop offset="50%" stopColor="#22c55e" />
-      <stop offset="100%" stopColor="#0b1120" />
-    </linearGradient>
+              <linearGradient id="rim-ice" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#e0f2fe" />
+                <stop offset="50%" stopColor="#38bdf8" />
+                <stop offset="100%" stopColor="#020617" />
+              </linearGradient>
 
-    {/* Afterglow – deep purple rim */}
-    <linearGradient id="rim-royal" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stopColor="#e9d5ff" />
-      <stop offset="50%" stopColor="#7c3aed" />
-      <stop offset="100%" stopColor="#1e1b4b" />
-    </linearGradient>
+              <linearGradient
+                id="rim-cyber"
+                x1="0%"
+                y1="0%"
+                x2="0%"
+                y2="100%"
+              >
+                <stop offset="0%" stopColor="#a7f3d0" />
+                <stop offset="50%" stopColor="#22c55e" />
+                <stop offset="100%" stopColor="#0b1120" />
+              </linearGradient>
 
-    {/* Retro Arcade – dark pink → blue rim */}
-    <linearGradient id="rim-retro" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stopColor="#f9a8d4" />
-      <stop offset="50%" stopColor="#fb7185" />
-      <stop offset="100%" stopColor="#38bdf8" />
-    </linearGradient>
+              <linearGradient
+                id="rim-royal"
+                x1="0%"
+                y1="0%"
+                x2="0%"
+                y2="100%"
+              >
+                <stop offset="0%" stopColor="#e9d5ff" />
+                <stop offset="50%" stopColor="#7c3aed" />
+                <stop offset="100%" stopColor="#1e1b4b" />
+              </linearGradient>
 
-    {/* Candy Pop – gold → pink rim */}
-    <linearGradient id="rim-candy" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stopColor="#fef3c7" />
-      <stop offset="50%" stopColor="#f97316" />
-      <stop offset="100%" stopColor="#f472b6" />
-    </linearGradient>
+              <linearGradient
+                id="rim-retro"
+                x1="0%"
+                y1="0%"
+                x2="0%"
+                y2="100%"
+              >
+                <stop offset="0%" stopColor="#f9a8d4" />
+                <stop offset="50%" stopColor="#fb7185" />
+                <stop offset="100%" stopColor="#38bdf8" />
+              </linearGradient>
 
-    {/* Stealth Ops – chrome / dark silver rim */}
-    <linearGradient id="rim-stealth" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stopColor="#e5e7eb" />
-      <stop offset="50%" stopColor="#9ca3af" />
-      <stop offset="100%" stopColor="#020617" />
-    </linearGradient>
+              <linearGradient
+                id="rim-candy"
+                x1="0%"
+                y1="0%"
+                x2="0%"
+                y2="100%"
+              >
+                <stop offset="0%" stopColor="#fef3c7" />
+                <stop offset="50%" stopColor="#f97316" />
+                <stop offset="100%" stopColor="#f472b6" />
+              </linearGradient>
 
-    <filter id="textGlow" x="-50%" y="-50%" width="200%" height="200%">
-      <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#36125e" floodOpacity="1" />
-      <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#36125e" floodOpacity=".85" />
-      <feDropShadow dx="0" dy="0" stdDeviation="10" floodColor="#36125e" floodOpacity=".6" />
-    </filter>
+              <linearGradient
+                id="rim-stealth"
+                x1="0%"
+                y1="0%"
+                x2="0%"
+                y2="100%"
+              >
+                <stop offset="0%" stopColor="#e5e7eb" />
+                <stop offset="50%" stopColor="#9ca3af" />
+                <stop offset="100%" stopColor="#020617" />
+              </linearGradient>
 
+              <filter
+                id="textGlow"
+                x="-50%"
+                y="-50%"
+                width="200%"
+                height="200%"
+              >
+                <feDropShadow
+                  dx="0"
+                  dy="0"
+                  stdDeviation="3"
+                  floodColor="#36125e"
+                  floodOpacity="1"
+                />
+                <feDropShadow
+                  dx="0"
+                  dy="0"
+                  stdDeviation="6"
+                  floodColor="#36125e"
+                  floodOpacity=".85"
+                />
+                <feDropShadow
+                  dx="0"
+                  dy="0"
+                  stdDeviation="10"
+                  floodColor="#36125e"
+                  floodOpacity=".6"
+                />
+              </filter>
             </defs>
 
             <g className="wheel-root" transform={`translate(${cx} ${cy})`}>
-                <circle
-    r={R_TRIM}
-    fill="none"
-    stroke={`url(#${rimGradientId})`}
-    strokeWidth={TRIM_W}
-  />
+              <circle
+                r={R_TRIM}
+                fill="none"
+                stroke={`url(#${rimGradientId})`}
+                strokeWidth={TRIM_W}
+              />
 
-
-              <g className="rotor" data-angle={angleState} transform={`rotate(${START_OFFSET + angleState})`}>
+              <g
+                className="rotor"
+                data-angle={angleState}
+                transform={`rotate(${START_OFFSET + angleState})`}
+              >
                 {wedges.map(({ i, path }) => (
                   <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />
                 ))}
 
-              {wedges.map(({ i, mid, labelR }) => {
-  const sec1 = i + 1;
-  const isMax = sec1 === 1;
-  const baseAmount = slots[i].amount || 0;
-  const shown = baseAmount * prizeMult;
+                {wedges.map(({ i, mid, labelR }) => {
+                  const sec1 = i + 1;
+                  const isMax = sec1 === 1;
+                  const baseAmount = slots[i].amount || 0;
+                  const shown = baseAmount * prizeMult;
 
-  // Special yellow/white logic for certain skins
-  const isYellowStyle =
-    wheelSkin.id === "bloody" ||
-    wheelSkin.id === "emerald" ||
-    wheelSkin.id === "stealth";
+                  const isYellowStyle =
+                    wheelSkin.id === "bloody" ||
+                    wheelSkin.id === "emerald" ||
+                    wheelSkin.id === "stealth";
 
-  let textFill;
-  if (isYellowStyle) {
-    // Lowest denomination stays white, rest yellow
-    if (baseAmount === 1) {
-      textFill = "#ffffff";
-    } else {
-      textFill = "#facc15"; // yellow
-    }
-  } else {
-    // Default logic for all other skins
-    textFill = sec1 === 1 ? "#fff" : sec1 % 2 === 0 ? "#fff" : "#000";
-  }
+                  let textFill;
+                  if (isYellowStyle) {
+                    if (baseAmount === 1) {
+                      textFill = "#ffffff";
+                    } else {
+                      textFill = "#facc15";
+                    }
+                  } else {
+                    textFill =
+                      sec1 === 1
+                        ? "#fff"
+                        : sec1 % 2 === 0
+                        ? "#fff"
+                        : "#000";
+                  }
 
-  const textAngle = (mid + 270) % 360;
-  const flip = textAngle > 90 && textAngle < 270;
+                  const textAngle = (mid + 270) % 360;
+                  const flip = textAngle > 90 && textAngle < 270;
 
-  return (
-    <g key={`t${i}`} transform={`rotate(${mid})`}>
-      <text
-        x={labelR}
-        y={0}
-        transform={flip ? `rotate(180 ${labelR} 0)` : ""}
-        className={`slice-txt ${isMax ? "is-max" : ""}`}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        fill={textFill}
-        filter={isMax ? "url(#textGlow)" : undefined}
-      >
-        {shown}
-      </text>
-    </g>
-  );
-})}
-
+                  return (
+                    <g key={`t${i}`} transform={`rotate(${mid})`}>
+                      <text
+                        x={labelR}
+                        y={0}
+                        transform={flip ? `rotate(180 ${labelR} 0)` : ""}
+                        className={`slice-txt ${isMax ? "is-max" : ""}`}
+                        textAnchor="middle"
+                        dominantBaseline="middle"
+                        fill={textFill}
+                        filter={isMax ? "url(#textGlow)" : undefined}
+                      >
+                        {shown}
+                      </text>
+                    </g>
+                  );
+                })}
               </g>
             </g>
 
@@ -2300,21 +2735,31 @@ export default function App(){
             <div className="center-ring" />
             <div className="center-cap" />
             <img
-  className="center-logo-img"
-  src={getCenterLogoSrc(styleKey)}
-  alt="logo"
-/>
-
+              className="center-logo-img"
+              src={getCenterLogoSrc(styleKey)}
+              alt="logo"
+            />
             <div className="center-gloss" />
           </div>
         </div>
 
         <div className="spin-row tight">
-          <button className="btn-spin" onClick={handleSpin} disabled={spinning || animBusyRef.current || spinsLeft<=0}>
-            <span className="spin-count">{spinsLeft}/{spinCap} <span className="muted">Spins left</span></span>
-            <span className="spin-cta">{spinning ? "Spinning…" : "Spin"}</span>
+          <button
+            className="btn-spin"
+            onClick={handleSpin}
+            disabled={spinning || animBusyRef.current || spinsLeft <= 0}
+          >
+            <span className="spin-count">
+              {spinsLeft}/{spinCap}{" "}
+              <span className="muted">Spins left</span>
+            </span>
+            <span className="spin-cta">
+              {spinning ? "Spinning…" : "Spin"}
+            </span>
             <span className="spin-timer">
-              {spinsLeft<spinCap ? `Next spin in ${formatMs(nextInMs)}` : "Ready"}
+              {spinsLeft < spinCap
+                ? `Next spin in ${formatMs(nextInMs)}`
+                : "Ready"}
             </span>
           </button>
         </div>
@@ -2322,57 +2767,57 @@ export default function App(){
     );
   };
 
-    // ✅ Simple test TON payment (e.g. 0.1 TON)
-  const handleTestTonPayment = async () => {
-    if (!wallet) {
-      setToast({ text: "Connect TON wallet first", key: Date.now() });
-      setTimeout(() => setToast(null), 1500);
-      return;
-    }
-
-    try {
-      // 🔁 valid for 60 seconds
-      const validUntil = Math.floor(Date.now() / 1000) + 60;
-
-      await tonConnectUI.sendTransaction({
-        validUntil,
-        messages: [
-          {
-            // 🔴 IMPORTANT: put your ROFFLE TON address here
-            // Example format: "EQC3....."
-            address: "UQDXJshWTZc6KTvmA3zSlqElus_9LPTRIGz-VFi6Bxt4yXqo",
-            // amount in nanoTON (1 TON = 1e9 nanoTON)
-            // 0.1 TON = 100_000_000
-            amount: "100000000",
-          },
-        ],
-      });
-
-      setToast({ text: "TON payment sent ✅", key: Date.now() });
-      setTimeout(() => setToast(null), 1600);
-    } catch (e) {
-      console.error("TON payment error", e);
-      setToast({ text: "Payment cancelled or failed", key: Date.now() });
-      setTimeout(() => setToast(null), 1600);
-    }
-  };
-
-  const TasksScreen= () => <div className="placeholder-card">🕹 Tasks coming soon…</div>;
+  const TasksScreen = () => (
+    <div className="placeholder-card">🕹 Tasks coming soon…</div>
+  );
 
   const Menu = () => (
     <nav className="bottom-menu">
-      <button className={`menu-item ${tab==="play"?"on":""}`}  onClick={()=>setTab("play")}><span className="mi-emoji">🎮</span><span className="mi-text">Play</span></button>
-      <button className={`menu-item ${tab==="loot"?"on":""}`}  onClick={()=>setTab("loot")}><span className="mi-emoji">🎁</span><span className="mi-text">Loot</span></button>
-      <button className={`menu-item ${tab==="top" ?"on":""}`}  onClick={()=>{ setTab("top"); setLbTab("players"); }} ><span className="mi-emoji">🏆</span><span className="mi-text">Top100</span></button>
-      <button className={`menu-item ${tab==="earn"?"on":""}`}  onClick={()=>setTab("earn")}><span className="mi-emoji">🚀</span><span className="mi-text">Earn</span></button>
-      <button className={`menu-item ${tab==="tasks"?"on":""}`} onClick={()=>setTab("tasks")}><span className="mi-emoji">🕹</span><span className="mi-text">Tasks</span></button>
+      <button
+        className={`menu-item ${tab === "play" ? "on" : ""}`}
+        onClick={() => setTab("play")}
+      >
+        <span className="mi-emoji">🎮</span>
+        <span className="mi-text">Play</span>
+      </button>
+      <button
+        className={`menu-item ${tab === "loot" ? "on" : ""}`}
+        onClick={() => setTab("loot")}
+      >
+        <span className="mi-emoji">🎁</span>
+        <span className="mi-text">Loot</span>
+      </button>
+      <button
+        className={`menu-item ${tab === "top" ? "on" : ""}`}
+        onClick={() => {
+          setTab("top");
+          setLbTab("players");
+        }}
+      >
+        <span className="mi-emoji">🏆</span>
+        <span className="mi-text">Top100</span>
+      </button>
+      <button
+        className={`menu-item ${tab === "earn" ? "on" : ""}`}
+        onClick={() => setTab("earn")}
+      >
+        <span className="mi-emoji">🚀</span>
+        <span className="mi-text">Earn</span>
+      </button>
+      <button
+        className={`menu-item ${tab === "tasks" ? "on" : ""}`}
+        onClick={() => setTab("tasks")}
+      >
+        <span className="mi-emoji">🕹</span>
+        <span className="mi-text">Tasks</span>
+      </button>
     </nav>
   );
 
   const statusBadge = (() => {
     if (tierKey === "free") return { cls: "free", text: "No status" };
     if (tierKey === "plus") return { cls: "premium", text: "Premium⚡️" };
-    if (tierKey === "pro")  return { cls: "plus",    text: "Plus⭐️" };
+    if (tierKey === "pro") return { cls: "plus", text: "Plus⭐️" };
     return { cls: "pro", text: "Pro👑" };
   })();
 
@@ -2395,51 +2840,61 @@ export default function App(){
       {!booting && (
         <div className="compact no-scroll">
           <header className="header">
-          <img src={BRAND_LOGO_SRC} alt="ROFFLE" className="brand-logo" />
-          <div className="header-right">
-          {/* ✅ TON wallet connect button */}
-          <TonConnectButton />
-          </div>
+            <img
+              src={BRAND_LOGO_SRC}
+              alt="ROFFLE"
+              className="brand-logo"
+            />
+            <div className="header-right">
+              <TonConnectButton />
+            </div>
           </header>
 
           <section className="balance-block compacted">
-  <div className="bal-line1">Your $ROF Balance:</div>
-  <div className="bal-line2">
-    <img className="bal-icon" src={ROF_ICON_SRC} alt="$ROF" />
-    <span className="bal-value">{bank}</span>
-  </div>
+            <div className="bal-line1">Your $ROF Balance:</div>
+            <div className="bal-line2">
+              <img className="bal-icon" src={ROF_ICON_SRC} alt="$ROF" />
+              <span className="bal-value">{bank}</span>
+            </div>
 
-  <div className="premium-row">
-    <button className="btn-premium" onClick={()=>setShowPremium(true)}>👑 Go $ROF Premium</button>
-    <span className={`badge ${statusBadge.cls}`}>{statusBadge.text}</span>
-  </div>
+            <div className="premium-row">
+              <button
+                className="btn-premium"
+                onClick={() => setShowPremium(true)}
+              >
+                👑 Go $ROF Premium
+              </button>
+              <span className={`badge ${statusBadge.cls}`}>
+                {statusBadge.text}
+              </span>
+            </div>
 
-  {/* ✅ New TON payment row */}
-  <div className="premium-row">
-    <button
-      className="btn-premium"
-      onClick={handleTestTonPayment}
-    >
-      💎 Pay 0.1 TON (test)
-    </button>
-    {wallet && (
-      <span className="wallet-pill">
-        {wallet.account.address.slice(0, 4)}…{wallet.account.address.slice(-4)}
-      </span>
-    )}
-  </div>
-</section>
-
+            {/* Wallet pill (no more 0.1 TON test button) */}
+            {wallet && (
+              <div className="premium-row">
+                <span className="wallet-pill">
+                  {wallet.account.address.slice(0, 4)}…
+                  {wallet.account.address.slice(-4)}
+                </span>
+              </div>
+            )}
+          </section>
 
           <div className="screen flex-grow">
-            {tab==="play"   && <PlayScreen wheelSkin={wheelSkin} />}
-            {tab==="loot"   && <LootScreen />}
-            {tab==="top"    && <TopScreen lbTab={lbTab} onTabChange={setLbTab} />}
-            {tab==="earn"   && <EarnScreen />}
-            {tab==="tasks"  && <TasksScreen />}
+            {tab === "play" && <PlayScreen wheelSkin={wheelSkin} />}
+            {tab === "loot" && <LootScreen />}
+            {tab === "top" && (
+              <TopScreen lbTab={lbTab} onTabChange={setLbTab} />
+            )}
+            {tab === "earn" && <EarnScreen />}
+            {tab === "tasks" && <TasksScreen />}
           </div>
 
-          {toast && <div key={toast.key} className="toast-win">{toast.text}</div>}
+          {toast && (
+            <div key={toast.key} className="toast-win">
+              {toast.text}
+            </div>
+          )}
 
           <Menu />
         </div>
