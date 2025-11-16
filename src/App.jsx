@@ -1345,6 +1345,29 @@ export default function App(){
 
   const PlayScreen = ({ wheelSkin }) => {
     const styleKey = wheelSkin.id;
+    const rimGradientId = (() => {
+    switch (styleKey) {
+      case "bloody":      // I See Red
+        return "rim-bloody";
+      case "emerald":     // Fresh
+        return "rim-emerald";
+      case "ice":         // Ice Shards
+        return "rim-ice";
+      case "cyber":       // Emerald Luck
+        return "rim-cyber";
+      case "royal":       // Afterglow
+        return "rim-royal";
+      case "retro":       // Retro Arcade
+        return "rim-retro";
+      case "candy":       // Candy Pop
+        return "rim-candy";
+      case "stealth":     // Stealth Ops
+        return "rim-stealth";
+      case "classic":     // Classic ROFFLE
+      default:
+        return "rim-classic";
+    }
+  })();
 
     return (
       <>
@@ -1706,20 +1729,85 @@ export default function App(){
                   );
                 }
               })}
-              <linearGradient id="goldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="#f6e19a" />
-                <stop offset="50%" stopColor="#caa03a" />
-                <stop offset="100%" stopColor="#7a5d19" />
-              </linearGradient>
-              <filter id="textGlow" x="-50%" y="-50%" width="200%" height="200%">
-                <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#36125e" floodOpacity="1" />
-                <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#36125e" floodOpacity=".85" />
-                <feDropShadow dx="0" dy="0" stdDeviation="10" floodColor="#36125e" floodOpacity=".6" />
-              </filter>
+                  {/* Classic gold rim (default) */}
+    <linearGradient id="rim-classic" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stopColor="#f6e19a" />
+      <stop offset="50%" stopColor="#caa03a" />
+      <stop offset="100%" stopColor="#7a5d19" />
+    </linearGradient>
+
+    {/* I See Red – dark red rim */}
+    <linearGradient id="rim-bloody" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stopColor="#fecaca" />
+      <stop offset="50%" stopColor="#b91c1c" />
+      <stop offset="100%" stopColor="#450a0a" />
+    </linearGradient>
+
+    {/* Fresh – dark green / emerald rim */}
+    <linearGradient id="rim-emerald" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stopColor="#bbf7d0" />
+      <stop offset="50%" stopColor="#16a34a" />
+      <stop offset="100%" stopColor="#022c22" />
+    </linearGradient>
+
+    {/* Ice Shards – cold blue rim */}
+    <linearGradient id="rim-ice" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stopColor="#e0f2fe" />
+      <stop offset="50%" stopColor="#38bdf8" />
+      <stop offset="100%" stopColor="#020617" />
+    </linearGradient>
+
+    {/* Emerald Luck – teal / blue rim */}
+    <linearGradient id="rim-cyber" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stopColor="#a7f3d0" />
+      <stop offset="50%" stopColor="#22c55e" />
+      <stop offset="100%" stopColor="#0b1120" />
+    </linearGradient>
+
+    {/* Afterglow – deep purple rim */}
+    <linearGradient id="rim-royal" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stopColor="#e9d5ff" />
+      <stop offset="50%" stopColor="#7c3aed" />
+      <stop offset="100%" stopColor="#1e1b4b" />
+    </linearGradient>
+
+    {/* Retro Arcade – dark pink → blue rim */}
+    <linearGradient id="rim-retro" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stopColor="#f9a8d4" />
+      <stop offset="50%" stopColor="#fb7185" />
+      <stop offset="100%" stopColor="#38bdf8" />
+    </linearGradient>
+
+    {/* Candy Pop – gold → pink rim */}
+    <linearGradient id="rim-candy" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stopColor="#fef3c7" />
+      <stop offset="50%" stopColor="#f97316" />
+      <stop offset="100%" stopColor="#f472b6" />
+    </linearGradient>
+
+    {/* Stealth Ops – chrome / dark silver rim */}
+    <linearGradient id="rim-stealth" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stopColor="#e5e7eb" />
+      <stop offset="50%" stopColor="#9ca3af" />
+      <stop offset="100%" stopColor="#020617" />
+    </linearGradient>
+
+    <filter id="textGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#36125e" floodOpacity="1" />
+      <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#36125e" floodOpacity=".85" />
+      <feDropShadow dx="0" dy="0" stdDeviation="10" floodColor="#36125e" floodOpacity=".6" />
+    </filter>
+
             </defs>
 
             <g className="wheel-root" transform={`translate(${cx} ${cy})`}>
-              <circle r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
+                <circle
+    r={R_TRIM}
+    fill="none"
+    stroke={`url(#${rimGradientId})`}
+    strokeWidth={TRIM_W}
+  />
+
 
               <g className="rotor" data-angle={angleState} transform={`rotate(${START_OFFSET + angleState})`}>
                 {wedges.map(({ i, path }) => (
