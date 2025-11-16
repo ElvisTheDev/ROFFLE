@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { TonConnectButton } from "@tonconnect/ui-react";   //  TW
+import { TonConnectButton, useTonConnectUI, useTonWallet } from "@tonconnect/ui-react"; // ✅ NEW
 import { supabase } from "./supabaseClient";
+
 
 
 /* ================= CORE WHEEL CONSTANTS ================= */
@@ -587,6 +588,10 @@ export default function App(){
   const [bank,setBank] = useState(0);
   const [tgId, setTgId] = useState(null);
   const [invitesCount, setInvitesCount] = useState(0);
+
+  // ✅ TON wallet & UI (from TonConnect)
+  const [tonConnectUI] = useTonConnectUI();
+  const wallet = useTonWallet();
 
   // Skins: wheel + background
   const [wheelSkinId, setWheelSkinId] = useState("classic");
@@ -1935,6 +1940,41 @@ export default function App(){
     );
   };
 
+    // ✅ Simple test TON payment (e.g. 0.1 TON)
+  const handleTestTonPayment = async () => {
+    if (!wallet) {
+      setToast({ text: "Connect TON wallet first", key: Date.now() });
+      setTimeout(() => setToast(null), 1500);
+      return;
+    }
+
+    try {
+      // 🔁 valid for 60 seconds
+      const validUntil = Math.floor(Date.now() / 1000) + 60;
+
+      await tonConnectUI.sendTransaction({
+        validUntil,
+        messages: [
+          {
+            // 🔴 IMPORTANT: put your ROFFLE TON address here
+            // Example format: "EQC3....."
+            address: "UQDXJshWTZc6KTvmA3zSlqElus_9LPTRIGz-VFi6Bxt4yXqo",
+            // amount in nanoTON (1 TON = 1e9 nanoTON)
+            // 0.1 TON = 100_000_000
+            amount: "100000000",
+          },
+        ],
+      });
+
+      setToast({ text: "TON payment sent ✅", key: Date.now() });
+      setTimeout(() => setToast(null), 1600);
+    } catch (e) {
+      console.error("TON payment error", e);
+      setToast({ text: "Payment cancelled or failed", key: Date.now() });
+      setTimeout(() => setToast(null), 1600);
+    }
+  };
+
   const TasksScreen= () => <div className="placeholder-card">🕹 Tasks coming soon…</div>;
 
   const Menu = () => (
@@ -1981,17 +2021,33 @@ export default function App(){
           </header>
 
           <section className="balance-block compacted">
-            <div className="bal-line1">Your $ROF Balance:</div>
-            <div className="bal-line2">
-              <img className="bal-icon" src={ROF_ICON_SRC} alt="$ROF" />
-              <span className="bal-value">{bank}</span>
-            </div>
+  <div className="bal-line1">Your $ROF Balance:</div>
+  <div className="bal-line2">
+    <img className="bal-icon" src={ROF_ICON_SRC} alt="$ROF" />
+    <span className="bal-value">{bank}</span>
+  </div>
 
-            <div className="premium-row">
-              <button className="btn-premium" onClick={()=>setShowPremium(true)}>👑 Go $ROF Premium</button>
-              <span className={`badge ${statusBadge.cls}`}>{statusBadge.text}</span>
-            </div>
-          </section>
+  <div className="premium-row">
+    <button className="btn-premium" onClick={()=>setShowPremium(true)}>👑 Go $ROF Premium</button>
+    <span className={`badge ${statusBadge.cls}`}>{statusBadge.text}</span>
+  </div>
+
+  {/* ✅ New TON payment row */}
+  <div className="premium-row">
+    <button
+      className="btn-premium"
+      onClick={handleTestTonPayment}
+    >
+      💎 Pay 0.1 TON (test)
+    </button>
+    {wallet && (
+      <span className="wallet-pill">
+        {wallet.account.address.slice(0, 4)}…{wallet.account.address.slice(-4)}
+      </span>
+    )}
+  </div>
+</section>
+
 
           <div className="screen flex-grow">
             {tab==="play"   && <PlayScreen wheelSkin={wheelSkin} />}
