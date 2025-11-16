@@ -1199,13 +1199,9 @@ export default function App(){
                       <div className="loot-preview" style={previewStyle} />
                       <div className="loot-text">
                         <div className="loot-row-name">
-                          {skin.name}
-                          {skin.rarity && (
-                            <span className="loot-row-rarity">
-                              {skin.rarity}
-                            </span>
-                          )}
-                        </div>
+  {skin.name}
+</div>
+
                         <div className="loot-row-tag">{skin.tagline}</div>
                       </div>
                     </div>
@@ -1730,33 +1726,52 @@ export default function App(){
                   <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />
                 ))}
 
-                {wedges.map(({ i, mid, labelR }) => {
-                  const sec1 = i + 1;
-                  const isMax = sec1 === 1;
-                  const baseAmount = slots[i].amount || 0;
-                  const shown = baseAmount * prizeMult;
+              {wedges.map(({ i, mid, labelR }) => {
+  const sec1 = i + 1;
+  const isMax = sec1 === 1;
+  const baseAmount = slots[i].amount || 0;
+  const shown = baseAmount * prizeMult;
 
-                  const textFill = sec1 === 1 ? "#fff" : sec1 % 2 === 0 ? "#fff" : "#000";
-                  const textAngle = (mid + 270) % 360;
-                  const flip = textAngle > 90 && textAngle < 270;
+  // Special yellow/white logic for certain skins
+  const isYellowStyle =
+    wheelSkin.id === "bloody" ||
+    wheelSkin.id === "emerald" ||
+    wheelSkin.id === "stealth";
 
-                  return (
-                    <g key={`t${i}`} transform={`rotate(${mid})`}>
-                      <text
-                        x={labelR}
-                        y={0}
-                        transform={flip ? `rotate(180 ${labelR} 0)` : ""}
-                        className={`slice-txt ${isMax ? "is-max" : ""}`}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                        fill={textFill}
-                        filter={isMax ? "url(#textGlow)" : undefined}
-                      >
-                        {shown}
-                      </text>
-                    </g>
-                  );
-                })}
+  let textFill;
+  if (isYellowStyle) {
+    // Lowest denomination stays white, rest yellow
+    if (baseAmount === 1) {
+      textFill = "#ffffff";
+    } else {
+      textFill = "#facc15"; // yellow
+    }
+  } else {
+    // Default logic for all other skins
+    textFill = sec1 === 1 ? "#fff" : sec1 % 2 === 0 ? "#fff" : "#000";
+  }
+
+  const textAngle = (mid + 270) % 360;
+  const flip = textAngle > 90 && textAngle < 270;
+
+  return (
+    <g key={`t${i}`} transform={`rotate(${mid})`}>
+      <text
+        x={labelR}
+        y={0}
+        transform={flip ? `rotate(180 ${labelR} 0)` : ""}
+        className={`slice-txt ${isMax ? "is-max" : ""}`}
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fill={textFill}
+        filter={isMax ? "url(#textGlow)" : undefined}
+      >
+        {shown}
+      </text>
+    </g>
+  );
+})}
+
               </g>
             </g>
 
