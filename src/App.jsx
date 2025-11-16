@@ -20,116 +20,6 @@ const TIERS = {
 };
 const TEST_PRICE_COINS = 1;
 
-/* ================= SKINS CONFIG ================= */
-
-/* 13 wheel skins (themes); visuals are driven by id in the SVG + preview helper */
-const WHEEL_SKINS = [
-  {
-    id: "classic",
-    name: "Classic ROFFLE",
-    tagline: "Gold max, black & silver fillers",
-  },
-  {
-    id: "bloody",
-    name: "I See Red",
-    tagline: "Red & black degen casino heat",
-  },
-  {
-    id: "emerald",
-    name: "Fresh",
-    tagline: "Green mint & cool summer vibes",
-  },
-  {
-    id: "ice",
-    name: "Ice Shards",
-    tagline: "Frozen blues & white shards",
-  },
-  {
-    id: "cyber",
-    name: "Emerald Luck",
-    tagline: "Matrix-style emerald grid of luck",
-  },
-  {
-    id: "royal",
-    name: "Afterglow",
-    tagline: "Deep purple haze after the win",
-  },
-  {
-    id: "retro",
-    name: "Retro Arcade",
-    tagline: "80s pinks, blues & scanlines",
-  },
-  {
-    id: "candy",
-    name: "Candy Pop",
-    tagline: "Bubblegum and sweet jackpots",
-  },
-  {
-    id: "stealth",
-    name: "Stealth Ops",
-    tagline: "Dark mode with tactical shine",
-  },
-];
-
-
-/* Background skins (ROF Mood) */
-const BG_SKINS = [
-  {
-    id: "default",
-    name: "Default ROFFLE",
-    tagline: "Original ROFFLE backdrop",
-    file: "/app-bg.png",
-  },
-  {
-    id: "space",
-    name: "Cosmic Space",
-    tagline: "Stars, nebulas & ROF dust",
-    file: "/app-bg-space.png",
-  },
-  {
-    id: "bc",
-    name: "Blockchain Grid",
-    tagline: "Techno lines & degen shine",
-    file: "/app-bg-bc.png",
-  },
-  {
-    id: "poker",
-    name: "Poker Night",
-    tagline: "Cards, chips & high stakes",
-    file: "/app-bg-poker.png",
-  },
-  {
-    id: "jamaica",
-    name: "Jamaica Vibes",
-    tagline: "Green, gold & red holiday mood",
-    file: "/app-bg-jamaica.png",
-  },
-  {
-    id: "sg",
-    name: "Singapore Nights",
-    tagline: "Neon skyline over the bay",
-    file: "/app-bg-sg.png",
-  },
-  {
-    id: "vert",
-    name: "Vertical Waves",
-    tagline: "Abstract gradient pillars",
-    file: "/app-bg-vert.png",
-  },
-  {
-    id: "mx",
-    name: "Mexico Fiesta",
-    tagline: "Warm lights & festival vibes",
-    file: "/app-bg-mx.png",
-  },
-  {
-    id: "stars",
-    name: "Starfield",
-    tagline: "Minimal deep-space starfield",
-    file: "/app-bg-stars.png",
-  },
-];
-
 /* Tier ranking: used to prevent downgrade */
 const TIER_ORDER = { free: 0, plus: 1, pro: 2, prem: 3 };
 
@@ -496,94 +386,12 @@ const TopScreen = React.memo(
   (prev, next) => prev.lbTab === next.lbTab
 );
 
-/* Helper for wheel skin preview (40x40 squircle) */
-function getWheelPreviewStyle(skin) {
-  const styleKey = skin.id;
-  if (styleKey === "classic") {
-    return { backgroundImage: "linear-gradient(135deg,#ffffff,#a8a8a8)" };
-  }
-  if (styleKey === "neon") {
-    return { backgroundImage: "linear-gradient(135deg,#19FB9B,#b50be5)" };
-  }
-  if (styleKey === "bloody") {
-    return { backgroundImage: "linear-gradient(135deg,#b91c1c,#111827)" };
-  }
-  if (styleKey === "emerald") {
-    return { backgroundImage: "linear-gradient(135deg,#bbf7d0,#166534)" };
-  }
-  if (styleKey === "ice") {
-    return { backgroundImage: "linear-gradient(135deg,#e0f2fe,#0369a1)" };
-  }
-  if (styleKey === "lava") {
-    return { backgroundImage: "linear-gradient(135deg,#f97316,#7f1d1d)" };
-  }
-  if (styleKey === "cyber") {
-    return { backgroundImage: "linear-gradient(135deg,#22c55e,#4c1d95)" };
-  }
-  if (styleKey === "royal") {
-    return { backgroundImage: "linear-gradient(135deg,#7c3aed,#fbbf24)" };
-  }
-  if (styleKey === "toxic") {
-    return { backgroundImage: "linear-gradient(135deg,#22c55e,#a3e635)" };
-  }
-  if (styleKey === "retro") {
-    return { backgroundImage: "linear-gradient(135deg,#fb7185,#38bdf8)" };
-  }
-  if (styleKey === "galaxy") {
-    return { backgroundImage: "linear-gradient(135deg,#4f46e5,#22d3ee)" };
-  }
-  if (styleKey === "candy") {
-    return { backgroundImage: "linear-gradient(135deg,#f9a8d4,#bef264)" };
-  }
-  if (styleKey === "stealth") {
-    return { backgroundImage: "linear-gradient(135deg,#111827,#4b5563)" };
-  }
-  return { backgroundColor: "#111827" };
-}
-
 /* ==================== APP ==================== */
 export default function App(){
   const slots = useMemo(buildSlots, []);
   const [bank,setBank] = useState(0);
   const [tgId, setTgId] = useState(null);
   const [invitesCount, setInvitesCount] = useState(0);
-
-  // Skins: wheel + background
-  const [wheelSkinId, setWheelSkinId] = useState("classic");
-  const [bgSkinId, setBgSkinId] = useState("default");
-
-  const wheelSkin = useMemo(
-    () => WHEEL_SKINS.find((s) => s.id === wheelSkinId) || WHEEL_SKINS[0],
-    [wheelSkinId]
-  );
-  const bgSkin = useMemo(
-    () => BG_SKINS.find((s) => s.id === bgSkinId) || BG_SKINS[0],
-    [bgSkinId]
-  );
-
-  // Store skins in localStorage
-  useEffect(() => {
-    try {
-      const savedWheel = localStorage.getItem("rof_wheel_skin");
-      const savedBg = localStorage.getItem("rof_bg_skin");
-      if (savedWheel && WHEEL_SKINS.some((s) => s.id === savedWheel)) {
-        setWheelSkinId(savedWheel);
-      }
-      if (savedBg && BG_SKINS.some((s) => s.id === savedBg)) {
-        setBgSkinId(savedBg);
-      }
-    } catch {}
-  }, []);
-
-  const equipWheelSkin = (id) => {
-    setWheelSkinId(id);
-    try { localStorage.setItem("rof_wheel_skin", id); } catch {}
-  };
-
-  const equipBgSkin = (id) => {
-    setBgSkinId(id);
-    try { localStorage.setItem("rof_bg_skin", id); } catch {}
-  };
 
   /* Premium state */
   const [tierKey, setTierKey] = useState("free");
@@ -613,9 +421,6 @@ export default function App(){
 
   /* Leaderboard UI */
   const [lbTab, setLbTab] = useState("players");
-
-  /* Loot tabs: ROF Skins / ROF Mood / Collectibles */
-  const [lootTab, setLootTab] = useState("skins");
 
   /* Earn / referrals */
   const [myRefLink,setMyRefLink] = useState("");
@@ -1159,120 +964,7 @@ export default function App(){
     );
   };
 
-  const LootScreen = () => {
-    return (
-      <div className="loot-wrap">
-        <div className="loot-tabs">
-          <button
-            className={`loot-tab ${lootTab === "skins" ? "on" : ""}`}
-            onClick={() => setLootTab("skins")}
-          >
-            ROF Skins
-          </button>
-          <button
-            className={`loot-tab ${lootTab === "mood" ? "on" : ""}`}
-            onClick={() => setLootTab("mood")}
-          >
-            ROF Mood
-          </button>
-          <button
-            className={`loot-tab ${lootTab === "collectibles" ? "on" : ""}`}
-            onClick={() => setLootTab("collectibles")}
-          >
-            Collectibles
-          </button>
-        </div>
-
-        {lootTab === "skins" && (
-          <div className="loot-section">
-            <div className="loot-title">🎨 Wheel Skins</div>
-            <div className="loot-list">
-              {WHEEL_SKINS.map((skin) => {
-                const isActive = skin.id === wheelSkinId;
-                const previewStyle = getWheelPreviewStyle(skin);
-                return (
-                  <div
-                    key={skin.id}
-                    className={`loot-row ${isActive ? "active" : ""}`}
-                  >
-                    <div className="loot-left">
-                      <div className="loot-preview" style={previewStyle} />
-                      <div className="loot-text">
-                        <div className="loot-row-name">
-  {skin.name}
-</div>
-
-                        <div className="loot-row-tag">{skin.tagline}</div>
-                      </div>
-                    </div>
-                    <div className="loot-right">
-                      <div className="loot-price">Free (test)</div>
-                      <button
-                        className="loot-btn gradient-outline-btn"
-                        disabled={isActive}
-                        onClick={() => equipWheelSkin(skin.id)}
-                      >
-                        {isActive ? "Equipped" : "Buy"}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {lootTab === "mood" && (
-          <div className="loot-section">
-            <div className="loot-title">🖼 Background Skins</div>
-            <div className="loot-list">
-              {BG_SKINS.map((skin) => {
-                const isActive = skin.id === bgSkinId;
-                const previewStyle = {
-                  backgroundImage: `url(${skin.file})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                };
-                return (
-                  <div
-                    key={skin.id}
-                    className={`loot-row ${isActive ? "active" : ""}`}
-                  >
-                    <div className="loot-left">
-                      <div className="loot-preview" style={previewStyle} />
-                      <div className="loot-text">
-                        <div className="loot-row-name">{skin.name}</div>
-                        <div className="loot-row-tag">{skin.tagline}</div>
-                      </div>
-                    </div>
-                    <div className="loot-right">
-                      <div className="loot-price">Free (test)</div>
-                      <button
-                        className="loot-btn gradient-outline-btn"
-                        disabled={isActive}
-                        onClick={() => equipBgSkin(skin.id)}
-                      >
-                        {isActive ? "Equipped" : "Buy"}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {lootTab === "collectibles" && (
-          <div className="loot-section">
-            <div className="loot-title">🎁 Collectibles</div>
-            <div className="placeholder-card">
-              Collectibles coming soon…
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
+  const LootScreen = () => <div className="placeholder-card">🎁 Lootboxes coming soon…</div>;
 
   function AvatarInline({name, photo}){
     if (photo) return <img className="lb-avatar" src={photo} alt={name} />;
@@ -1343,464 +1035,111 @@ export default function App(){
     );
   };
 
-  const PlayScreen = ({ wheelSkin }) => {
-    const styleKey = wheelSkin.id;
+  const PlayScreen = () => (
+    <>
+      <div className="wheel-wrap compact-no-scroll">
+        <svg className="wheel-svg" viewBox="0 0 1000 1000" aria-hidden>
+          <defs>
+            {Array.from({ length: SEGMENTS_TOTAL }, (_, i) => {
+              const sec1 = i + 1;
+              const id = `grad-${i}`;
+              if (sec1 === 1)
+                return (
+                  <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#43cda3" />
+                    <stop offset="100%" stopColor="#490e6d" />
+                  </linearGradient>
+                );
+              else if (sec1 % 2 === 0)
+                return (
+                  <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#404040" />
+                    <stop offset="100%" stopColor="#000000" />
+                  </linearGradient>
+                );
+              else
+                return (
+                  <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#ffffff" />
+                    <stop offset="100%" stopColor="#a8a8a8" />
+                  </linearGradient>
+                );
+            })}
+            <linearGradient id="goldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#f6e19a" />
+              <stop offset="50%" stopColor="#caa03a" />
+              <stop offset="100%" stopColor="#7a5d19" />
+            </linearGradient>
+            <filter id="textGlow" x="-50%" y="-50%" width="200%" height="200%">
+              <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#36125e" floodOpacity="1" />
+              <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#36125e" floodOpacity=".85" />
+              <feDropShadow dx="0" dy="0" stdDeviation="10" floodColor="#36125e" floodOpacity=".6" />
+            </filter>
+          </defs>
 
-    return (
-      <>
-        <div className="wheel-wrap compact-no-scroll">
-          <svg className="wheel-svg" viewBox="0 0 1000 1000" aria-hidden>
-            <defs>
-              {Array.from({ length: SEGMENTS_TOTAL }, (_, i) => {
-                const sec1 = i + 1;
-                const id = `grad-${i}`;
+          <g className="wheel-root" transform={`translate(${cx} ${cy})`}>
+            <circle r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
 
-                // Different gradient families per styleKey
-                if (styleKey === "classic") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#43cda3" />
-                        <stop offset="100%" stopColor="#490e6d" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#404040" />
-                        <stop offset="100%" stopColor="#000000" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#ffffff" />
-                        <stop offset="100%" stopColor="#a8a8a8" />
-                      </linearGradient>
-                    );
-                  }
-                }
-
-                if (styleKey === "neon") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#19FB9B" />
-                        <stop offset="50%" stopColor="#5ce1e6" />
-                        <stop offset="100%" stopColor="#b50be5" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#111827" />
-                        <stop offset="100%" stopColor="#312e81" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#0f172a" />
-                        <stop offset="100%" stopColor="#22d3ee" />
-                      </linearGradient>
-                    );
-                  }
-                }
-
-                if (styleKey === "bloody") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#ffef9a" />
-                        <stop offset="100%" stopColor="#c2410c" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#7f1d1d" />
-                        <stop offset="100%" stopColor="#111827" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#b91c1c" />
-                        <stop offset="100%" stopColor="#000000" />
-                      </linearGradient>
-                    );
-                  }
-                }
-
-                if (styleKey === "emerald") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#bbf7d0" />
-                        <stop offset="100%" stopColor="#166534" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#064e3b" />
-                        <stop offset="100%" stopColor="#020617" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#16a34a" />
-                        <stop offset="100%" stopColor="#052e16" />
-                      </linearGradient>
-                    );
-                  }
-                }
-
-                if (styleKey === "ice") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#e0f2fe" />
-                        <stop offset="100%" stopColor="#0369a1" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#0f172a" />
-                        <stop offset="100%" stopColor="#0b1120" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#38bdf8" />
-                        <stop offset="100%" stopColor="#e0f2fe" />
-                      </linearGradient>
-                    );
-                  }
-                }
-
-                if (styleKey === "lava") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#fee2e2" />
-                        <stop offset="100%" stopColor="#b91c1c" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#7f1d1d" />
-                        <stop offset="100%" stopColor="#111827" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#f97316" />
-                        <stop offset="100%" stopColor="#450a0a" />
-                      </linearGradient>
-                    );
-                  }
-                }
-
-                if (styleKey === "cyber") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#22c55e" />
-                        <stop offset="100%" stopColor="#4c1d95" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#020617" />
-                        <stop offset="100%" stopColor="#111827" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#22c55e" />
-                        <stop offset="100%" stopColor="#22d3ee" />
-                      </linearGradient>
-                    );
-                  }
-                }
-
-                if (styleKey === "royal") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#f5e7ff" />
-                        <stop offset="100%" stopColor="#5b21b6" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#1e1b4b" />
-                        <stop offset="100%" stopColor="#020617" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#7c3aed" />
-                        <stop offset="100%" stopColor="#fbbf24" />
-                      </linearGradient>
-                    );
-                  }
-                }
-
-                if (styleKey === "toxic") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#ecfccb" />
-                        <stop offset="100%" stopColor="#65a30d" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#14532d" />
-                        <stop offset="100%" stopColor="#022c22" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#22c55e" />
-                        <stop offset="100%" stopColor="#a3e635" />
-                      </linearGradient>
-                    );
-                  }
-                }
-
-                if (styleKey === "retro") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#f9a8d4" />
-                        <stop offset="100%" stopColor="#7e22ce" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#0f172a" />
-                        <stop offset="100%" stopColor="#1f2933" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#fb7185" />
-                        <stop offset="100%" stopColor="#38bdf8" />
-                      </linearGradient>
-                    );
-                  }
-                }
-
-                if (styleKey === "galaxy") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#e5e7eb" />
-                        <stop offset="100%" stopColor="#0f172a" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#020617" />
-                        <stop offset="100%" stopColor="#111827" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#4f46e5" />
-                        <stop offset="100%" stopColor="#22d3ee" />
-                      </linearGradient>
-                    );
-                  }
-                }
-
-                if (styleKey === "candy") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#fecaca" />
-                        <stop offset="100%" stopColor="#f97316" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#f9a8d4" />
-                        <stop offset="100%" stopColor="#a855f7" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#bef264" />
-                        <stop offset="100%" stopColor="#fb7185" />
-                      </linearGradient>
-                    );
-                  }
-                }
-
-                if (styleKey === "stealth") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#e5e7eb" />
-                        <stop offset="100%" stopColor="#4b5563" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#020617" />
-                        <stop offset="100%" stopColor="#111827" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#111827" />
-                        <stop offset="100%" stopColor="#374151" />
-                      </linearGradient>
-                    );
-                  }
-                }
-
-                // Fallback: classic
-                if (sec1 === 1) {
-                  return (
-                    <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%" stopColor="#43cda3" />
-                      <stop offset="100%" stopColor="#490e6d" />
-                    </linearGradient>
-                  );
-                } else if (sec1 % 2 === 0) {
-                  return (
-                    <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%" stopColor="#404040" />
-                      <stop offset="100%" stopColor="#000000" />
-                    </linearGradient>
-                  );
-                } else {
-                  return (
-                    <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%" stopColor="#ffffff" />
-                      <stop offset="100%" stopColor="#a8a8a8" />
-                    </linearGradient>
-                  );
-                }
-              })}
-              <linearGradient id="goldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="#f6e19a" />
-                <stop offset="50%" stopColor="#caa03a" />
-                <stop offset="100%" stopColor="#7a5d19" />
-              </linearGradient>
-              <filter id="textGlow" x="-50%" y="-50%" width="200%" height="200%">
-                <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#36125e" floodOpacity="1" />
-                <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#36125e" floodOpacity=".85" />
-                <feDropShadow dx="0" dy="0" stdDeviation="10" floodColor="#36125e" floodOpacity=".6" />
-              </filter>
-            </defs>
-
-            <g className="wheel-root" transform={`translate(${cx} ${cy})`}>
-              <circle r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
-
-              <g className="rotor" data-angle={angleState} transform={`rotate(${START_OFFSET + angleState})`}>
-                {wedges.map(({ i, path }) => (
-                  <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />
-                ))}
+            <g className="rotor" data-angle={angleState} transform={`rotate(${START_OFFSET + angleState})`}>
+              {wedges.map(({ i, path }) => (
+                <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />
+              ))}
 
               {wedges.map(({ i, mid, labelR }) => {
-  const sec1 = i + 1;
-  const isMax = sec1 === 1;
-  const baseAmount = slots[i].amount || 0;
-  const shown = baseAmount * prizeMult;
+                const sec1 = i + 1;
+                const isMax = sec1 === 1;
+                const baseAmount = slots[i].amount || 0;
+                const shown = baseAmount * prizeMult;
 
-  // Special yellow/white logic for certain skins
-  const isYellowStyle =
-    wheelSkin.id === "bloody" ||
-    wheelSkin.id === "emerald" ||
-    wheelSkin.id === "stealth";
+                const textFill = sec1 === 1 ? "#fff" : sec1 % 2 === 0 ? "#fff" : "#000";
+                const textAngle = (mid + 270) % 360;
+                const flip = textAngle > 90 && textAngle < 270;
 
-  let textFill;
-  if (isYellowStyle) {
-    // Lowest denomination stays white, rest yellow
-    if (baseAmount === 1) {
-      textFill = "#ffffff";
-    } else {
-      textFill = "#facc15"; // yellow
-    }
-  } else {
-    // Default logic for all other skins
-    textFill = sec1 === 1 ? "#fff" : sec1 % 2 === 0 ? "#fff" : "#000";
-  }
-
-  const textAngle = (mid + 270) % 360;
-  const flip = textAngle > 90 && textAngle < 270;
-
-  return (
-    <g key={`t${i}`} transform={`rotate(${mid})`}>
-      <text
-        x={labelR}
-        y={0}
-        transform={flip ? `rotate(180 ${labelR} 0)` : ""}
-        className={`slice-txt ${isMax ? "is-max" : ""}`}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        fill={textFill}
-        filter={isMax ? "url(#textGlow)" : undefined}
-      >
-        {shown}
-      </text>
-    </g>
-  );
-})}
-
-              </g>
+                return (
+                  <g key={`t${i}`} transform={`rotate(${mid})`}>
+                    <text
+                      x={labelR}
+                      y={0}
+                      transform={flip ? `rotate(180 ${labelR} 0)` : ""}
+                      className={`slice-txt ${isMax ? "is-max" : ""}`}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      fill={textFill}
+                      filter={isMax ? "url(#textGlow)" : undefined}
+                    >
+                      {shown}
+                    </text>
+                  </g>
+                );
+              })}
             </g>
+          </g>
 
-            <polygon
-              className="pointer"
-              points={`${cx - 18},${pointerBaseY} ${cx + 18},${pointerBaseY} ${cx},${pointerTipY}`}
-            />
-          </svg>
+          <polygon
+            className="pointer"
+            points={`${cx - 18},${pointerBaseY} ${cx + 18},${pointerBaseY} ${cx},${pointerTipY}`}
+          />
+        </svg>
 
-          <div className="center-stack">
-            <div className="center-ring" />
-            <div className="center-cap" />
-            <img className="center-logo-img" src={CENTER_LOGO_SRC} alt="logo" />
-            <div className="center-gloss" />
-          </div>
+        <div className="center-stack">
+          <div className="center-ring" />
+          <div className="center-cap" />
+          <img className="center-logo-img" src={CENTER_LOGO_SRC} alt="logo" />
+          <div className="center-gloss" />
         </div>
+      </div>
 
-        <div className="spin-row tight">
-          <button className="btn-spin" onClick={handleSpin} disabled={spinning || animBusyRef.current || spinsLeft<=0}>
-            <span className="spin-count">{spinsLeft}/{spinCap} <span className="muted">Spins left</span></span>
-            <span className="spin-cta">{spinning ? "Spinning…" : "Spin"}</span>
-            <span className="spin-timer">
-              {spinsLeft<spinCap ? `Next spin in ${formatMs(nextInMs)}` : "Ready"}
-            </span>
-          </button>
-        </div>
-      </>
-    );
-  };
+      <div className="spin-row tight">
+        <button className="btn-spin" onClick={handleSpin} disabled={spinning || animBusyRef.current || spinsLeft<=0}>
+          <span className="spin-count">{spinsLeft}/{spinCap} <span className="muted">Spins left</span></span>
+          <span className="spin-cta">{spinning ? "Spinning…" : "Spin"}</span>
+          <span className="spin-timer">
+            {spinsLeft<spinCap ? `Next spin in ${formatMs(nextInMs)}` : "Ready"}
+          </span>
+        </button>
+      </div>
+    </>
+  );
 
   const TasksScreen= () => <div className="placeholder-card">🕹 Tasks coming soon…</div>;
 
@@ -1822,14 +1161,7 @@ export default function App(){
   })();
 
   return (
-    <div
-      className={`tg-app bg-img ${showPremium ? "modal-open" : ""}`}
-      style={{
-        "--bg": theme.bg,
-        "--text": theme.text,
-        "--bg-url": `url("${bgSkin.file}")`,
-      }}
-    >
+    <div className={`tg-app bg-img ${showPremium ? "modal-open" : ""}`} style={{"--bg":theme.bg,"--text":theme.text}}>
       {booting && (
         <div className="splash">
           <img src={BRAND_LOGO_SRC} alt="ROFFLE" />
@@ -1858,7 +1190,7 @@ export default function App(){
           </section>
 
           <div className="screen flex-grow">
-            {tab==="play"   && <PlayScreen wheelSkin={wheelSkin} />}
+            {tab==="play"   && <PlayScreen />}
             {tab==="loot"   && <LootScreen />}
             {tab==="top"    && <TopScreen lbTab={lbTab} onTabChange={setLbTab} />}
             {tab==="earn"   && <EarnScreen />}
