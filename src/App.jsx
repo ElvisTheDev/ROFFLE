@@ -28,81 +28,49 @@ const WHEEL_SKINS = [
     id: "classic",
     name: "Classic ROFFLE",
     tagline: "Gold max, black & silver fillers",
-    rarity: "Common",
-  },
-  {
-    id: "neon",
-    name: "Neon Solana",
-    tagline: "Purple & teal cyber glow",
-    rarity: "Rare",
   },
   {
     id: "bloody",
-    name: "Bloody Casino",
-    tagline: "Deep red & black high roller",
-    rarity: "Epic",
+    name: "I See Red",
+    tagline: "Red & black degen casino heat",
   },
   {
     id: "emerald",
-    name: "Emerald Oasis",
-    tagline: "Green gemstones & desert gold",
-    rarity: "Rare",
+    name: "Fresh",
+    tagline: "Green mint & cool summer vibes",
   },
   {
     id: "ice",
     name: "Ice Shards",
     tagline: "Frozen blues & white shards",
-    rarity: "Rare",
-  },
-  {
-    id: "lava",
-    name: "Lava Forge",
-    tagline: "Molten reds & orange streaks",
-    rarity: "Epic",
   },
   {
     id: "cyber",
-    name: "Cyber Grid",
-    tagline: "Neon lines & dark grid",
-    rarity: "Epic",
+    name: "Emerald Luck",
+    tagline: "Matrix-style emerald grid of luck",
   },
   {
     id: "royal",
-    name: "Royal Purple",
-    tagline: "Purple velvet & gold trims",
-    rarity: "Legendary",
-  },
-  {
-    id: "toxic",
-    name: "Toxic Slime",
-    tagline: "Acid green & void black",
-    rarity: "Epic",
+    name: "Afterglow",
+    tagline: "Deep purple haze after the win",
   },
   {
     id: "retro",
     name: "Retro Arcade",
     tagline: "80s pinks, blues & scanlines",
-    rarity: "Rare",
-  },
-  {
-    id: "galaxy",
-    name: "Galaxy Dust",
-    tagline: "Cosmic blues with star specks",
-    rarity: "Legendary",
   },
   {
     id: "candy",
     name: "Candy Pop",
-    tagline: "Bubblegum pink & mint slices",
-    rarity: "Rare",
+    tagline: "Bubblegum and sweet jackpots",
   },
   {
     id: "stealth",
     name: "Stealth Ops",
-    tagline: "Muted blacks & gunmetal",
-    rarity: "Common",
+    tagline: "Dark mode with tactical shine",
   },
 ];
+
 
 /* Background skins (ROF Mood) */
 const BG_SKINS = [
