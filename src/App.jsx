@@ -20,6 +20,50 @@ const TIERS = {
 };
 const TEST_PRICE_COINS = 1;
 
+/* ================= SKINS CONFIG ================= */
+
+const WHEEL_SKINS = [
+  {
+    id: "classic",
+    name: "Classic ROFFLE",
+    tagline: "Gold max, black & silver fillers",
+    rarity: "Common",
+  },
+  {
+    id: "neon",
+    name: "Neon Solana",
+    tagline: "Purple & teal cyber glow",
+    rarity: "Rare",
+  },
+  {
+    id: "bloody",
+    name: "Bloody Casino",
+    tagline: "Deep red & black high roller",
+    rarity: "Epic",
+  },
+];
+
+const BG_SKINS = [
+  {
+    id: "space",
+    name: "Cosmic Space",
+    tagline: "Stars, nebulas & ROF dust",
+    file: "/app-bg-space.png",
+  },
+  {
+    id: "bc",
+    name: "Blockchain Grid",
+    tagline: "Techno lines & degen shine",
+    file: "/app-bg-bc.png",
+  },
+  {
+    id: "poker",
+    name: "Poker Night",
+    tagline: "Cards, chips & high stakes",
+    file: "/app-bg-poker.png",
+  },
+];
+
 /* Tier ranking: used to prevent downgrade */
 const TIER_ORDER = { free: 0, plus: 1, pro: 2, prem: 3 };
 
@@ -392,6 +436,43 @@ export default function App(){
   const [bank,setBank] = useState(0);
   const [tgId, setTgId] = useState(null);
   const [invitesCount, setInvitesCount] = useState(0);
+
+  // Skins: wheel + background
+  const [wheelSkinId, setWheelSkinId] = useState("classic");
+  const [bgSkinId, setBgSkinId] = useState("space");
+
+  const wheelSkin = useMemo(
+    () => WHEEL_SKINS.find((s) => s.id === wheelSkinId) || WHEEL_SKINS[0],
+    [wheelSkinId]
+  );
+  const bgSkin = useMemo(
+    () => BG_SKINS.find((s) => s.id === bgSkinId) || BG_SKINS[0],
+    [bgSkinId]
+  );
+
+  // Load skins from localStorage on start
+  useEffect(() => {
+    try {
+      const savedWheel = localStorage.getItem("rof_wheel_skin");
+      const savedBg = localStorage.getItem("rof_bg_skin");
+      if (savedWheel && WHEEL_SKINS.some((s) => s.id === savedWheel)) {
+        setWheelSkinId(savedWheel);
+      }
+      if (savedBg && BG_SKINS.some((s) => s.id === savedBg)) {
+        setBgSkinId(savedBg);
+      }
+    } catch {}
+  }, []);
+
+  const equipWheelSkin = (id) => {
+    setWheelSkinId(id);
+    try { localStorage.setItem("rof_wheel_skin", id); } catch {}
+  };
+
+  const equipBgSkin = (id) => {
+    setBgSkinId(id);
+    try { localStorage.setItem("rof_bg_skin", id); } catch {}
+  };
 
   /* Premium state */
   const [tierKey, setTierKey] = useState("free");
@@ -964,7 +1045,74 @@ export default function App(){
     );
   };
 
-  const LootScreen = () => <div className="placeholder-card">🎁 Lootboxes coming soon…</div>;
+  const LootScreen = () => {
+    return (
+      <div className="loot-wrap">
+        <div className="loot-section">
+          <div className="loot-title">🎨 Wheel Graphics</div>
+          <div className="loot-grid">
+            {WHEEL_SKINS.map((skin) => {
+              const isActive = skin.id === wheelSkinId;
+              return (
+                <div
+                  key={skin.id}
+                  className={`loot-card ${isActive ? "active" : ""}`}
+                >
+                  <div className="loot-card-head">
+                    <div className="loot-card-name">{skin.name}</div>
+                    {skin.rarity && (
+                      <div className="loot-card-rarity">{skin.rarity}</div>
+                    )}
+                  </div>
+                  <div className="loot-card-tagline">{skin.tagline}</div>
+                  <div className="loot-card-foot">
+                    <span className="loot-price">Free (test)</span>
+                    <button
+                      className="loot-btn gradient-outline-btn"
+                      disabled={isActive}
+                      onClick={() => equipWheelSkin(skin.id)}
+                    >
+                      {isActive ? "Equipped" : "Equip"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="loot-section">
+          <div className="loot-title">🖼 Background Graphics</div>
+          <div className="loot-grid">
+            {BG_SKINS.map((skin) => {
+              const isActive = skin.id === bgSkinId;
+              return (
+                <div
+                  key={skin.id}
+                  className={`loot-card ${isActive ? "active" : ""}`}
+                >
+                  <div className="loot-card-head">
+                    <div className="loot-card-name">{skin.name}</div>
+                  </div>
+                  <div className="loot-card-tagline">{skin.tagline}</div>
+                  <div className="loot-card-foot">
+                    <span className="loot-price">Free (test)</span>
+                    <button
+                      className="loot-btn gradient-outline-btn"
+                      disabled={isActive}
+                      onClick={() => equipBgSkin(skin.id)}
+                    >
+                      {isActive ? "Equipped" : "Equip"}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   function AvatarInline({name, photo}){
     if (photo) return <img className="lb-avatar" src={photo} alt={name} />;
@@ -1035,7 +1183,7 @@ export default function App(){
     );
   };
 
-  const PlayScreen = () => (
+  const PlayScreen = ({ wheelSkin }) => (
     <>
       <div className="wheel-wrap compact-no-scroll">
         <svg className="wheel-svg" viewBox="0 0 1000 1000" aria-hidden>
@@ -1043,27 +1191,109 @@ export default function App(){
             {Array.from({ length: SEGMENTS_TOTAL }, (_, i) => {
               const sec1 = i + 1;
               const id = `grad-${i}`;
-              if (sec1 === 1)
+
+              // CLASSIC = current default look
+              if (wheelSkin.id === "classic") {
+                if (sec1 === 1) {
+                  return (
+                    <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor="#43cda3" />
+                      <stop offset="100%" stopColor="#490e6d" />
+                    </linearGradient>
+                  );
+                } else if (sec1 % 2 === 0) {
+                  return (
+                    <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor="#404040" />
+                      <stop offset="100%" stopColor="#000000" />
+                    </linearGradient>
+                  );
+                } else {
+                  return (
+                    <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor="#ffffff" />
+                      <stop offset="100%" stopColor="#a8a8a8" />
+                    </linearGradient>
+                  );
+                }
+              }
+
+              // NEON SOLANA
+              if (wheelSkin.id === "neon") {
+                if (sec1 === 1) {
+                  return (
+                    <linearGradient id={id} key={id} x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#19FB9B" />
+                      <stop offset="50%" stopColor="#5ce1e6" />
+                      <stop offset="100%" stopColor="#b50be5" />
+                    </linearGradient>
+                  );
+                } else if (sec1 % 2 === 0) {
+                  return (
+                    <linearGradient id={id} key={id} x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#111827" />
+                      <stop offset="100%" stopColor="#312e81" />
+                    </linearGradient>
+                  );
+                } else {
+                  return (
+                    <linearGradient id={id} key={id} x1="0%" y1="0%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#0f172a" />
+                      <stop offset="100%" stopColor="#22d3ee" />
+                    </linearGradient>
+                  );
+                }
+              }
+
+              // BLOODY CASINO
+              if (wheelSkin.id === "bloody") {
+                if (sec1 === 1) {
+                  return (
+                    <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor="#ffef9a" />
+                      <stop offset="100%" stopColor="#c2410c" />
+                    </linearGradient>
+                  );
+                } else if (sec1 % 2 === 0) {
+                  return (
+                    <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor="#7f1d1d" />
+                      <stop offset="100%" stopColor="#111827" />
+                    </linearGradient>
+                  );
+                } else {
+                  return (
+                    <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+                      <stop offset="0%" stopColor="#b91c1c" />
+                      <stop offset="100%" stopColor="#000000" />
+                    </linearGradient>
+                  );
+                }
+              }
+
+              // Fallback: classic
+              if (sec1 === 1) {
                 return (
                   <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
                     <stop offset="0%" stopColor="#43cda3" />
                     <stop offset="100%" stopColor="#490e6d" />
                   </linearGradient>
                 );
-              else if (sec1 % 2 === 0)
+              } else if (sec1 % 2 === 0) {
                 return (
                   <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
                     <stop offset="0%" stopColor="#404040" />
                     <stop offset="100%" stopColor="#000000" />
                   </linearGradient>
                 );
-              else
+              } else {
                 return (
                   <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
                     <stop offset="0%" stopColor="#ffffff" />
                     <stop offset="100%" stopColor="#a8a8a8" />
                   </linearGradient>
                 );
+              }
             })}
             <linearGradient id="goldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
               <stop offset="0%" stopColor="#f6e19a" />
@@ -1161,7 +1391,7 @@ export default function App(){
   })();
 
   return (
-    <div className={`tg-app bg-img ${showPremium ? "modal-open" : ""}`} style={{"--bg":theme.bg,"--text":theme.text}}>
+    <div className={`tg-app bg-img ${showPremium ? "modal-open" : ""}`} style={{"--bg":theme.bg,"--text":theme.text,"--bg-url":`url("${bgSkin.file}")`}}>
       {booting && (
         <div className="splash">
           <img src={BRAND_LOGO_SRC} alt="ROFFLE" />
@@ -1190,7 +1420,7 @@ export default function App(){
           </section>
 
           <div className="screen flex-grow">
-            {tab==="play"   && <PlayScreen />}
+            {tab==="play"   && <PlayScreen wheelSkin={wheelSkin} />}
             {tab==="loot"   && <LootScreen />}
             {tab==="top"    && <TopScreen lbTab={lbTab} onTabChange={setLbTab} />}
             {tab==="earn"   && <EarnScreen />}
