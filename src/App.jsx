@@ -16,12 +16,53 @@ const TICK_MS = 1000;
 
 /* Premium tiers (names per your mapping) */
 const TIERS = {
-  free: { key: "free", name: "Free",              regenMult: 1, cap: 20,  prizeMult: 1,  inviteBonus: 0 },
-  plus: { key: "plus", name: "$ROF Premium⚡️",   regenMult: 2, cap: 40,  prizeMult: 2,  inviteBonus: 50 },
-  pro:  { key: "pro",  name: "$ROF Plus⭐️",      regenMult: 3, cap: 60,  prizeMult: 3,  inviteBonus: 75 },
-  prem: { key: "prem", name: "$ROF Pro👑",        regenMult: 5, cap: 100, prizeMult: 5,  inviteBonus: 100 },
+  free: {
+    key: "free",
+    name: "Free",
+    regenMult: 1,
+    cap: 20,
+    prizeMult: 1,
+    inviteBonus: 0,
+    priceTon: 0,
+    priceStars: 0,
+  },
+  plus: {
+    key: "plus",
+    name: "$ROF Premium⚡️",
+    regenMult: 2,
+    cap: 40,
+    prizeMult: 2,
+    inviteBonus: 50,
+    priceTon: 5,      // 5 TON
+    priceStars: 700,  // 700 Stars
+  },
+  pro: {
+    key: "pro",
+    name: "$ROF Plus⭐️",
+    regenMult: 3,
+    cap: 60,
+    prizeMult: 3,
+    inviteBonus: 75,
+    priceTon: 10,     // 10 TON
+    priceStars: 1400, // 1400 Stars
+  },
+  prem: {
+    key: "prem",
+    name: "$ROF Pro👑",
+    regenMult: 5,
+    cap: 100,
+    prizeMult: 5,
+    inviteBonus: 100,
+    priceTon: 15,     // 15 TON
+    priceStars: 2100, // 2100 Stars
+  },
 };
-const TEST_PRICE_COINS = 1;
+
+/**
+ * For now we keep TEST_PRICE_COINS = 0 so Premium upgrades are "free test"
+ * from balance. Later we’ll gate this via TON / Stars on the backend.
+ */
+const TEST_PRICE_COINS = 0;
 
 /* ================= SKINS CONFIG ================= */
 
@@ -31,48 +72,68 @@ const WHEEL_SKINS = [
     id: "classic",
     name: "Classic ROFFLE",
     tagline: "Gold max, black & silver fillers",
+    // Classic base skin: free / included
+    priceTon: 0,
+    priceStars: 0,
   },
   {
     id: "bloody",
     name: "I See Red",
     tagline: "Red & black degen casino heat",
+    priceTon: 2,
+    priceStars: 299,
   },
   {
     id: "emerald",
     name: "Fresh",
     tagline: "Green mint & cool summer vibes",
+    priceTon: 2,
+    priceStars: 299,
   },
   {
     id: "ice",
     name: "Ice Shards",
     tagline: "Frozen blues & white shards",
+    priceTon: 2,
+    priceStars: 299,
   },
   {
     id: "cyber",
     name: "Emerald Luck",
     tagline: "Matrix-style emerald grid of luck",
+    priceTon: 2,
+    priceStars: 299,
   },
   {
     id: "royal",
     name: "Afterglow",
     tagline: "Deep purple haze after the win",
+    priceTon: 2,
+    priceStars: 299,
   },
   {
     id: "retro",
     name: "Retro Arcade",
     tagline: "80s pinks, blues & scanlines",
+    priceTon: 2,
+    priceStars: 299,
   },
   {
     id: "candy",
     name: "Candy Pop",
     tagline: "Bubblegum and sweet jackpots",
+    priceTon: 2,
+    priceStars: 299,
   },
   {
     id: "stealth",
     name: "Stealth Ops",
     tagline: "Dark mode with tactical shine",
+    priceTon: 2,
+    priceStars: 299,
   },
 ];
+
 
 
 /* Background skins (ROF Mood) */
@@ -82,56 +143,75 @@ const BG_SKINS = [
     name: "Default ROFFLE",
     tagline: "Original ROFFLE backdrop",
     file: "/app-bg.png",
+    priceTon: 0,
+    priceStars: 0, // included / free
   },
   {
     id: "space",
     name: "Cosmic Space",
     tagline: "Stars, nebulas & ROF dust",
     file: "/app-bg-space.png",
+    priceTon: 2,
+    priceStars: 299,
   },
   {
     id: "bc",
     name: "Blockchain Grid",
     tagline: "Techno lines & degen shine",
     file: "/app-bg-bc.png",
+    priceTon: 2,
+    priceStars: 299,
   },
   {
     id: "poker",
     name: "Poker Night",
     tagline: "Cards, chips & high stakes",
     file: "/app-bg-poker.png",
+    priceTon: 2,
+    priceStars: 299,
   },
   {
     id: "jamaica",
     name: "Jamaica Vibes",
     tagline: "Green, gold & red holiday mood",
     file: "/app-bg-jamaica.png",
+    priceTon: 2,
+    priceStars: 299,
   },
   {
     id: "sg",
     name: "Squid Game?",
     tagline: "It's fun.",
     file: "/app-bg-sg.png",
+    priceTon: 2,
+    priceStars: 299,
   },
   {
     id: "vert",
     name: "Vertical Waves",
     tagline: "Abstract gradient pillars",
     file: "/app-bg-vert.png",
+    priceTon: 2,
+    priceStars: 299,
   },
   {
     id: "mx",
     name: "Matrix Remake",
     tagline: "Binary",
     file: "/app-bg-mx.png",
+    priceTon: 2,
+    priceStars: 299,
   },
   {
     id: "stars",
     name: "Starfield",
     tagline: "Colours for radiant people",
     file: "/app-bg-stars.png",
+    priceTon: 2,
+    priceStars: 299,
   },
 ];
+
 
 /* Tier ranking: used to prevent downgrade */
 const TIER_ORDER = { free: 0, plus: 1, pro: 2, prem: 3 };
@@ -1163,13 +1243,17 @@ export default function App(){
           </div>
 
           <div className="modal-body">
-            <div className="modal-sub">Choose a tier (test price: <b>{TEST_PRICE_COINS} coin</b> each)</div>
+            <div className="modal-sub">
+  Choose a tier (priced in <b>TON</b> or <b>Telegram Stars</b>)
+</div>
+
 
             <div className="tier-grid">
               {cards.map(({t, bullets})=>{
                 const active = t.key === tierKey;
                 const isLowerOrEqual = TIER_ORDER[t.key] <= TIER_ORDER[tierKey];
-                const disabled = isLowerOrEqual || !canAfford(TEST_PRICE_COINS);
+                const disabled = isLowerOrEqual; // only block downgrades / same tier
+
 
                 return (
                   <div key={t.key} className={`tier-card gradient-border ${active?"active":""}`}>
@@ -1180,7 +1264,12 @@ export default function App(){
                     <ul className="tc-list">
                       {bullets.map((b,idx)=><li key={idx}>{b}</li>)}
                     </ul>
-                    <div className="tc-price">Price: {TEST_PRICE_COINS} coin</div>
+                    <div className="tc-price">
+  {t.priceTon === 0 && t.priceStars === 0
+    ? "Included"
+    : `Price: ${t.priceTon} TON or ${t.priceStars} ⭐`}
+</div>
+
                     <div className="tc-actions">
                       <button
                         className="tc-buy gradient-outline-btn"
@@ -1247,19 +1336,21 @@ export default function App(){
   {skin.name}
 </div>
 
-                        <div className="loot-row-tag">{skin.tagline}</div>
-                      </div>
-                    </div>
-                    <div className="loot-right">
-                      <div className="loot-price">Free (test)</div>
-                      <button
-                        className="loot-btn gradient-outline-btn"
-                        disabled={isActive}
-                        onClick={() => equipWheelSkin(skin.id)}
-                      >
-                        {isActive ? "Equipped" : "Buy"}
-                      </button>
-                    </div>
+                        <div className="loot-right">
+  <div className="loot-price">
+    {skin.priceTon === 0 && skin.priceStars === 0
+      ? "Included"
+      : `${skin.priceTon} TON or ${skin.priceStars} ⭐`}
+  </div>
+  <button
+    className="loot-btn gradient-outline-btn"
+    disabled={isActive}
+    onClick={() => equipWheelSkin(skin.id)}
+  >
+    {isActive ? "Equipped" : "Buy"}
+  </button>
+</div>
+
                   </div>
                 );
               })}
@@ -1291,15 +1382,20 @@ export default function App(){
                       </div>
                     </div>
                     <div className="loot-right">
-                      <div className="loot-price">Free (test)</div>
-                      <button
-                        className="loot-btn gradient-outline-btn"
-                        disabled={isActive}
-                        onClick={() => equipBgSkin(skin.id)}
-                      >
-                        {isActive ? "Equipped" : "Buy"}
-                      </button>
-                    </div>
+  <div className="loot-price">
+    {skin.priceTon === 0 && skin.priceStars === 0
+      ? "Included"
+      : `${skin.priceTon} TON or ${skin.priceStars} ⭐`}
+  </div>
+  <button
+    className="loot-btn gradient-outline-btn"
+    disabled={isActive}
+    onClick={() => equipBgSkin(skin.id)}
+  >
+    {isActive ? "Equipped" : "Buy"}
+  </button>
+</div>
+
                   </div>
                 );
               })}
