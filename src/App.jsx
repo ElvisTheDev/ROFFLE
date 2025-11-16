@@ -553,6 +553,9 @@ function getCenterLogoSrc(styleKey) {
 
     case "cyber":   // Emerald Luck
       return "/r-emerald.png";
+    
+    case "emerald":   // Fresh
+      return "/r-leaf.png";
 
     case "retro":   // Retro Arcade
       return "/r-retro.png";
