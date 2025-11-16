@@ -1350,376 +1350,162 @@ export default function App(){
       <>
         <div className="wheel-wrap compact-no-scroll">
           <svg className="wheel-svg" viewBox="0 0 1000 1000" aria-hidden>
-            <defs>
-              {Array.from({ length: SEGMENTS_TOTAL }, (_, i) => {
-                const sec1 = i + 1;
-                const id = `grad-${i}`;
+           <defs>
+  {/* Slice gradients (unchanged) */}
+  {Array.from({ length: SEGMENTS_TOTAL }, (_, i) => {
+    const sec1 = i + 1;
+    const id = `grad-${i}`;
+    if (sec1 === 1)
+      return (
+        <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#43cda3" />
+          <stop offset="100%" stopColor="#490e6d" />
+        </linearGradient>
+      );
+    else if (sec1 % 2 === 0)
+      return (
+        <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#404040" />
+          <stop offset="100%" stopColor="#000000" />
+        </linearGradient>
+      );
+    else
+      return (
+        <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#ffffff" />
+          <stop offset="100%" stopColor="#a8a8a8" />
+        </linearGradient>
+      );
+  })}
 
-                // Different gradient families per styleKey
-                if (styleKey === "classic") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#43cda3" />
-                        <stop offset="100%" stopColor="#490e6d" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#404040" />
-                        <stop offset="100%" stopColor="#000000" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#ffffff" />
-                        <stop offset="100%" stopColor="#a8a8a8" />
-                      </linearGradient>
-                    );
-                  }
-                }
+  {/* ===== Rim gradients per wheel skin ===== */}
+  {/* Classic ROFFLE – original gold rim */}
+  <linearGradient id="rim-classic" x1="0%" y1="0%" x2="0%" y2="100%">
+    <stop offset="0%" stopColor="#f6e19a" />
+    <stop offset="50%" stopColor="#caa03a" />
+    <stop offset="100%" stopColor="#7a5d19" />
+  </linearGradient>
 
-                if (styleKey === "neon") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#19FB9B" />
-                        <stop offset="50%" stopColor="#5ce1e6" />
-                        <stop offset="100%" stopColor="#b50be5" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#111827" />
-                        <stop offset="100%" stopColor="#312e81" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#0f172a" />
-                        <stop offset="100%" stopColor="#22d3ee" />
-                      </linearGradient>
-                    );
-                  }
-                }
+  {/* I See Red – dark red casino rim */}
+  <linearGradient id="rim-bloody" x1="0%" y1="0%" x2="0%" y2="100%">
+    <stop offset="0%" stopColor="#7f1d1d" />
+    <stop offset="50%" stopColor="#b91c1c" />
+    <stop offset="100%" stopColor="#450a0a" />
+  </linearGradient>
 
-                if (styleKey === "bloody") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#ffef9a" />
-                        <stop offset="100%" stopColor="#c2410c" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#7f1d1d" />
-                        <stop offset="100%" stopColor="#111827" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#b91c1c" />
-                        <stop offset="100%" stopColor="#000000" />
-                      </linearGradient>
-                    );
-                  }
-                }
+  {/* Fresh – dark green mint rim */}
+  <linearGradient id="rim-emerald" x1="0%" y1="0%" x2="0%" y2="100%">
+    <stop offset="0%" stopColor="#064e3b" />
+    <stop offset="50%" stopColor="#059669" />
+    <stop offset="100%" stopColor="#022c22" />
+  </linearGradient>
 
-                if (styleKey === "emerald") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#bbf7d0" />
-                        <stop offset="100%" stopColor="#166534" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#064e3b" />
-                        <stop offset="100%" stopColor="#020617" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#16a34a" />
-                        <stop offset="100%" stopColor="#052e16" />
-                      </linearGradient>
-                    );
-                  }
-                }
+  {/* Ice Shards – dark icy blue rim */}
+  <linearGradient id="rim-ice" x1="0%" y1="0%" x2="0%" y2="100%">
+    <stop offset="0%" stopColor="#0f172a" />
+    <stop offset="50%" stopColor="#1d4ed8" />
+    <stop offset="100%" stopColor="#020617" />
+  </linearGradient>
 
-                if (styleKey === "ice") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#e0f2fe" />
-                        <stop offset="100%" stopColor="#0369a1" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#0f172a" />
-                        <stop offset="100%" stopColor="#0b1120" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#38bdf8" />
-                        <stop offset="100%" stopColor="#e0f2fe" />
-                      </linearGradient>
-                    );
-                  }
-                }
+  {/* Emerald Luck – matrix emerald blue/green rim */}
+  <linearGradient id="rim-cyber" x1="0%" y1="0%" x2="0%" y2="100%">
+    <stop offset="0%" stopColor="#022c22" />
+    <stop offset="50%" stopColor="#10b981" />
+    <stop offset="100%" stopColor="#020617" />
+  </linearGradient>
 
-                if (styleKey === "lava") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#fee2e2" />
-                        <stop offset="100%" stopColor="#b91c1c" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#7f1d1d" />
-                        <stop offset="100%" stopColor="#111827" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#f97316" />
-                        <stop offset="100%" stopColor="#450a0a" />
-                      </linearGradient>
-                    );
-                  }
-                }
+  {/* Afterglow – deep purple hazy rim */}
+  <linearGradient id="rim-royal" x1="0%" y1="0%" x2="0%" y2="100%">
+    <stop offset="0%" stopColor="#4c1d95" />
+    <stop offset="50%" stopColor="#7c3aed" />
+    <stop offset="100%" stopColor="#2e1065" />
+  </linearGradient>
 
-                if (styleKey === "cyber") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#22c55e" />
-                        <stop offset="100%" stopColor="#4c1d95" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#020617" />
-                        <stop offset="100%" stopColor="#111827" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stopColor="#22c55e" />
-                        <stop offset="100%" stopColor="#22d3ee" />
-                      </linearGradient>
-                    );
-                  }
-                }
+  {/* Retro Arcade – dark pink → blue rim */}
+  <linearGradient id="rim-retro" x1="0%" y1="0%" x2="0%" y2="100%">
+    <stop offset="0%" stopColor="#9f1239" />
+    <stop offset="50%" stopColor="#ec4899" />
+    <stop offset="100%" stopColor="#1d4ed8" />
+  </linearGradient>
 
-                if (styleKey === "royal") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#f5e7ff" />
-                        <stop offset="100%" stopColor="#5b21b6" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#1e1b4b" />
-                        <stop offset="100%" stopColor="#020617" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#7c3aed" />
-                        <stop offset="100%" stopColor="#fbbf24" />
-                      </linearGradient>
-                    );
-                  }
-                }
+  {/* Candy Pop – gold → pink rim */}
+  <linearGradient id="rim-candy" x1="0%" y1="0%" x2="0%" y2="100%">
+    <stop offset="0%" stopColor="#facc15" />
+    <stop offset="50%" stopColor="#f97316" />
+    <stop offset="100%" stopColor="#ec4899" />
+  </linearGradient>
 
-                if (styleKey === "toxic") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#ecfccb" />
-                        <stop offset="100%" stopColor="#65a30d" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#14532d" />
-                        <stop offset="100%" stopColor="#022c22" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#22c55e" />
-                        <stop offset="100%" stopColor="#a3e635" />
-                      </linearGradient>
-                    );
-                  }
-                }
+  {/* Stealth Ops – dark chrome / silverish rim */}
+  <linearGradient id="rim-stealth" x1="0%" y1="0%" x2="0%" y2="100%">
+    <stop offset="0%" stopColor="#4b5563" />
+    <stop offset="50%" stopColor="#9ca3af" />
+    <stop offset="100%" stopColor="#111827" />
+  </linearGradient>
 
-                if (styleKey === "retro") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#f9a8d4" />
-                        <stop offset="100%" stopColor="#7e22ce" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#0f172a" />
-                        <stop offset="100%" stopColor="#1f2933" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#fb7185" />
-                        <stop offset="100%" stopColor="#38bdf8" />
-                      </linearGradient>
-                    );
-                  }
-                }
+  {/* ===== Rim glow filters per wheel skin ===== */}
+  {/* Classic – soft gold glow */}
+  <filter id="rimGlow-classic" x="-40%" y="-40%" width="180%" height="180%">
+    <feDropShadow dx="0" dy="0" stdDeviation="14" floodColor="#facc15" floodOpacity="0.55" />
+  </filter>
 
-                if (styleKey === "galaxy") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#e5e7eb" />
-                        <stop offset="100%" stopColor="#0f172a" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#020617" />
-                        <stop offset="100%" stopColor="#111827" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#4f46e5" />
-                        <stop offset="100%" stopColor="#22d3ee" />
-                      </linearGradient>
-                    );
-                  }
-                }
+  {/* I See Red – red glow */}
+  <filter id="rimGlow-bloody" x="-40%" y="-40%" width="180%" height="180%">
+    <feDropShadow dx="0" dy="0" stdDeviation="16" floodColor="#dc2626" floodOpacity="0.6" />
+  </filter>
 
-                if (styleKey === "candy") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#fecaca" />
-                        <stop offset="100%" stopColor="#f97316" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#f9a8d4" />
-                        <stop offset="100%" stopColor="#a855f7" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#bef264" />
-                        <stop offset="100%" stopColor="#fb7185" />
-                      </linearGradient>
-                    );
-                  }
-                }
+  {/* Fresh – green glow */}
+  <filter id="rimGlow-emerald" x="-40%" y="-40%" width="180%" height="180%">
+    <feDropShadow dx="0" dy="0" stdDeviation="16" floodColor="#22c55e" floodOpacity="0.6" />
+  </filter>
 
-                if (styleKey === "stealth") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#e5e7eb" />
-                        <stop offset="100%" stopColor="#4b5563" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#020617" />
-                        <stop offset="100%" stopColor="#111827" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                        <stop offset="0%" stopColor="#111827" />
-                        <stop offset="100%" stopColor="#374151" />
-                      </linearGradient>
-                    );
-                  }
-                }
+  {/* Ice Shards – blue glow */}
+  <filter id="rimGlow-ice" x="-40%" y="-40%" width="180%" height="180%">
+    <feDropShadow dx="0" dy="0" stdDeviation="16" floodColor="#60a5fa" floodOpacity="0.65" />
+  </filter>
 
-                // Fallback: classic
-                if (sec1 === 1) {
-                  return (
-                    <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%" stopColor="#43cda3" />
-                      <stop offset="100%" stopColor="#490e6d" />
-                    </linearGradient>
-                  );
-                } else if (sec1 % 2 === 0) {
-                  return (
-                    <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%" stopColor="#404040" />
-                      <stop offset="100%" stopColor="#000000" />
-                    </linearGradient>
-                  );
-                } else {
-                  return (
-                    <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%" stopColor="#ffffff" />
-                      <stop offset="100%" stopColor="#a8a8a8" />
-                    </linearGradient>
-                  );
-                }
-              })}
-              <linearGradient id="goldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="#f6e19a" />
-                <stop offset="50%" stopColor="#caa03a" />
-                <stop offset="100%" stopColor="#7a5d19" />
-              </linearGradient>
-              <filter id="textGlow" x="-50%" y="-50%" width="200%" height="200%">
-                <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#36125e" floodOpacity="1" />
-                <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#36125e" floodOpacity=".85" />
-                <feDropShadow dx="0" dy="0" stdDeviation="10" floodColor="#36125e" floodOpacity=".6" />
-              </filter>
-            </defs>
+  {/* Emerald Luck – emerald glow */}
+  <filter id="rimGlow-cyber" x="-40%" y="-40%" width="180%" height="180%">
+    <feDropShadow dx="0" dy="0" stdDeviation="16" floodColor="#34d399" floodOpacity="0.65" />
+  </filter>
+
+  {/* Afterglow – purple glow */}
+  <filter id="rimGlow-royal" x="-40%" y="-40%" width="180%" height="180%">
+    <feDropShadow dx="0" dy="0" stdDeviation="16" floodColor="#a855f7" floodOpacity="0.65" />
+  </filter>
+
+  {/* Retro Arcade – neon pink/blue glow */}
+  <filter id="rimGlow-retro" x="-40%" y="-40%" width="180%" height="180%">
+    <feDropShadow dx="0" dy="0" stdDeviation="18" floodColor="#f472b6" floodOpacity="0.7" />
+  </filter>
+
+  {/* Candy Pop – warm gold/pink glow */}
+  <filter id="rimGlow-candy" x="-40%" y="-40%" width="180%" height="180%">
+    <feDropShadow dx="0" dy="0" stdDeviation="18" floodColor="#fb7185" floodOpacity="0.7" />
+  </filter>
+
+  {/* Stealth Ops – cool steel glow */}
+  <filter id="rimGlow-stealth" x="-40%" y="-40%" width="180%" height="180%">
+    <feDropShadow dx="0" dy="0" stdDeviation="14" floodColor="#9ca3af" floodOpacity="0.55" />
+  </filter>
+
+  {/* Existing text glow (unchanged) */}
+  <filter id="textGlow" x="-50%" y="-50%" width="200%" height="200%">
+    <feDropShadow dx="0" dy="0" stdDeviation="3" floodColor="#36125e" floodOpacity="1" />
+    <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#36125e" floodOpacity=".85" />
+    <feDropShadow dx="0" dy="0" stdDeviation="10" floodColor="#36125e" floodOpacity=".6" />
+  </filter>
+</defs>
+
 
             <g className="wheel-root" transform={`translate(${cx} ${cy})`}>
-              <circle r={R_TRIM} fill="none" stroke="url(#goldGrad)" strokeWidth={TRIM_W} />
+             {/* Pick gradient & glow based on the active wheel skin */}
+<circle
+  r={R_TRIM}
+  fill="none"
+  stroke={`url(#rim-${wheelSkin.id || "classic"})`}
+  strokeWidth={TRIM_W}
+  filter={`url(#rimGlow-${wheelSkin.id || "classic"})`}
+/>
 
               <g className="rotor" data-angle={angleState} transform={`rotate(${START_OFFSET + angleState})`}>
                 {wedges.map(({ i, path }) => (
