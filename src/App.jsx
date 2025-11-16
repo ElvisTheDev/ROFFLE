@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { TonConnectButton } from "@tonconnect/ui-react";   //  TW
 import { supabase } from "./supabaseClient";
+
 
 /* ================= CORE WHEEL CONSTANTS ================= */
 const SEGMENTS_TOTAL = 25;
@@ -1971,8 +1973,11 @@ export default function App(){
       {!booting && (
         <div className="compact no-scroll">
           <header className="header">
-            <img src={BRAND_LOGO_SRC} alt="ROFFLE" className="brand-logo" />
-            <div className="header-right" />
+          <img src={BRAND_LOGO_SRC} alt="ROFFLE" className="brand-logo" />
+          <div className="header-right">
+          {/* ✅ TON wallet connect button */}
+          <TonConnectButton />
+          </div>
           </header>
 
           <section className="balance-block compacted">
