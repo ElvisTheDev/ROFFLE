@@ -540,6 +540,41 @@ function getWheelPreviewStyle(skin) {
   }
   return { backgroundColor: "#111827" };
 }
+function getCenterLogoSrc(styleKey) {
+  switch (styleKey) {
+    case "classic": // Classic ROFFLE
+      return "/logo.png";
+
+    case "bloody":  // I See Red
+      return "/r-red.png";
+
+    case "ice":     // Ice Shards
+      return "/r-ice.png";
+
+    case "cyber":   // Emerald Luck
+      return "/r-emerald.png";
+
+    case "retro":   // Retro Arcade
+      return "/r-retro.png";
+
+    case "royal":   // Afterglow
+      return "/r-afterglow.png";
+
+    case "candy":   // Candy Pop
+      return "/r-candypop.png";
+
+    case "stealth": // Stealth Ops
+      return "/r-stealth.png";
+
+    // future "Leaf" skin
+    case "leaf":
+      return "/r-leaf.png";
+
+    default:
+      return "/logo.png";
+  }
+}
+
 
 /* ==================== APP ==================== */
 export default function App(){
@@ -1872,7 +1907,12 @@ export default function App(){
           <div className="center-stack">
             <div className="center-ring" />
             <div className="center-cap" />
-            <img className="center-logo-img" src={CENTER_LOGO_SRC} alt="logo" />
+            <img
+  className="center-logo-img"
+  src={getCenterLogoSrc(styleKey)}
+  alt="logo"
+/>
+
             <div className="center-gloss" />
           </div>
         </div>
