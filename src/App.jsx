@@ -669,6 +669,14 @@ export default function App(){
   const [tgId, setTgId] = useState(null);
   const [invitesCount, setInvitesCount] = useState(0);
 
+   // 🚀 Inventory: which skins the user owns (wheel + background)
+  const [ownedWheelIds, setOwnedWheelIds] = useState(() => new Set(["classic"])); // default wheel always owned
+  const [ownedBgIds, setOwnedBgIds] = useState(() => new Set(["default"]));      // default bg always owned
+
+  // Small helpers to check ownership
+  const hasWheelSkin = (id) => ownedWheelIds.has(id);
+  const hasBgSkin = (id) => ownedBgIds.has(id);
+
   // ✅ TON wallet & UI (from TonConnect)
   const [tonConnectUI] = useTonConnectUI();
   const wallet = useTonWallet();
@@ -955,6 +963,45 @@ export default function App(){
 
     run();
   }, []);
+
+    /* 🔐 Load owned skins from roff_inventory when tgId is known */
+  useEffect(() => {
+    if (!tgId) return;
+
+    const loadInventory = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("roff_inventory")
+          .select("item_type, item_id")
+          .eq("tg_id", tgId);
+
+        if (error) {
+          console.error("Failed to load inventory", error);
+          return;
+        }
+
+        const wheelSet = new Set(["classic"]);
+        const bgSet = new Set(["default"]);
+
+        (data || []).forEach((row) => {
+          if (row.item_type === "wheel" && row.item_id) {
+            wheelSet.add(row.item_id);
+          }
+          if (row.item_type === "bg" && row.item_id) {
+            bgSet.add(row.item_id);
+          }
+        });
+
+        setOwnedWheelIds(wheelSet);
+        setOwnedBgIds(bgSet);
+      } catch (e) {
+        console.error("Inventory load error", e);
+      }
+    };
+
+    loadInventory();
+  }, [tgId]);
+
 
   /* ✅ NEW: load referrals from DB whenever we know tgId */
   useEffect(() => {
@@ -1293,7 +1340,96 @@ export default function App(){
     );
   };
 
-    const LootScreen = () => {
+    /* 🛒 TEST UNLOCK: grant wheel skin (no real TON/Stars payment yet) */
+  const handleUnlockWheelSkin = async (skin) => {
+    if (!tgId) {
+      setToast({ text: "User not ready yet", key: Date.now() });
+      setTimeout(() => setToast(null), 1500);
+      return;
+    }
+
+    // Already owned => just equip
+    if (hasWheelSkin(skin.id)) {
+      equipWheelSkin(skin.id);
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("roff_inventory")
+        .insert({
+          tg_id: tgId,
+          item_type: "wheel",
+          item_id: skin.id,
+        });
+
+      if (error) {
+        console.error("Failed to unlock wheel skin", error);
+        setToast({ text: "Unlock failed, try again", key: Date.now() });
+        setTimeout(() => setToast(null), 1500);
+        return;
+      }
+
+      // Update local state
+      setOwnedWheelIds((prev) => {
+        const next = new Set(prev);
+        next.add(skin.id);
+        return next;
+      });
+
+      equipWheelSkin(skin.id);
+      setToast({ text: `${skin.name} unlocked (test)`, key: Date.now() });
+      setTimeout(() => setToast(null), 1500);
+    } catch (e) {
+      console.error("Unlock wheel skin error", e);
+    }
+  };
+
+  /* 🛒 TEST UNLOCK: grant background skin (no real TON/Stars payment yet) */
+  const handleUnlockBgSkin = async (skin) => {
+    if (!tgId) {
+      setToast({ text: "User not ready yet", key: Date.now() });
+      setTimeout(() => setToast(null), 1500);
+      return;
+    }
+
+    if (hasBgSkin(skin.id)) {
+      equipBgSkin(skin.id);
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("roff_inventory")
+        .insert({
+          tg_id: tgId,
+          item_type: "bg",
+          item_id: skin.id,
+        });
+
+      if (error) {
+        console.error("Failed to unlock bg skin", error);
+        setToast({ text: "Unlock failed, try again", key: Date.now() });
+        setTimeout(() => setToast(null), 1500);
+        return;
+      }
+
+      setOwnedBgIds((prev) => {
+        const next = new Set(prev);
+        next.add(skin.id);
+        return next;
+      });
+
+      equipBgSkin(skin.id);
+      setToast({ text: `${skin.name} unlocked (test)`, key: Date.now() });
+      setTimeout(() => setToast(null), 1500);
+    } catch (e) {
+      console.error("Unlock bg skin error", e);
+    }
+  };
+
+
+      const LootScreen = () => {
     return (
       <div className="loot-wrap">
         <div className="loot-tabs">
@@ -1324,11 +1460,20 @@ export default function App(){
             <div className="loot-list">
               {WHEEL_SKINS.map((skin) => {
                 const isActive = skin.id === wheelSkinId;
+                const owned =
+                  hasWheelSkin(skin.id) ||
+                  (skin.priceTon === 0 && skin.priceStars === 0);
+
                 const previewStyle = getWheelPreviewStyle(skin);
                 const priceLabel =
                   skin.priceTon === 0 && skin.priceStars === 0
                     ? "Included"
                     : `${skin.priceTon} TON or ${skin.priceStars} ⭐`;
+
+                let buttonText;
+                if (isActive) buttonText = "Equipped";
+                else if (owned) buttonText = "Equip";
+                else buttonText = "Buy (test unlock)";
 
                 return (
                   <div
@@ -1348,9 +1493,15 @@ export default function App(){
                       <button
                         className="loot-btn gradient-outline-btn"
                         disabled={isActive}
-                        onClick={() => equipWheelSkin(skin.id)}
+                        onClick={() => {
+                          if (owned) {
+                            equipWheelSkin(skin.id);
+                          } else {
+                            handleUnlockWheelSkin(skin);
+                          }
+                        }}
                       >
-                        {isActive ? "Equipped" : "Buy"}
+                        {buttonText}
                       </button>
                     </div>
                   </div>
@@ -1367,6 +1518,10 @@ export default function App(){
             <div className="loot-list">
               {BG_SKINS.map((skin) => {
                 const isActive = skin.id === bgSkinId;
+                const owned =
+                  hasBgSkin(skin.id) ||
+                  (skin.priceTon === 0 && skin.priceStars === 0);
+
                 const previewStyle = {
                   backgroundImage: `url(${skin.file})`,
                   backgroundSize: "cover",
@@ -1376,6 +1531,11 @@ export default function App(){
                   skin.priceTon === 0 && skin.priceStars === 0
                     ? "Included"
                     : `${skin.priceTon} TON or ${skin.priceStars} ⭐`;
+
+                let buttonText;
+                if (isActive) buttonText = "Equipped";
+                else if (owned) buttonText = "Equip";
+                else buttonText = "Buy (test unlock)";
 
                 return (
                   <div
@@ -1395,9 +1555,15 @@ export default function App(){
                       <button
                         className="loot-btn gradient-outline-btn"
                         disabled={isActive}
-                        onClick={() => equipBgSkin(skin.id)}
+                        onClick={() => {
+                          if (owned) {
+                            equipBgSkin(skin.id);
+                          } else {
+                            handleUnlockBgSkin(skin);
+                          }
+                        }}
                       >
-                        {isActive ? "Equipped" : "Buy"}
+                        {buttonText}
                       </button>
                     </div>
                   </div>
@@ -1419,6 +1585,7 @@ export default function App(){
       </div>
     );
   };
+
 
 
   function AvatarInline({name, photo}){
