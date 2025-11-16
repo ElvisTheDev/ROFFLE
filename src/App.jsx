@@ -106,8 +106,8 @@ const BG_SKINS = [
   },
   {
     id: "sg",
-    name: "Singapore Nights",
-    tagline: "Neon skyline over the bay",
+    name: "Squid Game?",
+    tagline: "It's fun.",
     file: "/app-bg-sg.png",
   },
   {
@@ -118,14 +118,14 @@ const BG_SKINS = [
   },
   {
     id: "mx",
-    name: "Mexico Fiesta",
-    tagline: "Warm lights & festival vibes",
+    name: "Matrix Remake",
+    tagline: "Binary",
     file: "/app-bg-mx.png",
   },
   {
     id: "stars",
     name: "Starfield",
-    tagline: "Minimal deep-space starfield",
+    tagline: "Colours for radiant people",
     file: "/app-bg-stars.png",
   },
 ];
