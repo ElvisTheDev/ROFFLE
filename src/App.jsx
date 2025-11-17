@@ -1601,151 +1601,183 @@ const handleBuyBgSkinStars = async (skin) => {
       );
   };
 
-  const PremiumModal = () => {
-    const tierDefs = [
-      {
-        key: "plus",
-        uiName: "Premium ⚡️",
-        regen: "×2",
-        cap: "40/40",
-        mult: "×2",
-        invites: "+50%",
-      },
-      {
-        key: "pro",
-        uiName: "Plus ✨",
-        regen: "×3",
-        cap: "60/60",
-        mult: "×3",
-        invites: "+75%",
-      },
-      {
-        key: "prem",
-        uiName: "Pro 👑",
-        regen: "×5",
-        cap: "100/100",
-        mult: "×5",
-        invites: "+100%",
-      },
-    ];
+  
+const PremiumModal = () => {
+  const tierDefs = [
+    {
+      key: "plus",
+      short: "Premium",
+      uiName: "Premium ⚡️",
+      regen: "×2",
+      cap: "40/40",
+      mult: "×2",
+      invites: "+50%",
+    },
+    {
+      key: "pro",
+      short: "Plus",
+      uiName: "Plus ✨",
+      regen: "×3",
+      cap: "60/60",
+      mult: "×3",
+      invites: "+75%",
+    },
+    {
+      key: "prem",
+      short: "Pro",
+      uiName: "Pro 👑",
+      regen: "×5",
+      cap: "100/100",
+      mult: "×5",
+      invites: "+100%",
+    },
+  ];
 
-    return (
-      <div className="modal-overlay" onClick={() => setShowPremium(false)}>
-        <div
-          className="modal modal-full"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="modal-head">
-            <button
-              className="modal-back"
-              onClick={() => setShowPremium(false)}
-            >
-              ← Back
-            </button>
-            <div className="mh-center">
-              <span className="mh-icon">👑</span>
-              <div className="mh-title">Buy ROFFLE Tiers</div>
+  return (
+    <div className="modal-overlay" onClick={() => setShowPremium(false)}>
+      <div
+        className="modal premium-full"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-head premium-head">
+          <button
+            className="modal-back"
+            onClick={() => setShowPremium(false)}
+          >
+            ← Back
+          </button>
+          <div className="mh-center">
+            <div className="mh-title">Go Premium</div>
+            <div className="mh-subtitle">
+              Choose your ROFFLE status and unlock more spins &amp; rewards
             </div>
-            <button
-              className="modal-close"
-              onClick={() => setShowPremium(false)}
-            >
-              ✕
-            </button>
           </div>
+          <button
+            className="modal-close"
+            onClick={() => setShowPremium(false)}
+          >
+            ✕
+          </button>
+        </div>
 
-          <div className="modal-body premium-body">
-            <div className="modal-sub">
-              Choose your status. Tiers can be purchased with{" "}
-              <b>TON</b> or <b>Telegram Stars</b>.
+        <div className="modal-body premium-body">
+          <div className="premium-table">
+            {/* Header row */}
+            <div className="premium-table-header">
+              <div className="ptc label-cell"></div>
+              {tierDefs.map((def) => {
+                const isCurrent = def.key === tierKey;
+                return (
+                  <div key={def.key} className="ptc tier-header">
+                    <div className="tier-header-name">{def.short}</div>
+                    <div className="tier-header-badge">
+                      <TierBadge tierKey={def.key} />
+                    </div>
+                    {isCurrent && (
+                      <div className="tier-current">Current</div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
-            <div className="premium-grid">
+            {/* Badge row */}
+            <div className="premium-table-row striped">
+              <div className="ptc label-cell">Badge</div>
+              {tierDefs.map((def) => (
+                <div key={def.key} className="ptc value-cell">
+                  <span className={`tier-pill ${def.key}`}>
+                    {def.short}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Regeneration speed */}
+            <div className="premium-table-row">
+              <div className="ptc label-cell">Regeneration speed</div>
+              {tierDefs.map((def) => (
+                <div key={def.key} className="ptc value-cell">
+                  {def.regen}
+                </div>
+              ))}
+            </div>
+
+            {/* Wheel round limits */}
+            <div className="premium-table-row striped">
+              <div className="ptc label-cell">Wheel Round Limits</div>
+              {tierDefs.map((def) => (
+                <div key={def.key} className="ptc value-cell">
+                  {def.cap}
+                </div>
+              ))}
+            </div>
+
+            {/* Wheel prize multiplier */}
+            <div className="premium-table-row">
+              <div className="ptc label-cell">Wheel Prize Multiplier</div>
+              {tierDefs.map((def) => (
+                <div key={def.key} className="ptc value-cell">
+                  {def.mult}
+                </div>
+              ))}
+            </div>
+
+            {/* Friends invite rewards */}
+            <div className="premium-table-row striped">
+              <div className="ptc label-cell">Friends Invite Rewards</div>
+              {tierDefs.map((def) => (
+                <div key={def.key} className="ptc value-cell">
+                  {def.invites}
+                </div>
+              ))}
+            </div>
+
+            {/* Claimable welcome rewards */}
+            <div className="premium-table-row">
+              <div className="ptc label-cell">Claimable Welcome Rewards</div>
+              {tierDefs.map((def) => (
+                <div key={def.key} className="ptc value-cell">
+                  Yes
+                </div>
+              ))}
+            </div>
+
+            {/* ROFFLE bonuses */}
+            <div className="premium-table-row striped">
+              <div className="ptc label-cell">
+                ROFFLE Bonuses &amp; Prize Pools
+              </div>
+              {tierDefs.map((def) => (
+                <div key={def.key} className="ptc value-cell">
+                  Yes
+                </div>
+              ))}
+            </div>
+
+            {/* Buy row */}
+            <div className="premium-table-row premium-buy-row">
+              <div className="ptc label-cell">Get tier</div>
               {tierDefs.map((def) => {
                 const t = TIERS[def.key];
-                const active = def.key === tierKey;
+                const isCurrent = def.key === tierKey;
                 const isLowerOrEqual =
                   TIER_ORDER[def.key] <= TIER_ORDER[tierKey];
                 const disabled = isLowerOrEqual;
 
                 return (
-                  <div
-                    key={def.key}
-                    className={`premium-col gradient-border ${
-                      active ? "active" : ""
-                    }`}
-                  >
-                    <div className="premium-col-header">
-                      <div className="pc-name">{def.uiName}</div>
-                      <div className="pc-badge">
-                        <TierBadge tierKey={def.key} />
-                      </div>
-                      {active && <div className="pc-active">Current</div>}
-                    </div>
-
-                    <div className="premium-features">
-                      <div className="premium-row">
-                        <span className="pf-label">
-                          <b>Profile Badge:</b>
-                        </span>
-                        <span className="pf-value">
-                          Visible badge next to your nickname.
-                        </span>
-                      </div>
-                      <div className="premium-row">
-                        <span className="pf-label">
-                          <b>Regeneration Speed:</b>
-                        </span>
-                        <span className="pf-value">{def.regen}</span>
-                      </div>
-                      <div className="premium-row">
-                        <span className="pf-label">
-                          <b>Wheel Round Limits:</b>
-                        </span>
-                        <span className="pf-value">{def.cap}</span>
-                      </div>
-                      <div className="premium-row">
-                        <span className="pf-label">
-                          <b>Wheel Prize Multiplier:</b>
-                        </span>
-                        <span className="pf-value">{def.mult}</span>
-                      </div>
-                      <div className="premium-row">
-                        <span className="pf-label">
-                          <b>Friends Invite Rewards:</b>
-                        </span>
-                        <span className="pf-value">{def.invites}</span>
-                      </div>
-                      <div className="premium-row">
-                        <span className="pf-label">
-                          <b>Claimable Welcome Rewards:</b>
-                        </span>
-                        <span className="pf-value">Yes</span>
-                      </div>
-                      <div className="premium-row">
-                        <span className="pf-label">
-                          <b>ROFFLE Bonuses &amp; Prize Pools:</b>
-                        </span>
-                        <span className="pf-value">Yes</span>
-                      </div>
-                    </div>
-
-                    <div className="premium-actions">
-                      {/* TON button – solid blue, same size family as Stars button */}
+                  <div key={def.key} className="ptc value-cell">
+                    <div className="buy-button-group">
                       <button
-                        className="btn-tier-ton gradient-outline-btn"
+                        className="btn-tier-ton"
                         disabled={disabled}
                         onClick={() =>
                           !disabled && handleBuyTierTon(def.key)
                         }
-                        style={{
-                          backgroundColor: "#28a5da",
-                          borderColor: "#067bc7",
-                        }}
                       >
-                        {def.key === tierKey || isLowerOrEqual ? (
+                        {isCurrent || isLowerOrEqual ? (
                           <span>
-                            {def.key === tierKey ? "Current Plan" : "Unavailable"}
+                            {isCurrent ? "Current Plan" : "Unavailable"}
                           </span>
                         ) : (
                           <span className="btn-tier-ton-inner">
@@ -1759,7 +1791,6 @@ const handleBuyBgSkinStars = async (skin) => {
                         )}
                       </button>
 
-                      {/* Stars button */}
                       <button
                         className="btn-tier-stars gradient-outline-btn"
                         disabled={disabled}
@@ -1767,9 +1798,9 @@ const handleBuyBgSkinStars = async (skin) => {
                           !disabled && handleBuyTierStars(def.key)
                         }
                       >
-                        {def.key === tierKey || isLowerOrEqual ? (
+                        {isCurrent || isLowerOrEqual ? (
                           <span>
-                            {def.key === tierKey ? "Current Plan" : "Unavailable"}
+                            {isCurrent ? "Current Plan" : "Unavailable"}
                           </span>
                         ) : (
                           <span>⭐ {t.priceStars}</span>
@@ -1783,12 +1814,13 @@ const handleBuyBgSkinStars = async (skin) => {
           </div>
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
 
-
-  const LootScreen = () => {
+const LootScreen
+ = () => {
     return (
       <div className="loot-wrap">
         <div className="loot-tabs">
