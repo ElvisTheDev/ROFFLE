@@ -1566,8 +1566,8 @@ export default function App() {
   const tierDefs = [
     {
       key: "plus",
-      header: "Premium⚡️",
-      badge: "Premium",
+      header: "Premium",
+      badge: "Premium⚡️",
       regen: "×2",
       cap: "40/40",
       mult: "×2",
@@ -1575,8 +1575,8 @@ export default function App() {
     },
     {
       key: "pro",
-      header: "Plus💫",
-      badge: "Plus",
+      header: "Plus",
+      badge: "Plus💫",
       regen: "×3",
       cap: "60/60",
       mult: "×3",
@@ -1584,8 +1584,8 @@ export default function App() {
     },
     {
       key: "prem",
-      header: "Pro👑",
-      badge: "Pro",
+      header: "Pro",
+      badge: "Pro 👑",
       regen: "×5",
       cap: "100/100",
       mult: "×5",
@@ -1617,7 +1617,7 @@ export default function App() {
         <div className="modal-head vip-head">
           <div className="mh-left">
             <span className="mh-icon">👑</span>
-            <div className="mh-title">Buy VIP Status</div>
+            <div className="mh-title">👑Buy VIP Status</div>
           </div>
           <button
             className="modal-close"
@@ -1626,6 +1626,11 @@ export default function App() {
             ✕
           </button>
         </div>
+
+        <div className="modal-body vip-body">
+          <div className="vip-sub">
+            Get your VIP up for more spins, extra rewards and time boost
+          </div>
 
           <div className="vip-table">
             {/* Header row with tier names */}
