@@ -1731,15 +1731,15 @@ const handleBuyBgSkinStars = async (skin) => {
                     </div>
 
                     <div className="premium-actions">
+                      {/* TON button – solid blue, same size family as Stars button */}
                       <button
-                        className="btn-tier-ton"
+                        className="btn-tier-ton gradient-outline-btn"
                         disabled={disabled}
                         onClick={() =>
                           !disabled && handleBuyTierTon(def.key)
                         }
                         style={{
-                          backgroundColor:
-                            active || disabled ? "#1c7aa8" : "#28a5da",
+                          backgroundColor: "#28a5da",
                           borderColor: "#067bc7",
                         }}
                       >
@@ -1754,11 +1754,12 @@ const handleBuyBgSkinStars = async (skin) => {
                               alt="TON"
                               className="btn-ton-icon"
                             />
-                            <span>{t.priceTon}</span>
+                            <span>{t.priceTon} TON</span>
                           </span>
                         )}
                       </button>
 
+                      {/* Stars button */}
                       <button
                         className="btn-tier-stars gradient-outline-btn"
                         disabled={disabled}
