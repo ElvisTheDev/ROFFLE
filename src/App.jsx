@@ -792,8 +792,8 @@ export default function App() {
 
       if (!data.ok || !data.invoice_link) {
         console.error("Stars invoice error", data);
-        setToast({ text: "Stars payment error, try again", key: Date.now() });
-        setTimeout(() => setToast(null), 1500);
+        setToast({ text: "Stars invoice failed (backend item not configured)", key: Date.now() });
+        setTimeout(() => setToast(null), 2000);
         return;
       }
 
@@ -1617,134 +1617,133 @@ const handleBuyBgSkinStars = async (skin) => {
       );
   };
 
-  const PremiumModal = () => {
-    const cards = [
-      {
-  t: TIERS.demo,
-  bullets: [
-    "Identical to Free tier",
-    "Use only for testing Stars payments",
-    "Can be upgraded to real tiers later",
-  ],
-},
-{
-  t: TIERS.plus,
-  bullets: [
-    "Wheel spins regenerate ×2 faster",
-    "Wheel cap increases to 40/40",
-    "All wheel prizes ×2",
-    "Invite rewards +50% from base",
-  ],
-},
-{
-  t: TIERS.pro,
-  bullets: [
-    "Wheel spins regenerate ×3 faster",
-    "Wheel cap increases to 60/60",
-    "All wheel prizes ×3",
-    "Invite rewards +75% from base",
-  ],
-},
-{
-  t: TIERS.prem,
-  bullets: [
-    "Wheel spins regenerate ×5 faster",
-    "Wheel cap increases to 100/100",
-    "All wheel prizes ×5",
-    "Invite rewards +100% from base",
-  ],
-},
-];
+const PremiumModal = () => {
+  const cards = [
+    {
+      t: TIERS.demo,
+      bullets: [
+        "Identical to Free tier",
+        "Use only for testing Stars payments",
+        "Can be upgraded to real tiers later",
+      ],
+    },
+    {
+      t: TIERS.plus,
+      bullets: [
+        "Wheel spins regenerate ×2 faster",
+        "Wheel cap increases to 40/40",
+        "All wheel prizes ×2",
+        "Invite rewards +50% from base",
+      ],
+    },
+    {
+      t: TIERS.pro,
+      bullets: [
+        "Wheel spins regenerate ×3 faster",
+        "Wheel cap increases to 60/60",
+        "All wheel prizes ×3",
+        "Invite rewards +75% from base",
+      ],
+    },
+    {
+      t: TIERS.prem,
+      bullets: [
+        "Wheel spins regenerate ×5 faster",
+        "Wheel cap increases to 100/100",
+        "All wheel prizes ×5",
+        "Invite rewards +100% from base",
+      ],
+    },
+  ];
 
-    return (
-      <div className="modal-overlay" onClick={() => setShowPremium(false)}>
-        <div className="modal" onClick={(e) => e.stopPropagation()}>
-          <div className="modal-head">
-            <div className="mh-left">
-              <span className="mh-icon">👑</span>
-              <div className="mh-title">Go $ROF Premium</div>
-            </div>
-            <button
-              className="modal-close"
-              onClick={() => setShowPremium(false)}
-            >
-              ✕
-            </button>
-          </div>
+  return (
+    <div className="premium-screen">
+      <div className="premium-header">
+        <button
+          className="premium-back"
+          onClick={() => setShowPremium(false)}
+        >
+          ← Back
+        </button>
+        <div className="premium-title-wrap">
+          <span className="mh-icon">👑</span>
+          <div className="mh-title">Go $ROF Premium</div>
+        </div>
+        <div className="premium-spacer" />
+      </div>
 
-          <div className="modal-body">
-            <div className="modal-sub">
-              Choose a tier (priced in <b>TON</b> or <b>Telegram Stars</b>)
-            </div>
+      <div className="premium-body">
+        <div className="modal-sub">
+          Choose a tier (priced in <b>TON</b> or <b>Telegram Stars</b>)
+        </div>
 
-            <div className="tier-grid">
-              {cards.map(({ t, bullets }) => {
-                const active = t.key === tierKey;
-                const isLowerOrEqual =
-                  TIER_ORDER[t.key] <= TIER_ORDER[tierKey];
-                const disabled = isLowerOrEqual;
+        <div className="tier-grid">
+          {cards.map(({ t, bullets }) => {
+            const active = t.key === tierKey;
+            const isLowerOrEqual =
+              TIER_ORDER[t.key] <= TIER_ORDER[tierKey];
+            const disabled = isLowerOrEqual;
 
-                return (
-                  <div
-                    key={t.key}
-                    className={`tier-card gradient-border ${
-                      active ? "active" : ""
-                    }`}
+            return (
+              <div
+                key={t.key}
+                className={`tier-card gradient-border ${
+                  active ? "active" : ""
+                }`}
+              >
+                <div className="tc-top">
+                  <div className="tc-name">{t.name}</div>
+                  {active && <div className="tc-active">Active</div>}
+                </div>
+                <ul className="tc-list">
+                  {bullets.map((b, idx) => (
+                    <li key={idx}>{b}</li>
+                  ))}
+                </ul>
+                <div className="tc-price">
+                  {t.priceTon === 0 && t.priceStars === 0
+                    ? "Included"
+                    : `Price: ${t.priceTon} TON or ${t.priceStars} ⭐`}
+                </div>
+                <div className="tc-actions">
+                  {/* TON button */}
+                  <button
+                    className="tc-buy gradient-outline-btn"
+                    disabled={disabled}
+                    onClick={() =>
+                      !disabled && handleBuyTierTon(t.key)
+                    }
                   >
-                    <div className="tc-top">
-                      <div className="tc-name">{t.name}</div>
-                      {active && <div className="tc-active">Active</div>}
-                    </div>
-                    <ul className="tc-list">
-                      {bullets.map((b, idx) => (
-                        <li key={idx}>{b}</li>
-                      ))}
-                    </ul>
-                    <div className="tc-price">
-                      {t.priceTon === 0 && t.priceStars === 0
-                        ? "Included"
-                        : `Price: ${t.priceTon} TON or ${t.priceStars} ⭐`}
-                    </div>
-                    <div className="tc-actions">
-                      {/* TON button */}
-                      <button
-                        className="tc-buy gradient-outline-btn"
-                        disabled={disabled}
-                        onClick={() =>
-                          !disabled && handleBuyTierTon(t.key)
-                        }
-                      >
-                        {t.key === tierKey
-                          ? "Current Plan"
-                          : isLowerOrEqual
-                          ? "Unavailable"
-                          : "Buy with TON"}
-                      </button>
+                    {t.key === tierKey
+                      ? "Current Plan"
+                      : isLowerOrEqual
+                      ? "Unavailable"
+                      : "Buy with TON"}
+                  </button>
 
-                      {/* Stars button */}
-                      <button
-                        className="tc-buy gradient-outline-btn"
-                        disabled={disabled}
-                        onClick={() =>
-                          !disabled && handleBuyTierStars(t.key)
-                        }
-                      >
-                        {t.key === tierKey
-                          ? "Current Plan"
-                          : isLowerOrEqual
-                          ? "Unavailable"
-                          : "Buy with ⭐ Stars"}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+                  {/* Stars button */}
+                  <button
+                    className="tc-buy gradient-outline-btn"
+                    disabled={disabled}
+                    onClick={() =>
+                      !disabled && handleBuyTierStars(t.key)
+                    }
+                  >
+                    {t.key === tierKey
+                      ? "Current Plan"
+                      : isLowerOrEqual
+                      ? "Unavailable"
+                      : "Buy with ⭐ Stars"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
-    );
-  };
+    </div>
+  );
+};
 
 const LootScreen = () => {
   return (
