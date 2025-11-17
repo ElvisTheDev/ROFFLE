@@ -22,6 +22,16 @@ const API_BASE = "https://roffle-bot.onrender.com";
 /* Premium tiers (names per your mapping) */
 const TIERS = {
   free: {
+demo: {
+  key: "demo",
+  name: "Demo⭐ (Test)",
+  regenMult: 1,
+  cap: 20,
+  prizeMult: 1,
+  inviteBonus: 0,
+  priceTon: 0,
+  priceStars: 50,
+},
     key: "free",
     name: "Free",
     regenMult: 1,
@@ -215,7 +225,7 @@ const BG_SKINS = [
 ];
 
 /* Tier ranking: used to prevent downgrade */
-const TIER_ORDER = { free: 0, plus: 1, pro: 2, prem: 3 };
+const TIER_ORDER = { free: 0, demo: 1, plus: 2, pro: 3, prem: 4 };
 
 /* RNG helpers (cryptographically strong) */
 function randUint32() {
@@ -1488,6 +1498,44 @@ export default function App() {
     await handleUnlockBgSkin(skin);
   };
 
+/* ⭐ Telegram Stars unlock for wheel skins */
+const handleBuyWheelSkinStars = async (skin) => {
+  // Already owned → just equip
+  if (hasWheelSkin(skin.id)) {
+    equipWheelSkin(skin.id);
+    return;
+  }
+
+  // Free / included → unlock directly
+  if (skin.priceStars === 0) {
+    await handleUnlockWheelSkin(skin);
+    return;
+  }
+
+  // Open Stars invoice (item_type = "wheel")
+  await createStarsInvoiceAndOpen("wheel", skin.id);
+  // After successful payment your bot webhook should insert
+  // (tg_id, "wheel", skin.id) into roff_inventory.
+};
+
+/* ⭐ Telegram Stars unlock for background skins */
+const handleBuyBgSkinStars = async (skin) => {
+  if (hasBgSkin(skin.id)) {
+    equipBgSkin(skin.id);
+    return;
+  }
+
+  if (skin.priceStars === 0) {
+    await handleUnlockBgSkin(skin);
+    return;
+  }
+
+  // Open Stars invoice (item_type = "bg")
+  await createStarsInvoiceAndOpen("bg", skin.id);
+  // After successful payment your bot webhook should insert
+  // (tg_id, "bg", skin.id) into roff_inventory.
+};
+
 
 /* ⭐ Telegram Stars unlock for wheel skins */
 const handleBuyWheelSkinStars = async (skin) => {
@@ -1604,33 +1652,41 @@ const handleBuyBgSkinStars = async (skin) => {
   const PremiumModal = () => {
     const cards = [
       {
-        t: TIERS.plus,
-        bullets: [
-          "Wheel spins regenerate ×2 faster",
-          "Wheel cap increases to 40/40",
-          "All wheel prizes ×2",
-          "Invite rewards +50% from base",
-        ],
-      },
-      {
-        t: TIERS.pro,
-        bullets: [
-          "Wheel spins regenerate ×3 faster",
-          "Wheel cap increases to 60/60",
-          "All wheel prizes ×3",
-          "Invite rewards +75% from base",
-        ],
-      },
-      {
-        t: TIERS.prem,
-        bullets: [
-          "Wheel spins regenerate ×5 faster",
-          "Wheel cap increases to 100/100",
-          "All wheel prizes ×5",
-          "Invite rewards +100% from base",
-        ],
-      },
-    ];
+  t: TIERS.demo,
+  bullets: [
+    "Identical to Free tier",
+    "Use only for testing Stars payments",
+    "Can be upgraded to real tiers later",
+  ],
+},
+{
+  t: TIERS.plus,
+  bullets: [
+    "Wheel spins regenerate ×2 faster",
+    "Wheel cap increases to 40/40",
+    "All wheel prizes ×2",
+    "Invite rewards +50% from base",
+  ],
+},
+{
+  t: TIERS.pro,
+  bullets: [
+    "Wheel spins regenerate ×3 faster",
+    "Wheel cap increases to 60/60",
+    "All wheel prizes ×3",
+    "Invite rewards +75% from base",
+  ],
+},
+{
+  t: TIERS.prem,
+  bullets: [
+    "Wheel spins regenerate ×5 faster",
+    "Wheel cap increases to 100/100",
+    "All wheel prizes ×5",
+    "Invite rewards +100% from base",
+  ],
+},
+];
 
     return (
       <div className="modal-overlay" onClick={() => setShowPremium(false)}>
@@ -1722,90 +1778,64 @@ const handleBuyBgSkinStars = async (skin) => {
     );
   };
 
-  const LootScreen = () => {
-    return (
-      <div className="loot-wrap">
-        <div className="loot-tabs">
-          <button
-            className={`loot-tab ${lootTab === "skins" ? "on" : ""}`}
-            onClick={() => setLootTab("skins")}
-          >
-            ROF Skins
-          </button>
-          <button
-            className={`loot-tab ${lootTab === "mood" ? "on" : ""}`}
-            onClick={() => setLootTab("mood")}
-          >
-            ROF Mood
-          </button>
-          <button
-            className={`loot-tab ${
-              lootTab === "collectibles" ? "on" : ""
-            }`}
-            onClick={() => setLootTab("collectibles")}
-          >
-            Collectibles
-          </button>
-        </div>
+const LootScreen = () => {
+  return (
+    <div className="loot-wrap">
+      <div className="loot-tabs">
+        <button
+          className={`loot-tab ${lootTab === "skins" ? "on" : ""}`}
+          onClick={() => setLootTab("skins")}
+        >
+          ROF Skins
+        </button>
+        <button
+          className={`loot-tab ${lootTab === "mood" ? "on" : ""}`}
+          onClick={() => setLootTab("mood")}
+        >
+          ROF Mood
+        </button>
+        <button
+          className={`loot-tab ${lootTab === "collectibles" ? "on" : ""}`}
+          onClick={() => setLootTab("collectibles")}
+        >
+          Collectibles
+        </button>
+      </div>
 
-        {/* WHEEL SKINS */}
-        {lootTab === "skins" && (
-          <div className="loot-section">
-            <div className="loot-title">🎨 Wheel Skins</div>
-            <div className="loot-list">
-              {WHEEL_SKINS.map((skin) => {
-                const isActive = skin.id === wheelSkinId;
-                const owned =
-                  hasWheelSkin(skin.id) ||
-                  (skin.priceTon === 0 && skin.priceStars === 0);
+      {/* WHEEL SKINS */}
+      {lootTab === "skins" && (
+        <div className="loot-section">
+          <div className="loot-title">🎨 Wheel Skins</div>
+          <div className="loot-list">
+            {WHEEL_SKINS.map((skin) => {
+              const isActive = skin.id === wheelSkinId;
+              const owned =
+                hasWheelSkin(skin.id) ||
+                (skin.priceTon === 0 && skin.priceStars === 0);
 
-                con
-<div className="loot-right">
-  <div className="loot-price">{priceLabel}</div>
-  <div className="loot-actions">
-    {/* TON button */}
-    <button
-      className="loot-btn gradient-outline-btn"
-      disabled={isActive}
-      onClick={() => {
-        if (owned) {
-          equipWheelSkin(skin.id);
-        } else {
-          handleBuyWheelSkinTon(skin);
-        }
-      }}
-    >
-      {isActive
-        ? "Equipped"
-        : owned
-        ? "Equip"
-        : "Buy with TON"}
-    </button>
+              const previewStyle = getWheelPreviewStyle(skin);
+              const priceLabel =
+                skin.priceTon === 0 && skin.priceStars === 0
+                  ? "Included"
+                  : `${skin.priceTon} TON or ${skin.priceStars} ⭐`;
 
-    {/* Stars button */}
-    <button
-      className="loot-btn gradient-outline-btn"
-      disabled={owned || isActive}
-      onClick={() => {
-        if (!owned && !isActive) {
-          handleBuyWheelSkinStars(skin);
-        }
-      }}
-    >
-      {owned || isActive ? "Owned" : "Buy with ⭐ Stars"}
-    </button>
-  </div>
-</div>
-ssName="loot-left">
-                      <div className="loot-preview" style={previewStyle} />
-                      <div className="loot-text">
-                        <div className="loot-row-name">{skin.name}</div>
-                        <div className="loot-row-tag">{skin.tagline}</div>
-                      </div>
+              return (
+                <div
+                  key={skin.id}
+                  className={`loot-row ${isActive ? "active" : ""}`}
+                >
+                  <div className="loot-left">
+                    <div className="loot-preview" style={previewStyle} />
+                    <div className="loot-text">
+                      <div className="loot-row-name">{skin.name}</div>
+                      <div className="loot-row-tag">{skin.tagline}</div>
                     </div>
+                  </div>
 
-                    <div className="loot-right">
-                      <div className="loot-price">{priceLabel}</div>
+                  <div className="loot-right">
+                    <div className="loot-price">{priceLabel}</div>
+                    <div className="loot-actions">
+                      {/* TON button */}
                       <button
                         className="loot-btn gradient-outline-btn"
                         disabled={isActive}
@@ -1817,76 +1847,72 @@ ssName="loot-left">
                           }
                         }}
                       >
-                        {buttonText}
+                        {isActive
+                          ? "Equipped"
+                          : owned
+                          ? "Equip"
+                          : "Buy with TON"}
+                      </button>
+
+                      {/* Stars button */}
+                      <button
+                        className="loot-btn gradient-outline-btn"
+                        disabled={owned || isActive}
+                        onClick={() => {
+                          if (!owned && !isActive) {
+                            handleBuyWheelSkinStars(skin);
+                          }
+                        }}
+                      >
+                        {owned || isActive ? "Owned" : "Buy with ⭐ Stars"}
                       </button>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* BACKGROUND SKINS */}
-        {lootTab === "mood" && (
-          <div className="loot-section">
-            <div className="loot-title">🖼 Background Skins</div>
-            <div className="loot-list">
-              {BG_SKINS.map((skin) => {
-                const isActive = skin.id === bgSkinId;
-                const owned =
-                  hasBgSkin(skin.id) ||
-                  (skin.priceTon === 0 && skin.priceStars =
-<div className="loot-right">
-  <div className="loot-price">{priceLabel}</div>
-  <div className="loot-actions">
-    {/* TON button */}
-    <button
-      className="loot-btn gradient-outline-btn"
-      disabled={isActive}
-      onClick={() => {
-        if (owned) {
-          equipBgSkin(skin.id);
-        } else {
-          handleBuyBgSkinTon(skin);
-        }
-      }}
-    >
-      {isActive
-        ? "Equipped"
-        : owned
-        ? "Equip"
-        : "Buy with TON"}
-    </button>
+      {/* BACKGROUND SKINS */}
+      {lootTab === "mood" && (
+        <div className="loot-section">
+          <div className="loot-title">🖼 Background Skins</div>
+          <div className="loot-list">
+            {BG_SKINS.map((skin) => {
+              const isActive = skin.id === bgSkinId;
+              const owned =
+                hasBgSkin(skin.id) ||
+                (skin.priceTon === 0 && skin.priceStars === 0);
 
-    {/* Stars button */}
-    <button
-      className="loot-btn gradient-outline-btn"
-      disabled={owned || isActive}
-      onClick={() => {
-        if (!owned && !isActive) {
-          handleBuyBgSkinStars(skin);
-        }
-      }}
-    >
-      {owned || isActive ? "Owned" : "Buy with ⭐ Stars"}
-    </button>
-  </div>
-</div>
-               <div
-                    key={skin.id}
-                    className={`loot-row ${isActive ? "active" : ""}`}
-                  >
-                    <div className="loot-left">
-                      <div className="loot-preview" style={previewStyle} />
-                      <div className="loot-text">
-                        <div className="loot-row-name">{skin.name}</div>
-                        <div className="loot-row-tag">{skin.tagline}</div>
-                      </div>
+              const previewStyle = {
+                backgroundImage: `url(${skin.file})`,
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+              };
+              const priceLabel =
+                skin.priceTon === 0 && skin.priceStars === 0
+                  ? "Included"
+                  : `${skin.priceTon} TON or ${skin.priceStars} ⭐`;
+
+              return (
+                <div
+                  key={skin.id}
+                  className={`loot-row ${isActive ? "active" : ""}`}
+                >
+                  <div className="loot-left">
+                    <div className="loot-preview" style={previewStyle} />
+                    <div className="loot-text">
+                      <div className="loot-row-name">{skin.name}</div>
+                      <div className="loot-row-tag">{skin.tagline}</div>
                     </div>
+                  </div>
 
-                    <div className="loot-right">
-                      <div className="loot-price">{priceLabel}</div>
+                  <div className="loot-right">
+                    <div className="loot-price">{priceLabel}</div>
+                    <div className="loot-actions">
+                      {/* TON button */}
                       <button
                         className="loot-btn gradient-outline-btn"
                         disabled={isActive}
@@ -1898,28 +1924,46 @@ ssName="loot-left">
                           }
                         }}
                       >
-                        {buttonText}
+                        {isActive
+                          ? "Equipped"
+                          : owned
+                          ? "Equip"
+                          : "Buy with TON"}
+                      </button>
+
+                      {/* Stars button */}
+                      <button
+                        className="loot-btn gradient-outline-btn"
+                        disabled={owned || isActive}
+                        onClick={() => {
+                          if (!owned && !isActive) {
+                            handleBuyBgSkinStars(skin);
+                          }
+                        }}
+                      >
+                        {owned || isActive ? "Owned" : "Buy with ⭐ Stars"}
                       </button>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* COLLECTIBLES PLACEHOLDER */}
-        {lootTab === "collectibles" && (
-          <div className="loot-section">
-            <div className="loot-title">🎁 Collectibles</div>
-            <div className="placeholder-card">
-              Collectibles coming soon…
-            </div>
+      {/* COLLECTIBLES PLACEHOLDER */}
+      {lootTab === "collectibles" && (
+        <div className="loot-section">
+          <div className="loot-title">🎁 Collectibles</div>
+          <div className="placeholder-card">
+            Collectibles coming soon…
           </div>
-        )}
-      </div>
-    );
-  };
+        </div>
+      )}
+    </div>
+  );
+};
 
   function AvatarInline({ name, photo }) {
     if (photo) return <img className="lb-avatar" src={photo} alt={name} />;
