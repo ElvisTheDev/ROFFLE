@@ -714,10 +714,6 @@ body{
   border:1px solid #067bc7;
   box-shadow:0 10px 24px rgba(6,123,199,.45);
   color:#ffffff;
-  max-width:104px;
-  padding:0 8px;
-  height:28px;
-  font-size:10.5px;
 }
 
 .btn-tier-ton-inner{
