@@ -1859,7 +1859,7 @@ const LootScreen = () => {
     </button>
   </div>
 </div>
-ssName="loot-left">
+<div className="loot-left">
                       <div className="loot-preview" style={previewStyle} />
                       <div className="loot-text">
                         <div className="loot-row-name">{skin.name}</div>
