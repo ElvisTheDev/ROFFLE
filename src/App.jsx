@@ -1627,11 +1627,6 @@ export default function App() {
           </button>
         </div>
 
-        <div className="modal-body vip-body">
-          <div className="vip-sub">
-            Get your VIP up for more spins, extra rewards and time boost
-          </div>
-
           <div className="vip-table">
             {/* Header row with tier names */}
             <div className="vip-row vip-row-head">
