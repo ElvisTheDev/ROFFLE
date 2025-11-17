@@ -63,7 +63,6 @@ const TIERS = {
   },
 };
 
-
 /**
  * Coins test price – not used for TON flow anymore, but left in case you
  * want to gate tiers by in-game coins later.
@@ -781,8 +780,8 @@ export default function App() {
 
       if (!data.ok || !data.invoice_link) {
         console.error("Stars invoice error", data);
-        setToast({ text: "Stars invoice failed (backend item not configured)", key: Date.now() });
-        setTimeout(() => setToast(null), 2000);
+        setToast({ text: "Stars payment error, try again", key: Date.now() });
+        setTimeout(() => setToast(null), 1500);
         return;
       }
 
@@ -1489,44 +1488,6 @@ export default function App() {
     await handleUnlockBgSkin(skin);
   };
 
-/* ⭐ Telegram Stars unlock for wheel skins */
-const handleBuyWheelSkinStars = async (skin) => {
-  // Already owned → just equip
-  if (hasWheelSkin(skin.id)) {
-    equipWheelSkin(skin.id);
-    return;
-  }
-
-  // Free / included → unlock directly
-  if (skin.priceStars === 0) {
-    await handleUnlockWheelSkin(skin);
-    return;
-  }
-
-  // Open Stars invoice (item_type = "wheel")
-  await createStarsInvoiceAndOpen("wheel", skin.id);
-  // After successful payment your bot webhook should insert
-  // (tg_id, "wheel", skin.id) into roff_inventory.
-};
-
-/* ⭐ Telegram Stars unlock for background skins */
-const handleBuyBgSkinStars = async (skin) => {
-  if (hasBgSkin(skin.id)) {
-    equipBgSkin(skin.id);
-    return;
-  }
-
-  if (skin.priceStars === 0) {
-    await handleUnlockBgSkin(skin);
-    return;
-  }
-
-  // Open Stars invoice (item_type = "bg")
-  await createStarsInvoiceAndOpen("bg", skin.id);
-  // After successful payment your bot webhook should insert
-  // (tg_id, "bg", skin.id) into roff_inventory.
-};
-
 
 /* ⭐ Telegram Stars unlock for wheel skins */
 const handleBuyWheelSkinStars = async (skin) => {
@@ -1640,194 +1601,275 @@ const handleBuyBgSkinStars = async (skin) => {
       );
   };
 
-const PremiumModal = () => {
-  const cards = [
-    {
-      t: TIERS.plus,
-      bullets: [
-        "Wheel spins regenerate ×2 faster",
-        "Wheel cap increases to 40/40",
-        "All wheel prizes ×2",
-        "Invite rewards +50% from base",
-      ],
-    },
-    {
-      t: TIERS.pro,
-      bullets: [
-        "Wheel spins regenerate ×3 faster",
-        "Wheel cap increases to 60/60",
-        "All wheel prizes ×3",
-        "Invite rewards +75% from base",
-      ],
-    },
-    {
-      t: TIERS.prem,
-      bullets: [
-        "Wheel spins regenerate ×5 faster",
-        "Wheel cap increases to 100/100",
-        "All wheel prizes ×5",
-        "Invite rewards +100% from base",
-      ],
-    },
-  ];
+  const PremiumModal = () => {
+    const tierDefs = [
+      {
+        key: "plus",
+        uiName: "Premium ⚡️",
+        regen: "×2",
+        cap: "40/40",
+        mult: "×2",
+        invites: "+50%",
+      },
+      {
+        key: "pro",
+        uiName: "Plus ✨",
+        regen: "×3",
+        cap: "60/60",
+        mult: "×3",
+        invites: "+75%",
+      },
+      {
+        key: "prem",
+        uiName: "Pro 👑",
+        regen: "×5",
+        cap: "100/100",
+        mult: "×5",
+        invites: "+100%",
+      },
+    ];
 
-  return (
-    <div className="modal-overlay" onClick={() => setShowPremium(false)}>
-      <div
-        className="modal modal-full"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="modal-head">
-          <button
-            className="modal-back"
-            onClick={() => setShowPremium(false)}
-          >
-            ← Back
-          </button>
-          <div className="mh-left">
-            <span className="mh-icon">👑</span>
-            <div className="mh-title">Buy $ROF Tiers</div>
-          </div>
-          <button
-            className="modal-close"
-            onClick={() => setShowPremium(false)}
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="modal-body">
-          <div className="modal-sub">
-            Choose a tier (priced in <b>TON</b> or <b>Telegram Stars</b>)
+    return (
+      <div className="modal-overlay" onClick={() => setShowPremium(false)}>
+        <div
+          className="modal modal-full"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="modal-head">
+            <button
+              className="modal-back"
+              onClick={() => setShowPremium(false)}
+            >
+              ← Back
+            </button>
+            <div className="mh-center">
+              <span className="mh-icon">👑</span>
+              <div className="mh-title">Buy ROFFLE Tiers</div>
+            </div>
+            <button
+              className="modal-close"
+              onClick={() => setShowPremium(false)}
+            >
+              ✕
+            </button>
           </div>
 
-          <div className="tier-grid">
-            {cards.map(({ t, bullets }) => {
-              const active = t.key === tierKey;
-              const isLowerOrEqual =
-                TIER_ORDER[t.key] <= TIER_ORDER[tierKey];
-              const disabled = isLowerOrEqual;
+          <div className="modal-body premium-body">
+            <div className="modal-sub">
+              Choose your status. Tiers can be purchased with{" "}
+              <b>TON</b> or <b>Telegram Stars</b>.
+            </div>
 
-              return (
-                <div
-                  key={t.key}
-                  className={`tier-card gradient-border ${
-                    active ? "active" : ""
-                  }`}
-                >
-                  <div className="tc-top">
-                    <div className="tc-name">{t.name}</div>
-                    {active && <div className="tc-active">Active</div>}
-                  </div>
-                  <ul className="tc-list">
-                    {bullets.map((b, idx) => (
-                      <li key={idx}>{b}</li>
-                    ))}
-                  </ul>
-                  <div className="tc-price">
-                    {t.priceTon === 0 && t.priceStars === 0
-                      ? "Included"
-                      : `Price: ${t.priceTon} TON or ${t.priceStars} ⭐`}
-                  </div>
-                  <div className="tc-actions">
-                    {/* TON button */}
-                    <button
-                      className="tc-buy gradient-outline-btn"
-                      disabled={disabled}
-                      onClick={() =>
-                        !disabled && handleBuyTierTon(t.key)
-                      }
-                    >
-                      {t.key === tierKey
-                        ? "Current Plan"
-                        : isLowerOrEqual
-                        ? "Unavailable"
-                        : "Buy with TON"}
-                    </button>
+            <div className="premium-grid">
+              {tierDefs.map((def) => {
+                const t = TIERS[def.key];
+                const active = def.key === tierKey;
+                const isLowerOrEqual =
+                  TIER_ORDER[def.key] <= TIER_ORDER[tierKey];
+                const disabled = isLowerOrEqual;
 
-                    {/* Stars button */}
-                    <button
-                      className="tc-buy gradient-outline-btn"
-                      disabled={disabled}
-                      onClick={() =>
-                        !disabled && handleBuyTierStars(t.key)
-                      }
-                    >
-                      {t.key === tierKey
-                        ? "Current Plan"
-                        : isLowerOrEqual
-                        ? "Unavailable"
-                        : "Buy with ⭐ Stars"}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
+                return (
+                  <div
+                    key={def.key}
+                    className={`premium-col gradient-border ${
+                      active ? "active" : ""
+                    }`}
+                  >
+                    <div className="premium-col-header">
+                      <div className="pc-name">{def.uiName}</div>
+                      <div className="pc-badge">
+                        <TierBadge tierKey={def.key} />
+                      </div>
+                      {active && <div className="pc-active">Current</div>}
+                    </div>
 
-const LootScreen = () => {
-  return (
-    <div className="loot-wrap">
-      <div className="loot-tabs">
-        <button
-          className={`loot-tab ${lootTab === "skins" ? "on" : ""}`}
-          onClick={() => setLootTab("skins")}
-        >
-          ROF Skins
-        </button>
-        <button
-          className={`loot-tab ${lootTab === "mood" ? "on" : ""}`}
-          onClick={() => setLootTab("mood")}
-        >
-          ROF Mood
-        </button>
-        <button
-          className={`loot-tab ${lootTab === "collectibles" ? "on" : ""}`}
-          onClick={() => setLootTab("collectibles")}
-        >
-          Collectibles
-        </button>
-      </div>
+                    <div className="premium-features">
+                      <div className="premium-row">
+                        <span className="pf-label">
+                          <b>Profile Badge:</b>
+                        </span>
+                        <span className="pf-value">
+                          Visible badge next to your nickname.
+                        </span>
+                      </div>
+                      <div className="premium-row">
+                        <span className="pf-label">
+                          <b>Regeneration Speed:</b>
+                        </span>
+                        <span className="pf-value">{def.regen}</span>
+                      </div>
+                      <div className="premium-row">
+                        <span className="pf-label">
+                          <b>Wheel Round Limits:</b>
+                        </span>
+                        <span className="pf-value">{def.cap}</span>
+                      </div>
+                      <div className="premium-row">
+                        <span className="pf-label">
+                          <b>Wheel Prize Multiplier:</b>
+                        </span>
+                        <span className="pf-value">{def.mult}</span>
+                      </div>
+                      <div className="premium-row">
+                        <span className="pf-label">
+                          <b>Friends Invite Rewards:</b>
+                        </span>
+                        <span className="pf-value">{def.invites}</span>
+                      </div>
+                      <div className="premium-row">
+                        <span className="pf-label">
+                          <b>Claimable Welcome Rewards:</b>
+                        </span>
+                        <span className="pf-value">Yes</span>
+                      </div>
+                      <div className="premium-row">
+                        <span className="pf-label">
+                          <b>ROFFLE Bonuses &amp; Prize Pools:</b>
+                        </span>
+                        <span className="pf-value">Yes</span>
+                      </div>
+                    </div>
 
-      {/* WHEEL SKINS */}
-      {lootTab === "skins" && (
-        <div className="loot-section">
-          <div className="loot-title">🎨 Wheel Skins</div>
-          <div className="loot-list">
-            {WHEEL_SKINS.map((skin) => {
-              const isActive = skin.id === wheelSkinId;
-              const owned =
-                hasWheelSkin(skin.id) ||
-                (skin.priceTon === 0 && skin.priceStars === 0);
+                    <div className="premium-actions">
+                      <button
+                        className="btn-tier-ton"
+                        disabled={disabled}
+                        onClick={() =>
+                          !disabled && handleBuyTierTon(def.key)
+                        }
+                        style={{
+                          backgroundColor:
+                            active || disabled ? "#1c7aa8" : "#28a5da",
+                          borderColor: "#067bc7",
+                        }}
+                      >
+                        {def.key === tierKey || isLowerOrEqual ? (
+                          <span>
+                            {def.key === tierKey ? "Current Plan" : "Unavailable"}
+                          </span>
+                        ) : (
+                          <span className="btn-tier-ton-inner">
+                            <img
+                              src="/ton-icon.png"
+                              alt="TON"
+                              className="btn-ton-icon"
+                            />
+                            <span>{t.priceTon}</span>
+                          </span>
+                        )}
+                      </button>
 
-              const previewStyle = getWheelPreviewStyle(skin);
-              const priceLabel =
-                skin.priceTon === 0 && skin.priceStars === 0
-                  ? "Included"
-                  : `${skin.priceTon} TON or ${skin.priceStars} ⭐`;
-
-              return (
-                <div
-                  key={skin.id}
-                  className={`loot-row ${isActive ? "active" : ""}`}
-                >
-                  <div className="loot-left">
-                    <div className="loot-preview" style={previewStyle} />
-                    <div className="loot-text">
-                      <div className="loot-row-name">{skin.name}</div>
-                      <div className="loot-row-tag">{skin.tagline}</div>
+                      <button
+                        className="btn-tier-stars gradient-outline-btn"
+                        disabled={disabled}
+                        onClick={() =>
+                          !disabled && handleBuyTierStars(def.key)
+                        }
+                      >
+                        {def.key === tierKey || isLowerOrEqual ? (
+                          <span>
+                            {def.key === tierKey ? "Current Plan" : "Unavailable"}
+                          </span>
+                        ) : (
+                          <span>⭐ {t.priceStars}</span>
+                        )}
+                      </button>
                     </div>
                   </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
-                  <div className="loot-right">
-                    <div className="loot-price">{priceLabel}</div>
-                    <div className="loot-actions">
-                      {/* TON button */}
+
+const LootScreen = () => {
+    return (
+      <div className="loot-wrap">
+        <div className="loot-tabs">
+          <button
+            className={`loot-tab ${lootTab === "skins" ? "on" : ""}`}
+            onClick={() => setLootTab("skins")}
+          >
+            ROF Skins
+          </button>
+          <button
+            className={`loot-tab ${lootTab === "mood" ? "on" : ""}`}
+            onClick={() => setLootTab("mood")}
+          >
+            ROF Mood
+          </button>
+          <button
+            className={`loot-tab ${
+              lootTab === "collectibles" ? "on" : ""
+            }`}
+            onClick={() => setLootTab("collectibles")}
+          >
+            Collectibles
+          </button>
+        </div>
+
+        {/* WHEEL SKINS */}
+        {lootTab === "skins" && (
+          <div className="loot-section">
+            <div className="loot-title">🎨 Wheel Skins</div>
+            <div className="loot-list">
+              {WHEEL_SKINS.map((skin) => {
+                const isActive = skin.id === wheelSkinId;
+                const owned =
+                  hasWheelSkin(skin.id) ||
+                  (skin.priceTon === 0 && skin.priceStars === 0);
+
+                con
+<div className="loot-right">
+  <div className="loot-price">{priceLabel}</div>
+  <div className="loot-actions">
+    {/* TON button */}
+    <button
+      className="loot-btn gradient-outline-btn"
+      disabled={isActive}
+      onClick={() => {
+        if (owned) {
+          equipWheelSkin(skin.id);
+        } else {
+          handleBuyWheelSkinTon(skin);
+        }
+      }}
+    >
+      {isActive
+        ? "Equipped"
+        : owned
+        ? "Equip"
+        : "Buy with TON"}
+    </button>
+
+    {/* Stars button */}
+    <button
+      className="loot-btn gradient-outline-btn"
+      disabled={owned || isActive}
+      onClick={() => {
+        if (!owned && !isActive) {
+          handleBuyWheelSkinStars(skin);
+        }
+      }}
+    >
+      {owned || isActive ? "Owned" : "Buy with ⭐ Stars"}
+    </button>
+  </div>
+</div>
+ssName="loot-left">
+                      <div className="loot-preview" style={previewStyle} />
+                      <div className="loot-text">
+                        <div className="loot-row-name">{skin.name}</div>
+                        <div className="loot-row-tag">{skin.tagline}</div>
+                      </div>
+                    </div>
+
+                    <div className="loot-right">
+                      <div className="loot-price">{priceLabel}</div>
                       <button
                         className="loot-btn gradient-outline-btn"
                         disabled={isActive}
@@ -1839,72 +1881,76 @@ const LootScreen = () => {
                           }
                         }}
                       >
-                        {isActive
-                          ? "Equipped"
-                          : owned
-                          ? "Equip"
-                          : "Buy with TON"}
-                      </button>
-
-                      {/* Stars button */}
-                      <button
-                        className="loot-btn gradient-outline-btn"
-                        disabled={owned || isActive}
-                        onClick={() => {
-                          if (!owned && !isActive) {
-                            handleBuyWheelSkinStars(skin);
-                          }
-                        }}
-                      >
-                        {owned || isActive ? "Owned" : "Buy with ⭐ Stars"}
+                        {buttonText}
                       </button>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* BACKGROUND SKINS */}
-      {lootTab === "mood" && (
-        <div className="loot-section">
-          <div className="loot-title">🖼 Background Skins</div>
-          <div className="loot-list">
-            {BG_SKINS.map((skin) => {
-              const isActive = skin.id === bgSkinId;
-              const owned =
-                hasBgSkin(skin.id) ||
-                (skin.priceTon === 0 && skin.priceStars === 0);
+        {/* BACKGROUND SKINS */}
+        {lootTab === "mood" && (
+          <div className="loot-section">
+            <div className="loot-title">🖼 Background Skins</div>
+            <div className="loot-list">
+              {BG_SKINS.map((skin) => {
+                const isActive = skin.id === bgSkinId;
+                const owned =
+                  hasBgSkin(skin.id) ||
+                  (skin.priceTon === 0 && skin.priceStars =
+<div className="loot-right">
+  <div className="loot-price">{priceLabel}</div>
+  <div className="loot-actions">
+    {/* TON button */}
+    <button
+      className="loot-btn gradient-outline-btn"
+      disabled={isActive}
+      onClick={() => {
+        if (owned) {
+          equipBgSkin(skin.id);
+        } else {
+          handleBuyBgSkinTon(skin);
+        }
+      }}
+    >
+      {isActive
+        ? "Equipped"
+        : owned
+        ? "Equip"
+        : "Buy with TON"}
+    </button>
 
-              const previewStyle = {
-                backgroundImage: `url(${skin.file})`,
-                backgroundSize: "cover",
-                backgroundPosition: "center",
-              };
-              const priceLabel =
-                skin.priceTon === 0 && skin.priceStars === 0
-                  ? "Included"
-                  : `${skin.priceTon} TON or ${skin.priceStars} ⭐`;
-
-              return (
-                <div
-                  key={skin.id}
-                  className={`loot-row ${isActive ? "active" : ""}`}
-                >
-                  <div className="loot-left">
-                    <div className="loot-preview" style={previewStyle} />
-                    <div className="loot-text">
-                      <div className="loot-row-name">{skin.name}</div>
-                      <div className="loot-row-tag">{skin.tagline}</div>
+    {/* Stars button */}
+    <button
+      className="loot-btn gradient-outline-btn"
+      disabled={owned || isActive}
+      onClick={() => {
+        if (!owned && !isActive) {
+          handleBuyBgSkinStars(skin);
+        }
+      }}
+    >
+      {owned || isActive ? "Owned" : "Buy with ⭐ Stars"}
+    </button>
+  </div>
+</div>
+               <div
+                    key={skin.id}
+                    className={`loot-row ${isActive ? "active" : ""}`}
+                  >
+                    <div className="loot-left">
+                      <div className="loot-preview" style={previewStyle} />
+                      <div className="loot-text">
+                        <div className="loot-row-name">{skin.name}</div>
+                        <div className="loot-row-tag">{skin.tagline}</div>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="loot-right">
-                    <div className="loot-price">{priceLabel}</div>
-                    <div className="loot-actions">
-                      {/* TON button */}
+                    <div className="loot-right">
+                      <div className="loot-price">{priceLabel}</div>
                       <button
                         className="loot-btn gradient-outline-btn"
                         disabled={isActive}
@@ -1916,46 +1962,28 @@ const LootScreen = () => {
                           }
                         }}
                       >
-                        {isActive
-                          ? "Equipped"
-                          : owned
-                          ? "Equip"
-                          : "Buy with TON"}
-                      </button>
-
-                      {/* Stars button */}
-                      <button
-                        className="loot-btn gradient-outline-btn"
-                        disabled={owned || isActive}
-                        onClick={() => {
-                          if (!owned && !isActive) {
-                            handleBuyBgSkinStars(skin);
-                          }
-                        }}
-                      >
-                        {owned || isActive ? "Owned" : "Buy with ⭐ Stars"}
+                        {buttonText}
                       </button>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* COLLECTIBLES PLACEHOLDER */}
-      {lootTab === "collectibles" && (
-        <div className="loot-section">
-          <div className="loot-title">🎁 Collectibles</div>
-          <div className="placeholder-card">
-            Collectibles coming soon…
+        {/* COLLECTIBLES PLACEHOLDER */}
+        {lootTab === "collectibles" && (
+          <div className="loot-section">
+            <div className="loot-title">🎁 Collectibles</div>
+            <div className="placeholder-card">
+              Collectibles coming soon…
+            </div>
           </div>
-        </div>
-      )}
-    </div>
-  );
-};
+        )}
+      </div>
+    );
+  };
 
   function AvatarInline({ name, photo }) {
     if (photo) return <img className="lb-avatar" src={photo} alt={name} />;
