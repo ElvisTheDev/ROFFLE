@@ -747,9 +747,13 @@ export default function App() {
     }
 
     if (t.priceTon === 0) {
+      setShowPremium(false);
       await buyTier(key);
       return;
     }
+
+    // Close VIP screen so Telegram payment sheet is clearly visible
+    setShowPremium(false);
 
     const ok = await sendTonPayment(t.priceTon, `Premium tier: ${t.name}`);
     if (!ok) return;
@@ -815,9 +819,13 @@ export default function App() {
 
     // Free tier in Stars context – just upgrade
     if (t.priceStars === 0) {
+      setShowPremium(false);
       await buyTier(key);
       return;
     }
+
+    // Close VIP screen before opening Stars invoice
+    setShowPremium(false);
 
     // For now, just open Stars payment invoice.
     // After payment, your bot webhook will update premium_tier in DB.
@@ -1607,7 +1615,7 @@ const PremiumModal = () => {
     {
       key: "plus",
       short: "Premium",
-      uiName: "Premium ⚡️",
+      badge: "Premium⚡️",
       regen: "×2",
       cap: "40/40",
       mult: "×2",
@@ -1616,7 +1624,7 @@ const PremiumModal = () => {
     {
       key: "pro",
       short: "Plus",
-      uiName: "Plus ✨",
+      badge: "Plus💫",
       regen: "×3",
       cap: "60/60",
       mult: "×3",
@@ -1625,7 +1633,7 @@ const PremiumModal = () => {
     {
       key: "prem",
       short: "Pro",
-      uiName: "Pro 👑",
+      badge: "Pro 👑",
       regen: "×5",
       cap: "100/100",
       mult: "×5",
@@ -1634,12 +1642,15 @@ const PremiumModal = () => {
   ];
 
   return (
-    <div className="modal-overlay" onClick={() => setShowPremium(false)}>
+    <div
+      className="modal-overlay premium-overlay"
+      onClick={() => setShowPremium(false)}
+    >
       <div
-        className="modal premium-full"
+        className="modal premium-full gradient-border"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="modal-head premium-head">
+        <div className="premium-head">
           <button
             className="modal-back"
             onClick={() => setShowPremium(false)}
@@ -1647,9 +1658,9 @@ const PremiumModal = () => {
             ← Back
           </button>
           <div className="mh-center">
-            <div className="mh-title">Go Premium</div>
+            <div className="mh-title">👑Buy VIP Status</div>
             <div className="mh-subtitle">
-              Choose your ROFFLE status and unlock more spins &amp; rewards
+              Get your VIP up for more spins, extra rewards and time boost
             </div>
           </div>
           <button
@@ -1664,18 +1675,13 @@ const PremiumModal = () => {
           <div className="premium-table">
             {/* Header row */}
             <div className="premium-table-header">
-              <div className="ptc label-cell"></div>
+              <div className="ptc label-cell">Badge</div>
               {tierDefs.map((def) => {
-                const isCurrent = def.key === tierKey;
+                const active = def.key === tierKey;
                 return (
                   <div key={def.key} className="ptc tier-header">
                     <div className="tier-header-name">{def.short}</div>
-                    <div className="tier-header-badge">
-                      <TierBadge tierKey={def.key} />
-                    </div>
-                    {isCurrent && (
-                      <div className="tier-current">Current</div>
-                    )}
+                    {active && <div className="tier-current">Current</div>}
                   </div>
                 );
               })}
@@ -1686,19 +1692,19 @@ const PremiumModal = () => {
               <div className="ptc label-cell">Badge</div>
               {tierDefs.map((def) => (
                 <div key={def.key} className="ptc value-cell">
-                  <span className={`tier-pill ${def.key}`}>
-                    {def.short}
+                  <span className={\`tier-pill ${def.key}\`}>
+                    {def.badge}
                   </span>
                 </div>
               ))}
             </div>
 
-            {/* Regeneration speed */}
+            {/* Regeneration Speed */}
             <div className="premium-table-row">
               <div className="ptc label-cell">Regeneration speed</div>
               {tierDefs.map((def) => (
                 <div key={def.key} className="ptc value-cell">
-                  {def.regen}
+                  <b>{def.regen}</b>
                 </div>
               ))}
             </div>
@@ -1708,7 +1714,7 @@ const PremiumModal = () => {
               <div className="ptc label-cell">Wheel Round Limits</div>
               {tierDefs.map((def) => (
                 <div key={def.key} className="ptc value-cell">
-                  {def.cap}
+                  <b>{def.cap}</b>
                 </div>
               ))}
             </div>
@@ -1718,7 +1724,7 @@ const PremiumModal = () => {
               <div className="ptc label-cell">Wheel Prize Multiplier</div>
               {tierDefs.map((def) => (
                 <div key={def.key} className="ptc value-cell">
-                  {def.mult}
+                  <b>{def.mult}</b>
                 </div>
               ))}
             </div>
@@ -1728,7 +1734,7 @@ const PremiumModal = () => {
               <div className="ptc label-cell">Friends Invite Rewards</div>
               {tierDefs.map((def) => (
                 <div key={def.key} className="ptc value-cell">
-                  {def.invites}
+                  <b>{def.invites}</b>
                 </div>
               ))}
             </div>
@@ -1743,10 +1749,10 @@ const PremiumModal = () => {
               ))}
             </div>
 
-            {/* ROFFLE bonuses */}
+            {/* ROFFLE bonuses & prize pools */}
             <div className="premium-table-row striped">
               <div className="ptc label-cell">
-                ROFFLE Bonuses &amp; Prize Pools
+                ROFFLE Bonuses and Prize Pools
               </div>
               {tierDefs.map((def) => (
                 <div key={def.key} className="ptc value-cell">
@@ -1757,13 +1763,13 @@ const PremiumModal = () => {
 
             {/* Buy row */}
             <div className="premium-table-row premium-buy-row">
-              <div className="ptc label-cell">Get tier</div>
+              <div className="ptc label-cell"></div>
               {tierDefs.map((def) => {
                 const t = TIERS[def.key];
-                const isCurrent = def.key === tierKey;
                 const isLowerOrEqual =
                   TIER_ORDER[def.key] <= TIER_ORDER[tierKey];
                 const disabled = isLowerOrEqual;
+                const isCurrent = def.key === tierKey;
 
                 return (
                   <div key={def.key} className="ptc value-cell">
@@ -1777,7 +1783,7 @@ const PremiumModal = () => {
                       >
                         {isCurrent || isLowerOrEqual ? (
                           <span>
-                            {isCurrent ? "Current Plan" : "Unavailable"}
+                            {isCurrent ? "Current" : "Unavailable"}
                           </span>
                         ) : (
                           <span className="btn-tier-ton-inner">
@@ -1800,7 +1806,7 @@ const PremiumModal = () => {
                       >
                         {isCurrent || isLowerOrEqual ? (
                           <span>
-                            {isCurrent ? "Current Plan" : "Unavailable"}
+                            {isCurrent ? "Current" : "Unavailable"}
                           </span>
                         ) : (
                           <span>⭐ {t.priceStars}</span>
@@ -1818,1344 +1824,3 @@ const PremiumModal = () => {
   );
 };
 
-
-const LootScreen
- = () => {
-    return (
-      <div className="loot-wrap">
-        <div className="loot-tabs">
-          <button
-            className={`loot-tab ${lootTab === "skins" ? "on" : ""}`}
-            onClick={() => setLootTab("skins")}
-          >
-            ROF Skins
-          </button>
-          <button
-            className={`loot-tab ${lootTab === "mood" ? "on" : ""}`}
-            onClick={() => setLootTab("mood")}
-          >
-            ROF Mood
-          </button>
-          <button
-            className={`loot-tab ${lootTab === "collectibles" ? "on" : ""}`}
-            onClick={() => setLootTab("collectibles")}
-          >
-            Collectibles
-          </button>
-        </div>
-
-        {/* WHEEL SKINS */}
-        {lootTab === "skins" && (
-          <div className="loot-section">
-            <div className="loot-title">🎨 Wheel Skins</div>
-            <div className="loot-list">
-              {WHEEL_SKINS.map((skin) => {
-                const isActive = skin.id === wheelSkinId;
-                const owned =
-                  hasWheelSkin(skin.id) ||
-                  (skin.priceTon === 0 && skin.priceStars === 0);
-
-                const previewStyle = getWheelPreviewStyle(skin);
-                const priceLabel =
-                  skin.priceTon === 0 && skin.priceStars === 0
-                    ? "Included"
-                    : `${skin.priceTon} TON or ${skin.priceStars} ⭐`;
-
-                let tonButtonText;
-                if (isActive) tonButtonText = "Equipped";
-                else if (owned) tonButtonText = "Equip";
-                else tonButtonText = `Buy for ${skin.priceTon} TON`;
-
-                const canBuyStars =
-                  skin.priceStars > 0 && !owned && !isActive;
-
-                return (
-                  <div
-                    key={skin.id}
-                    className={`loot-row ${isActive ? "active" : ""}`}
-                  >
-                    <div className="loot-left">
-                      <div className="loot-preview" style={previewStyle} />
-                      <div className="loot-text">
-                        <div className="loot-row-name">{skin.name}</div>
-                        <div className="loot-row-tag">{skin.tagline}</div>
-                      </div>
-                    </div>
-
-                    <div className="loot-right">
-                      <div className="loot-price">{priceLabel}</div>
-                      <div className="loot-actions">
-                        <button
-                          className="loot-btn gradient-outline-btn"
-                          disabled={isActive}
-                          onClick={() => {
-                            if (owned) {
-                              equipWheelSkin(skin.id);
-                            } else {
-                              handleBuyWheelSkinTon(skin);
-                            }
-                          }}
-                        >
-                          {tonButtonText}
-                        </button>
-
-                        <button
-                          className="loot-btn gradient-outline-btn"
-                          disabled={!canBuyStars}
-                          onClick={() => {
-                            if (canBuyStars) {
-                              handleBuyWheelSkinStars(skin);
-                            }
-                          }}
-                        >
-                          {owned || isActive || !skin.priceStars
-                            ? "Owned"
-                            : "Buy with ⭐ Stars"}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* BACKGROUND SKINS */}
-        {lootTab === "mood" && (
-          <div className="loot-section">
-            <div className="loot-title">🖼 Background Skins</div>
-            <div className="loot-list">
-              {BG_SKINS.map((skin) => {
-                const isActive = skin.id === bgSkinId;
-                const owned =
-                  hasBgSkin(skin.id) ||
-                  (skin.priceTon === 0 && skin.priceStars === 0);
-
-                const previewStyle = {
-                  backgroundImage: `url(${skin.file})`,
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                };
-                const priceLabel =
-                  skin.priceTon === 0 && skin.priceStars === 0
-                    ? "Included"
-                    : `${skin.priceTon} TON or ${skin.priceStars} ⭐`;
-
-                let tonButtonText;
-                if (isActive) tonButtonText = "Equipped";
-                else if (owned) tonButtonText = "Equip";
-                else tonButtonText = `Buy for ${skin.priceTon} TON`;
-
-                const canBuyStars =
-                  skin.priceStars > 0 && !owned && !isActive;
-
-                return (
-                  <div
-                    key={skin.id}
-                    className={`loot-row ${isActive ? "active" : ""}`}
-                  >
-                    <div className="loot-left">
-                      <div className="loot-preview" style={previewStyle} />
-                      <div className="loot-text">
-                        <div className="loot-row-name">{skin.name}</div>
-                        <div className="loot-row-tag">{skin.tagline}</div>
-                      </div>
-                    </div>
-
-                    <div className="loot-right">
-                      <div className="loot-price">{priceLabel}</div>
-                      <div className="loot-actions">
-                        <button
-                          className="loot-btn gradient-outline-btn"
-                          disabled={isActive}
-                          onClick={() => {
-                            if (owned) {
-                              equipBgSkin(skin.id);
-                            } else {
-                              handleBuyBgSkinTon(skin);
-                            }
-                          }}
-                        >
-                          {tonButtonText}
-                        </button>
-
-                        <button
-                          className="loot-btn gradient-outline-btn"
-                          disabled={!canBuyStars}
-                          onClick={() => {
-                            if (canBuyStars) {
-                              handleBuyBgSkinStars(skin);
-                            }
-                          }}
-                        >
-                          {owned || isActive || !skin.priceStars
-                            ? "Owned"
-                            : "Buy with ⭐ Stars"}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* COLLECTIBLES PLACEHOLDER */}
-        {lootTab === "collectibles" && (
-          <div className="loot-section">
-            <div className="loot-title">🎁 Collectibles</div>
-            <div className="placeholder-card">
-              Collectibles coming soon…
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-
-function AvatarInline({ name, photo }) {
-    if (photo) return <img className="lb-avatar" src={photo} alt={name} />;
-    const bg = randomItem(DEMO_AVATAR_COLORS);
-    return (
-      <div className="lb-avatar fallback" style={{ background: bg }}>
-        {initials(name)}
-      </div>
-    );
-  }
-  function formatDate(iso) {
-    try {
-      const d = new Date(iso);
-      return d.toLocaleDateString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
-    } catch {
-      return "";
-    }
-  }
-
-  const EarnScreen = () => {
-    const invitedCount = invitesCount;
-    const estBonus = invitedCount * 200;
-    return (
-      <div className="earn-wrap">
-        <div className="card gradient-border">
-          <div className="card-head">
-            <div className="card-title">Invite friends</div>
-            <div className="reward-pill">
-              🎁 Both get <b>+20 spins</b> & <b>+200 $ROF</b>
-            </div>
-          </div>
-
-          <div className="ref-link-box">
-            <input className="ref-input" value={myRefLink} readOnly />
-            <div className="ref-actions">
-              <button
-                className="btn small gradient-outline-btn"
-                onClick={copyLink}
-              >
-                Copy
-              </button>
-              <button
-                className="btn small gradient-outline-btn"
-                onClick={shareLink}
-              >
-                Share
-              </button>
-            </div>
-          </div>
-
-          <div className="stats-row">
-            <div className="statbox">
-              <div className="stat-h">Invited</div>
-              <div className="stat-v">{invitedCount}</div>
-            </div>
-            <div className="statbox">
-              <div className="stat-h">Coins earned*</div>
-              <div className="stat-v">{estBonus}</div>
-            </div>
-          </div>
-          <div className="disclaimer">
-            *Inviter rewards require a backend to credit automatically.
-          </div>
-        </div>
-
-        <div className="card list-card gradient-border">
-          <div className="card-title">Recent sign-ups via your link</div>
-          <div className="ref-list">
-            {referrals.length === 0 && (
-              <div className="empty">
-                No referrals yet. Share your link to start earning!
-              </div>
-            )}
-            {referrals.map((r, i) => (
-              <div key={r.id || i} className="ref-row">
-                <AvatarInline name={r.name || "User"} photo={r.photo || ""} />
-                <div className="ref-meta">
-                  <div className="ref-name">{r.name || "User"}</div>
-                  <div className="ref-sub">
-                    <TierBadge tierKey={r.tier || "free"} />
-                    {r.username && (
-                      <span className="ref-username">{r.username}</span>
-                    )}
-                  </div>
-                </div>
-                <div className="ref-when">{formatDate(r.when)}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  const PlayScreen = ({ wheelSkin }) => {
-    const styleKey = wheelSkin.id;
-    const rimGradientId = (() => {
-      switch (styleKey) {
-        case "bloody":
-          return "rim-bloody";
-        case "emerald":
-          return "rim-emerald";
-        case "ice":
-          return "rim-ice";
-        case "cyber":
-          return "rim-cyber";
-        case "royal":
-          return "rim-royal";
-        case "retro":
-          return "rim-retro";
-        case "candy":
-          return "rim-candy";
-        case "stealth":
-          return "rim-stealth";
-        case "classic":
-        default:
-          return "rim-classic";
-      }
-    })();
-
-    return (
-      <>
-        <div className="wheel-wrap compact-no-scroll">
-          <svg className="wheel-svg" viewBox="0 0 1000 1000" aria-hidden>
-            <defs>
-              {Array.from({ length: SEGMENTS_TOTAL }, (_, i) => {
-                const sec1 = i + 1;
-                const id = `grad-${i}`;
-
-                if (styleKey === "classic") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#43cda3" />
-                        <stop offset="100%" stopColor="#490e6d" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#404040" />
-                        <stop offset="100%" stopColor="#000000" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#ffffff" />
-                        <stop offset="100%" stopColor="#a8a8a8" />
-                      </linearGradient>
-                    );
-                  }
-                }
-
-                if (styleKey === "neon") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="100%"
-                        y2="0%"
-                      >
-                        <stop offset="0%" stopColor="#19FB9B" />
-                        <stop offset="50%" stopColor="#5ce1e6" />
-                        <stop offset="100%" stopColor="#b50be5" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="100%"
-                        y2="0%"
-                      >
-                        <stop offset="0%" stopColor="#111827" />
-                        <stop offset="100%" stopColor="#312e81" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="100%"
-                        y2="0%"
-                      >
-                        <stop offset="0%" stopColor="#0f172a" />
-                        <stop offset="100%" stopColor="#22d3ee" />
-                      </linearGradient>
-                    );
-                  }
-                }
-
-                if (styleKey === "bloody") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#ffef9a" />
-                        <stop offset="100%" stopColor="#c2410c" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#7f1d1d" />
-                        <stop offset="100%" stopColor="#111827" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#b91c1c" />
-                        <stop offset="100%" stopColor="#000000" />
-                      </linearGradient>
-                    );
-                  }
-                }
-
-                if (styleKey === "emerald") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#bbf7d0" />
-                        <stop offset="100%" stopColor="#166534" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#064e3b" />
-                        <stop offset="100%" stopColor="#020617" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#16a34a" />
-                        <stop offset="100%" stopColor="#052e16" />
-                      </linearGradient>
-                    );
-                  }
-                }
-
-                if (styleKey === "ice") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#e0f2fe" />
-                        <stop offset="100%" stopColor="#0369a1" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#0f172a" />
-                        <stop offset="100%" stopColor="#0b1120" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#38bdf8" />
-                        <stop offset="100%" stopColor="#e0f2fe" />
-                      </linearGradient>
-                    );
-                  }
-                }
-
-                if (styleKey === "lava") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#fee2e2" />
-                        <stop offset="100%" stopColor="#b91c1c" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#7f1d1d" />
-                        <stop offset="100%" stopColor="#111827" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#f97316" />
-                        <stop offset="100%" stopColor="#450a0a" />
-                      </linearGradient>
-                    );
-                  }
-                }
-
-                if (styleKey === "cyber") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="100%"
-                        y2="0%"
-                      >
-                        <stop offset="0%" stopColor="#22c55e" />
-                        <stop offset="100%" stopColor="#4c1d95" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="100%"
-                        y2="0%"
-                      >
-                        <stop offset="0%" stopColor="#020617" />
-                        <stop offset="100%" stopColor="#111827" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="100%"
-                        y2="0%"
-                      >
-                        <stop offset="0%" stopColor="#22c55e" />
-                        <stop offset="100%" stopColor="#22d3ee" />
-                      </linearGradient>
-                    );
-                  }
-                }
-
-                if (styleKey === "royal") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#f5e7ff" />
-                        <stop offset="100%" stopColor="#5b21b6" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#1e1b4b" />
-                        <stop offset="100%" stopColor="#020617" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#7c3aed" />
-                        <stop offset="100%" stopColor="#fbbf24" />
-                      </linearGradient>
-                    );
-                  }
-                }
-
-                if (styleKey === "toxic") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#ecfccb" />
-                        <stop offset="100%" stopColor="#65a30d" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#14532d" />
-                        <stop offset="100%" stopColor="#022c22" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#22c55e" />
-                        <stop offset="100%" stopColor="#a3e635" />
-                      </linearGradient>
-                    );
-                  }
-                }
-
-                if (styleKey === "retro") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#f9a8d4" />
-                        <stop offset="100%" stopColor="#7e22ce" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#0f172a" />
-                        <stop offset="100%" stopColor="#1f2933" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#fb7185" />
-                        <stop offset="100%" stopColor="#38bdf8" />
-                      </linearGradient>
-                    );
-                  }
-                }
-
-                if (styleKey === "galaxy") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#e5e7eb" />
-                        <stop offset="100%" stopColor="#0f172a" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#020617" />
-                        <stop offset="100%" stopColor="#111827" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#4f46e5" />
-                        <stop offset="100%" stopColor="#22d3ee" />
-                      </linearGradient>
-                    );
-                  }
-                }
-
-                if (styleKey === "candy") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#fecaca" />
-                        <stop offset="100%" stopColor="#f97316" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#f9a8d4" />
-                        <stop offset="100%" stopColor="#a855f7" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#bef264" />
-                        <stop offset="100%" stopColor="#fb7185" />
-                      </linearGradient>
-                    );
-                  }
-                }
-
-                if (styleKey === "stealth") {
-                  if (sec1 === 1) {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#e5e7eb" />
-                        <stop offset="100%" stopColor="#4b5563" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#020617" />
-                        <stop offset="100%" stopColor="#111827" />
-                      </linearGradient>
-                    );
-                  } else {
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#111827" />
-                        <stop offset="100%" stopColor="#374151" />
-                      </linearGradient>
-                    );
-                  }
-                }
-
-                if (sec1 === 1) {
-                  return (
-                    <linearGradient
-                      id={id}
-                      key={id}
-                      x1="0%"
-                      y1="0%"
-                      x2="0%"
-                      y2="100%"
-                    >
-                      <stop offset="0%" stopColor="#43cda3" />
-                      <stop offset="100%" stopColor="#490e6d" />
-                    </linearGradient>
-                  );
-                } else if (sec1 % 2 === 0) {
-                  return (
-                    <linearGradient
-                      id={id}
-                      key={id}
-                      x1="0%"
-                      y1="0%"
-                      x2="0%"
-                      y2="100%"
-                    >
-                      <stop offset="0%" stopColor="#404040" />
-                      <stop offset="100%" stopColor="#000000" />
-                    </linearGradient>
-                  );
-                } else {
-                  return (
-                    <linearGradient
-                      id={id}
-                      key={id}
-                      x1="0%"
-                      y1="0%"
-                      x2="0%"
-                      y2="100%"
-                    >
-                      <stop offset="0%" stopColor="#ffffff" />
-                      <stop offset="100%" stopColor="#a8a8a8" />
-                    </linearGradient>
-                  );
-                }
-              })}
-
-              <linearGradient id="rim-classic" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="#f6e19a" />
-                <stop offset="50%" stopColor="#caa03a" />
-                <stop offset="100%" stopColor="#7a5d19" />
-              </linearGradient>
-
-              <linearGradient id="rim-bloody" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="#fecaca" />
-                <stop offset="50%" stopColor="#b91c1c" />
-                <stop offset="100%" stopColor="#450a0a" />
-              </linearGradient>
-
-              <linearGradient
-                id="rim-emerald"
-                x1="0%"
-                y1="0%"
-                x2="0%"
-                y2="100%"
-              >
-                <stop offset="0%" stopColor="#bbf7d0" />
-                <stop offset="50%" stopColor="#16a34a" />
-                <stop offset="100%" stopColor="#022c22" />
-              </linearGradient>
-
-              <linearGradient id="rim-ice" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="#e0f2fe" />
-                <stop offset="50%" stopColor="#38bdf8" />
-                <stop offset="100%" stopColor="#020617" />
-              </linearGradient>
-
-              <linearGradient
-                id="rim-cyber"
-                x1="0%"
-                y1="0%"
-                x2="0%"
-                y2="100%"
-              >
-                <stop offset="0%" stopColor="#a7f3d0" />
-                <stop offset="50%" stopColor="#22c55e" />
-                <stop offset="100%" stopColor="#0b1120" />
-              </linearGradient>
-
-              <linearGradient
-                id="rim-royal"
-                x1="0%"
-                y1="0%"
-                x2="0%"
-                y2="100%"
-              >
-                <stop offset="0%" stopColor="#e9d5ff" />
-                <stop offset="50%" stopColor="#7c3aed" />
-                <stop offset="100%" stopColor="#1e1b4b" />
-              </linearGradient>
-
-              <linearGradient
-                id="rim-retro"
-                x1="0%"
-                y1="0%"
-                x2="0%"
-                y2="100%"
-              >
-                <stop offset="0%" stopColor="#f9a8d4" />
-                <stop offset="50%" stopColor="#fb7185" />
-                <stop offset="100%" stopColor="#38bdf8" />
-              </linearGradient>
-
-              <linearGradient
-                id="rim-candy"
-                x1="0%"
-                y1="0%"
-                x2="0%"
-                y2="100%"
-              >
-                <stop offset="0%" stopColor="#fef3c7" />
-                <stop offset="50%" stopColor="#f97316" />
-                <stop offset="100%" stopColor="#f472b6" />
-              </linearGradient>
-
-              <linearGradient
-                id="rim-stealth"
-                x1="0%"
-                y1="0%"
-                x2="0%"
-                y2="100%"
-              >
-                <stop offset="0%" stopColor="#e5e7eb" />
-                <stop offset="50%" stopColor="#9ca3af" />
-                <stop offset="100%" stopColor="#020617" />
-              </linearGradient>
-
-              <filter
-                id="textGlow"
-                x="-50%"
-                y="-50%"
-                width="200%"
-                height="200%"
-              >
-                <feDropShadow
-                  dx="0"
-                  dy="0"
-                  stdDeviation="3"
-                  floodColor="#36125e"
-                  floodOpacity="1"
-                />
-                <feDropShadow
-                  dx="0"
-                  dy="0"
-                  stdDeviation="6"
-                  floodColor="#36125e"
-                  floodOpacity=".85"
-                />
-                <feDropShadow
-                  dx="0"
-                  dy="0"
-                  stdDeviation="10"
-                  floodColor="#36125e"
-                  floodOpacity=".6"
-                />
-              </filter>
-            </defs>
-
-            <g className="wheel-root" transform={`translate(${cx} ${cy})`}>
-              <circle
-                r={R_TRIM}
-                fill="none"
-                stroke={`url(#${rimGradientId})`}
-                strokeWidth={TRIM_W}
-              />
-
-              <g
-                className="rotor"
-                data-angle={angleState}
-                transform={`rotate(${START_OFFSET + angleState})`}
-              >
-                {wedges.map(({ i, path }) => (
-                  <path key={`p${i}`} d={path} fill={`url(#grad-${i})`} />
-                ))}
-
-                {wedges.map(({ i, mid, labelR }) => {
-                  const sec1 = i + 1;
-                  const isMax = sec1 === 1;
-                  const baseAmount = slots[i].amount || 0;
-                  const shown = baseAmount * prizeMult;
-
-                  const isYellowStyle =
-                    wheelSkin.id === "bloody" ||
-                    wheelSkin.id === "emerald" ||
-                    wheelSkin.id === "stealth";
-
-                  let textFill;
-                  if (isYellowStyle) {
-                    if (baseAmount === 1) {
-                      textFill = "#ffffff";
-                    } else {
-                      textFill = "#facc15";
-                    }
-                  } else {
-                    textFill =
-                      sec1 === 1
-                        ? "#fff"
-                        : sec1 % 2 === 0
-                        ? "#fff"
-                        : "#000";
-                  }
-
-                  const textAngle = (mid + 270) % 360;
-                  const flip = textAngle > 90 && textAngle < 270;
-
-                  return (
-                    <g key={`t${i}`} transform={`rotate(${mid})`}>
-                      <text
-                        x={labelR}
-                        y={0}
-                        transform={flip ? `rotate(180 ${labelR} 0)` : ""}
-                        className={`slice-txt ${isMax ? "is-max" : ""}`}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                        fill={textFill}
-                        filter={isMax ? "url(#textGlow)" : undefined}
-                      >
-                        {shown}
-                      </text>
-                    </g>
-                  );
-                })}
-              </g>
-            </g>
-
-            <polygon
-              className="pointer"
-              points={`${cx - 18},${pointerBaseY} ${cx + 18},${pointerBaseY} ${cx},${pointerTipY}`}
-            />
-          </svg>
-
-          <div className="center-stack">
-            <div className="center-ring" />
-            <div className="center-cap" />
-            <img
-              className="center-logo-img"
-              src={getCenterLogoSrc(styleKey)}
-              alt="logo"
-            />
-            <div className="center-gloss" />
-          </div>
-        </div>
-
-        <div className="spin-row tight">
-          <button
-            className="btn-spin"
-            onClick={handleSpin}
-            disabled={spinning || animBusyRef.current || spinsLeft <= 0}
-          >
-            <span className="spin-count">
-              {spinsLeft}/{spinCap}{" "}
-              <span className="muted">Spins left</span>
-            </span>
-            <span className="spin-cta">
-              {spinning ? "Spinning…" : "Spin"}
-            </span>
-            <span className="spin-timer">
-              {spinsLeft < spinCap
-                ? `Next spin in ${formatMs(nextInMs)}`
-                : "Ready"}
-            </span>
-          </button>
-        </div>
-      </>
-    );
-  };
-
-  const TasksScreen = () => (
-    <div className="placeholder-card">🕹 Tasks coming soon…</div>
-  );
-
-  const Menu = () => (
-    <nav className="bottom-menu">
-      <button
-        className={`menu-item ${tab === "play" ? "on" : ""}`}
-        onClick={() => setTab("play")}
-      >
-        <span className="mi-emoji">🎮</span>
-        <span className="mi-text">Play</span>
-      </button>
-      <button
-        className={`menu-item ${tab === "loot" ? "on" : ""}`}
-        onClick={() => setTab("loot")}
-      >
-        <span className="mi-emoji">🎁</span>
-        <span className="mi-text">Loot</span>
-      </button>
-      <button
-        className={`menu-item ${tab === "top" ? "on" : ""}`}
-        onClick={() => {
-          setTab("top");
-          setLbTab("players");
-        }}
-      >
-        <span className="mi-emoji">🏆</span>
-        <span className="mi-text">Top100</span>
-      </button>
-      <button
-        className={`menu-item ${tab === "earn" ? "on" : ""}`}
-        onClick={() => setTab("earn")}
-      >
-        <span className="mi-emoji">🚀</span>
-        <span className="mi-text">Earn</span>
-      </button>
-      <button
-        className={`menu-item ${tab === "tasks" ? "on" : ""}`}
-        onClick={() => setTab("tasks")}
-      >
-        <span className="mi-emoji">🕹</span>
-        <span className="mi-text">Tasks</span>
-      </button>
-    </nav>
-  );
-
-  const statusBadge = (() => {
-    if (tierKey === "free") return { cls: "free", text: "No status" };
-    if (tierKey === "plus") return { cls: "premium", text: "Premium⚡️" };
-    if (tierKey === "pro") return { cls: "plus", text: "Plus⭐️" };
-    return { cls: "pro", text: "Pro👑" };
-  })();
-
-  return (
-    <div
-      className={`tg-app bg-img ${showPremium ? "modal-open" : ""}`}
-      style={{
-        "--bg": theme.bg,
-        "--text": theme.text,
-        "--bg-url": `url("${bgSkin.file}")`,
-      }}
-    >
-      {booting && (
-        <div className="splash">
-          <img src={BRAND_LOGO_SRC} alt="ROFFLE" />
-          <div className="spinner"></div>
-        </div>
-      )}
-
-      {!booting && (
-        <div className="compact no-scroll">
-          <header className="header">
-            <img
-              src={BRAND_LOGO_SRC}
-              alt="ROFFLE"
-              className="brand-logo"
-            />
-            <div className="header-right">
-              <TonConnectButton />
-            </div>
-          </header>
-
-          <section className="balance-block compacted">
-            <div className="bal-line1">Your $ROF Balance:</div>
-            <div className="bal-line2">
-              <img className="bal-icon" src={ROF_ICON_SRC} alt="$ROF" />
-              <span className="bal-value">{bank}</span>
-            </div>
-
-            <div className="premium-row">
-              <button
-                className="btn-premium"
-                onClick={() => setShowPremium(true)}
-              >
-                👑 Go $ROF Premium
-              </button>
-              <span className={`badge ${statusBadge.cls}`}>
-                {statusBadge.text}
-              </span>
-            </div>
-
-            {/* Wallet pill (no more 0.1 TON test button) */}
-            {wallet && (
-              <div className="premium-row">
-                <span className="wallet-pill">
-                  {wallet.account.address.slice(0, 4)}…
-                  {wallet.account.address.slice(-4)}
-                </span>
-              </div>
-            )}
-          </section>
-
-          <div className="screen flex-grow">
-            {tab === "play" && <PlayScreen wheelSkin={wheelSkin} />}
-            {tab === "loot" && <LootScreen />}
-            {tab === "top" && (
-              <TopScreen lbTab={lbTab} onTabChange={setLbTab} />
-            )}
-            {tab === "earn" && <EarnScreen />}
-            {tab === "tasks" && <TasksScreen />}
-          </div>
-
-          {toast && (
-            <div key={toast.key} className="toast-win">
-              {toast.text}
-            </div>
-          )}
-
-          <Menu />
-        </div>
-      )}
-
-      {showPremium && <PremiumModal />}
-    </div>
-  );
-}
