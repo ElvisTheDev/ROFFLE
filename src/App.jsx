@@ -892,9 +892,7 @@ export default function App() {
   const [toast, setToast] = useState(null);
   const [tab, setTab] = useState("play");
   const [booting, setBooting] = useState(true);
-  const [showPremium, setShowPremium] = useState(false);
-
-  /* Leaderboard UI */
+    /* Leaderboard UI */
   const [lbTab, setLbTab] = useState("players");
 
   /* Loot tabs */
@@ -1233,7 +1231,7 @@ export default function App() {
     const id = setInterval(tick, TICK_MS);
     tick();
     return () => clearInterval(id);
-  }, [regenMs, spinCap, showPremium, nextReadyAt, tgId]);
+  }, [regenMs, spinCap,  nextReadyAt, tgId]);
 
   /* Spin */
   const handleSpin = () => {
@@ -1605,7 +1603,7 @@ const handleBuyBgSkinStars = async (skin) => {
       );
   };
 
-  const PremiumModal = () => {
+  const VipScreen = () => {
   const tierDefs = [
     {
       key: "plus",
@@ -1637,7 +1635,7 @@ const handleBuyBgSkinStars = async (skin) => {
   ];
 
   return (
-    <div className="premium-overlay" onClick={() => setShowPremium(false)}>
+    <div className="premium-root-page">
       <div
         className="premium-modal"
         onClick={(e) => {
@@ -1647,7 +1645,7 @@ const handleBuyBgSkinStars = async (skin) => {
         <div className="premium-header">
           <button
             className="premium-back"
-            onClick={() => setShowPremium(false)}
+            onClick={() => setTab("play")}
           >
             ← Back
           </button>
@@ -1795,6 +1793,7 @@ const handleBuyBgSkinStars = async (skin) => {
                     </div>
                   </div>
                 );
+};
               })}
             </div>
           </div>
@@ -3058,7 +3057,7 @@ function AvatarInline({ name, photo }) {
 
   return (
     <div
-      className={`tg-app bg-img ${showPremium ? "modal-open" : ""}`}
+      className="tg-app bg-img"
       style={{
         "--bg": theme.bg,
         "--text": theme.text,
@@ -3095,7 +3094,7 @@ function AvatarInline({ name, photo }) {
             <div className="premium-row">
               <button
                 className="btn-premium"
-                onClick={() => setShowPremium(true)}
+                onClick={() => setTab("vip")}
               >
                 👑 Get VIP
               </button>
@@ -3123,6 +3122,7 @@ function AvatarInline({ name, photo }) {
             )}
             {tab === "earn" && <EarnScreen />}
             {tab === "tasks" && <TasksScreen />}
+            {tab === "vip" && <VipScreen />}
           </div>
 
           {toast && (
@@ -3135,7 +3135,6 @@ function AvatarInline({ name, photo }) {
         </div>
       )}
 
-      {showPremium && <PremiumModal />}
-    </div>
+          </div>
   );
 }
