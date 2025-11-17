@@ -1,5 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { TonConnectButton, useTonConnectUI, useTonWallet } from "@tonconnect/ui-react";
+import {
+  TonConnectButton,
+  useTonConnectUI,
+  useTonWallet,
+} from "@tonconnect/ui-react";
 import { supabase } from "./supabaseClient";
 
 /* ================= CORE WHEEL CONSTANTS ================= */
@@ -11,6 +15,9 @@ const START_OFFSET = -90; // pointer at top
 const BASE_CAP = 20;
 const BASE_REGEN_MS = 10 * 60 * 1000; // 10 minutes (non-additive!)
 const TICK_MS = 1000;
+
+/* 🔹 Backend API base (Render) */
+const API_BASE = "https://roffle-bot.onrender.com";
 
 /* Premium tiers (names per your mapping) */
 const TIERS = {
@@ -462,8 +469,7 @@ const TopScreen = React.memo(
 
           const mapped = (data || []).map((row) => ({
             id: row.tg_id,
-            name:
-              row.full_name || row.username || `User ${row.tg_id}`,
+            name: row.full_name || row.username || `User ${row.tg_id}`,
             username: row.username ? `@${row.username}` : "",
             photo: row.photo_url || "",
             balance: row.balance ?? 0,
@@ -494,8 +500,7 @@ const TopScreen = React.memo(
 
           const mapped = (data || []).map((row) => ({
             id: row.tg_id,
-            name:
-              row.full_name || row.username || `User ${row.tg_id}`,
+            name: row.full_name || row.username || `User ${row.tg_id}`,
             username: row.username ? `@${row.username}` : "",
             photo: row.photo_url || "",
             balance: row.balance ?? 0,
@@ -752,6 +757,73 @@ export default function App() {
     await buyTier(key);
   };
 
+  /* 🔹 Telegram Stars helper: create invoice on backend and open in Telegram */
+  const createStarsInvoiceAndOpen = async (itemType, itemId) => {
+    if (!tgId) {
+      setToast({ text: "User not ready yet, try again", key: Date.now() });
+      setTimeout(() => setToast(null), 1500);
+      return;
+    }
+
+    try {
+      const resp = await fetch(`${API_BASE}/stars/create-invoice`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tg_id: tgId,
+          item_type: itemType, // e.g. "tier"
+          item_id: itemId, // e.g. "plus", "pro", "prem"
+        }),
+      });
+
+      const data = await resp.json();
+
+      if (!data.ok || !data.invoice_link) {
+        console.error("Stars invoice error", data);
+        setToast({ text: "Stars payment error, try again", key: Date.now() });
+        setTimeout(() => setToast(null), 1500);
+        return;
+      }
+
+      const link = data.invoice_link;
+      const tg = window.Telegram?.WebApp;
+
+      if (tg?.openTelegramLink) {
+        tg.openTelegramLink(link);
+      } else {
+        window.open(link, "_blank");
+      }
+    } catch (e) {
+      console.error("createStarsInvoiceAndOpen error", e);
+      setToast({ text: "Stars payment error, try again", key: Date.now() });
+      setTimeout(() => setToast(null), 1500);
+    }
+  };
+
+  /* Stars-gated purchase for tiers – unlock after backend confirms payment */
+  const handleBuyTierStars = async (key) => {
+    const t = TIERS[key];
+
+    if (TIER_ORDER[key] <= TIER_ORDER[tierKey]) {
+      setToast({
+        text: "You already have this or higher tier",
+        key: Date.now(),
+      });
+      setTimeout(() => setToast(null), 1600);
+      return;
+    }
+
+    // Free tier in Stars context – just upgrade
+    if (t.priceStars === 0) {
+      await buyTier(key);
+      return;
+    }
+
+    // For now, just open Stars payment invoice.
+    // After payment, your bot webhook will update premium_tier in DB.
+    await createStarsInvoiceAndOpen("tier", key);
+  };
+
   // Skins: current equipped wheel + bg
   const [wheelSkinId, setWheelSkinId] = useState("classic");
   const [bgSkinId, setBgSkinId] = useState("default");
@@ -997,9 +1069,7 @@ export default function App() {
           let dbBalance =
             typeof data.balance === "number" ? data.balance : 0;
           let dbSpins =
-            typeof data.spins_left === "number"
-              ? data.spins_left
-              : BASE_CAP;
+            typeof data.spins_left === "number" ? data.spins_left : BASE_CAP;
           const dbInvites =
             typeof data.invites === "number" ? data.invites : 0;
 
@@ -1394,10 +1464,7 @@ export default function App() {
       return;
     }
 
-    const ok = await sendTonPayment(
-      skin.priceTon,
-      `Wheel skin: ${skin.name}`
-    );
+    const ok = await sendTonPayment(skin.priceTon, `Wheel skin: ${skin.name}`);
     if (!ok) return;
 
     await handleUnlockWheelSkin(skin);
@@ -1415,10 +1482,7 @@ export default function App() {
       return;
     }
 
-    const ok = await sendTonPayment(
-      skin.priceTon,
-      `Background: ${skin.name}`
-    );
+    const ok = await sendTonPayment(skin.priceTon, `Background: ${skin.name}`);
     if (!ok) return;
 
     await handleUnlockBgSkin(skin);
@@ -1427,7 +1491,9 @@ export default function App() {
   /* Referral link */
   useEffect(() => {
     const code = getOrCreateMyRefCode();
-    const link = `https://t.me/roffleapp_bot?start=${encodeURIComponent(code)}`;
+    const link = `https://t.me/roffleapp_bot?start=${encodeURIComponent(
+      code
+    )}`;
     setMyRefLink(link);
   }, []);
 
@@ -1577,6 +1643,7 @@ export default function App() {
                         : `Price: ${t.priceTon} TON or ${t.priceStars} ⭐`}
                     </div>
                     <div className="tc-actions">
+                      {/* TON button */}
                       <button
                         className="tc-buy gradient-outline-btn"
                         disabled={disabled}
@@ -1588,7 +1655,22 @@ export default function App() {
                           ? "Current Plan"
                           : isLowerOrEqual
                           ? "Unavailable"
-                          : `Buy for ${t.priceTon} TON`}
+                          : "Buy with TON"}
+                      </button>
+
+                      {/* Stars button */}
+                      <button
+                        className="tc-buy gradient-outline-btn"
+                        disabled={disabled}
+                        onClick={() =>
+                          !disabled && handleBuyTierStars(t.key)
+                        }
+                      >
+                        {t.key === tierKey
+                          ? "Current Plan"
+                          : isLowerOrEqual
+                          ? "Unavailable"
+                          : "Buy with ⭐ Stars"}
                       </button>
                     </div>
                   </div>
@@ -1618,7 +1700,9 @@ export default function App() {
             ROF Mood
           </button>
           <button
-            className={`loot-tab ${lootTab === "collectibles" ? "on" : ""}`}
+            className={`loot-tab ${
+              lootTab === "collectibles" ? "on" : ""
+            }`}
             onClick={() => setLootTab("collectibles")}
           >
             Collectibles
@@ -1836,10 +1920,7 @@ export default function App() {
             )}
             {referrals.map((r, i) => (
               <div key={r.id || i} className="ref-row">
-                <AvatarInline
-                  name={r.name || "User"}
-                  photo={r.photo || ""}
-                />
+                <AvatarInline name={r.name || "User"} photo={r.photo || ""} />
                 <div className="ref-meta">
                   <div className="ref-name">{r.name || "User"}</div>
                   <div className="ref-sub">
