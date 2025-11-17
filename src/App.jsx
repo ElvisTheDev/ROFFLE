@@ -1524,7 +1524,7 @@ const handleBuyBgSkinStars = async (skin) => {
   // Open Stars invoice (item_type = "bg")
   await createStarsInvoiceAndOpen("bg", skin.id);
   // After successful payment your bot webhook should insert
-  // (tg_id, "bg", skin.id) into roff_inventory.
+  // (tg_id, "bg", skin.id) into roff_inventory in Supabaseory.
 };
 
   /* Referral link */
@@ -1823,7 +1823,6 @@ const LootScreen = () => {
                   hasWheelSkin(skin.id) ||
                   (skin.priceTon === 0 && skin.priceStars === 0);
 
-                con
 <div className="loot-right">
   <div className="loot-price">{priceLabel}</div>
   <div className="loot-actions">
