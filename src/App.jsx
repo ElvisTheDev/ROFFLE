@@ -31,16 +31,6 @@ const TIERS = {
     priceTon: 0,
     priceStars: 0,
   },
-  demo: {
-    key: "demo",
-    name: "Demo⭐ (Test)",
-    regenMult: 1,
-    cap: 20,
-    prizeMult: 1,
-    inviteBonus: 0,
-    priceTon: 0,
-    priceStars: 50,
-  },
   plus: {
     key: "plus",
     name: "$ROF Premium⚡️",
@@ -48,7 +38,7 @@ const TIERS = {
     cap: 40,
     prizeMult: 2,
     inviteBonus: 50,
-    priceTon: 5,   // 5 TON
+    priceTon: 5, // 5 TON
     priceStars: 700, // 700 Stars
   },
   pro: {
@@ -58,7 +48,7 @@ const TIERS = {
     cap: 60,
     prizeMult: 3,
     inviteBonus: 75,
-    priceTon: 10,   // 10 TON
+    priceTon: 10, // 10 TON
     priceStars: 1400, // 1400 Stars
   },
   prem: {
@@ -68,10 +58,11 @@ const TIERS = {
     cap: 100,
     prizeMult: 5,
     inviteBonus: 100,
-    priceTon: 15,   // 15 TON
+    priceTon: 15, // 15 TON
     priceStars: 2100, // 2100 Stars
   },
 };
+
 
 /**
  * Coins test price – not used for TON flow anymore, but left in case you
@@ -225,7 +216,7 @@ const BG_SKINS = [
 ];
 
 /* Tier ranking: used to prevent downgrade */
-const TIER_ORDER = { free: 0, demo: 1, plus: 2, pro: 3, prem: 4 };
+const TIER_ORDER = { free: 0, plus: 1, pro: 2, prem: 3 };
 
 /* RNG helpers (cryptographically strong) */
 function randUint32() {
@@ -343,8 +334,6 @@ function randomItem(a) {
 function TierBadge({ tierKey }) {
   if (tierKey === "free" || !tierKey)
     return <span className="badge free">No status</span>;
-  if (tierKey === "demo")
-    return <span className="badge demo">Demo⭐</span>;
   if (tierKey === "plus")
     return <span className="badge premium">Premium⚡️</span>;
   if (tierKey === "pro") return <span className="badge plus">Plus⭐️</span>;
@@ -1539,9 +1528,43 @@ const handleBuyBgSkinStars = async (skin) => {
 };
 
 
+/* ⭐ Telegram Stars unlock for wheel skins */
+const handleBuyWheelSkinStars = async (skin) => {
+  // Already owned → just equip
+  if (hasWheelSkin(skin.id)) {
+    equipWheelSkin(skin.id);
+    return;
+  }
 
+  // Free / included → unlock directly
+  if (skin.priceStars === 0) {
+    await handleUnlockWheelSkin(skin);
+    return;
+  }
 
+  // Open Stars invoice (item_type = "wheel")
+  await createStarsInvoiceAndOpen("wheel", skin.id);
+  // After successful payment your bot webhook should insert
+  // (tg_id, "wheel", skin.id) into roff_inventory.
+};
 
+/* ⭐ Telegram Stars unlock for background skins */
+const handleBuyBgSkinStars = async (skin) => {
+  if (hasBgSkin(skin.id)) {
+    equipBgSkin(skin.id);
+    return;
+  }
+
+  if (skin.priceStars === 0) {
+    await handleUnlockBgSkin(skin);
+    return;
+  }
+
+  // Open Stars invoice (item_type = "bg")
+  await createStarsInvoiceAndOpen("bg", skin.id);
+  // After successful payment your bot webhook should insert
+  // (tg_id, "bg", skin.id) into roff_inventory.
+};
 
   /* Referral link */
   useEffect(() => {
@@ -1620,14 +1643,6 @@ const handleBuyBgSkinStars = async (skin) => {
 const PremiumModal = () => {
   const cards = [
     {
-      t: TIERS.demo,
-      bullets: [
-        "Identical to Free tier",
-        "Use only for testing Stars payments",
-        "Can be upgraded to real tiers later",
-      ],
-    },
-    {
       t: TIERS.plus,
       bullets: [
         "Wheel spins regenerate ×2 faster",
@@ -1657,88 +1672,98 @@ const PremiumModal = () => {
   ];
 
   return (
-    <div className="premium-screen">
-      <div className="premium-header">
-        <button
-          className="premium-back"
-          onClick={() => setShowPremium(false)}
-        >
-          ← Back
-        </button>
-        <div className="premium-title-wrap">
-          <span className="mh-icon">👑</span>
-          <div className="mh-title">Go $ROF Premium</div>
+    <div className="modal-overlay" onClick={() => setShowPremium(false)}>
+      <div
+        className="modal modal-full"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="modal-head">
+          <button
+            className="modal-back"
+            onClick={() => setShowPremium(false)}
+          >
+            ← Back
+          </button>
+          <div className="mh-left">
+            <span className="mh-icon">👑</span>
+            <div className="mh-title">Buy $ROF Tiers</div>
+          </div>
+          <button
+            className="modal-close"
+            onClick={() => setShowPremium(false)}
+          >
+            ✕
+          </button>
         </div>
-        <div className="premium-spacer" />
-      </div>
 
-      <div className="premium-body">
-        <div className="modal-sub">
-          Choose a tier (priced in <b>TON</b> or <b>Telegram Stars</b>)
-        </div>
+        <div className="modal-body">
+          <div className="modal-sub">
+            Choose a tier (priced in <b>TON</b> or <b>Telegram Stars</b>)
+          </div>
 
-        <div className="tier-grid">
-          {cards.map(({ t, bullets }) => {
-            const active = t.key === tierKey;
-            const isLowerOrEqual =
-              TIER_ORDER[t.key] <= TIER_ORDER[tierKey];
-            const disabled = isLowerOrEqual;
+          <div className="tier-grid">
+            {cards.map(({ t, bullets }) => {
+              const active = t.key === tierKey;
+              const isLowerOrEqual =
+                TIER_ORDER[t.key] <= TIER_ORDER[tierKey];
+              const disabled = isLowerOrEqual;
 
-            return (
-              <div
-                key={t.key}
-                className={`tier-card gradient-border ${
-                  active ? "active" : ""
-                }`}
-              >
-                <div className="tc-top">
-                  <div className="tc-name">{t.name}</div>
-                  {active && <div className="tc-active">Active</div>}
+              return (
+                <div
+                  key={t.key}
+                  className={`tier-card gradient-border ${
+                    active ? "active" : ""
+                  }`}
+                >
+                  <div className="tc-top">
+                    <div className="tc-name">{t.name}</div>
+                    {active && <div className="tc-active">Active</div>}
+                  </div>
+                  <ul className="tc-list">
+                    {bullets.map((b, idx) => (
+                      <li key={idx}>{b}</li>
+                    ))}
+                  </ul>
+                  <div className="tc-price">
+                    {t.priceTon === 0 && t.priceStars === 0
+                      ? "Included"
+                      : `Price: ${t.priceTon} TON or ${t.priceStars} ⭐`}
+                  </div>
+                  <div className="tc-actions">
+                    {/* TON button */}
+                    <button
+                      className="tc-buy gradient-outline-btn"
+                      disabled={disabled}
+                      onClick={() =>
+                        !disabled && handleBuyTierTon(t.key)
+                      }
+                    >
+                      {t.key === tierKey
+                        ? "Current Plan"
+                        : isLowerOrEqual
+                        ? "Unavailable"
+                        : "Buy with TON"}
+                    </button>
+
+                    {/* Stars button */}
+                    <button
+                      className="tc-buy gradient-outline-btn"
+                      disabled={disabled}
+                      onClick={() =>
+                        !disabled && handleBuyTierStars(t.key)
+                      }
+                    >
+                      {t.key === tierKey
+                        ? "Current Plan"
+                        : isLowerOrEqual
+                        ? "Unavailable"
+                        : "Buy with ⭐ Stars"}
+                    </button>
+                  </div>
                 </div>
-                <ul className="tc-list">
-                  {bullets.map((b, idx) => (
-                    <li key={idx}>{b}</li>
-                  ))}
-                </ul>
-                <div className="tc-price">
-                  {t.priceTon === 0 && t.priceStars === 0
-                    ? "Included"
-                    : `Price: ${t.priceTon} TON or ${t.priceStars} ⭐`}
-                </div>
-                <div className="tc-actions">
-                  {/* TON button */}
-                  <button
-                    className="tc-buy gradient-outline-btn"
-                    disabled={disabled}
-                    onClick={() =>
-                      !disabled && handleBuyTierTon(t.key)
-                    }
-                  >
-                    {t.key === tierKey
-                      ? "Current Plan"
-                      : isLowerOrEqual
-                      ? "Unavailable"
-                      : "Buy with TON"}
-                  </button>
-
-                  {/* Stars button */}
-                  <button
-                    className="tc-buy gradient-outline-btn"
-                    disabled={disabled}
-                    onClick={() =>
-                      !disabled && handleBuyTierStars(t.key)
-                    }
-                  >
-                    {t.key === tierKey
-                      ? "Current Plan"
-                      : isLowerOrEqual
-                      ? "Unavailable"
-                      : "Buy with ⭐ Stars"}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
@@ -2987,7 +3012,6 @@ const LootScreen = () => {
 
   const statusBadge = (() => {
     if (tierKey === "free") return { cls: "free", text: "No status" };
-    if (tierKey === "demo") return { cls: "demo", text: "Demo⭐ (Test)" };
     if (tierKey === "plus") return { cls: "premium", text: "Premium⚡️" };
     if (tierKey === "pro") return { cls: "plus", text: "Plus⭐️" };
     return { cls: "pro", text: "Pro👑" };
