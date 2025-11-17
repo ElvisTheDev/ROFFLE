@@ -1576,7 +1576,8 @@ const handleBuyBgSkinStars = async (skin) => {
         note: `Joined via ${ref}`,
       };
       addReferralRow(row);
-      setReferrals(readReferrals());
+      // Merge this local referral into existing DB-loaded list instead of overwriting
+      setReferrals((prev) => [row, ...prev]);
     } catch {}
   }, [spinCap]);
 
@@ -1783,7 +1784,7 @@ const PremiumModal = () => {
                       >
                         {isCurrent || isLowerOrEqual ? (
                           <span>
-                            {isCurrent ? "Current" : "Unavailable"}
+                            {isCurrent ? "Current" : "N/A"}
                           </span>
                         ) : (
                           <span className="btn-tier-ton-inner">
@@ -1806,7 +1807,7 @@ const PremiumModal = () => {
                       >
                         {isCurrent || isLowerOrEqual ? (
                           <span>
-                            {isCurrent ? "Current" : "Unavailable"}
+                            {isCurrent ? "Current" : "N/A"}
                           </span>
                         ) : (
                           <span>⭐ {t.priceStars}</span>
