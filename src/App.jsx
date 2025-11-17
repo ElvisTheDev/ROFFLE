@@ -22,16 +22,6 @@ const API_BASE = "https://roffle-bot.onrender.com";
 /* Premium tiers (names per your mapping) */
 const TIERS = {
   free: {
-demo: {
-  key: "demo",
-  name: "Demo⭐ (Test)",
-  regenMult: 1,
-  cap: 20,
-  prizeMult: 1,
-  inviteBonus: 0,
-  priceTon: 0,
-  priceStars: 50,
-},
     key: "free",
     name: "Free",
     regenMult: 1,
@@ -41,6 +31,16 @@ demo: {
     priceTon: 0,
     priceStars: 0,
   },
+  demo: {
+    key: "demo",
+    name: "Demo⭐ (Test)",
+    regenMult: 1,
+    cap: 20,
+    prizeMult: 1,
+    inviteBonus: 0,
+    priceTon: 0,
+    priceStars: 50,
+  },
   plus: {
     key: "plus",
     name: "$ROF Premium⚡️",
@@ -48,7 +48,7 @@ demo: {
     cap: 40,
     prizeMult: 2,
     inviteBonus: 50,
-    priceTon: 5, // 5 TON
+    priceTon: 5,   // 5 TON
     priceStars: 700, // 700 Stars
   },
   pro: {
@@ -58,7 +58,7 @@ demo: {
     cap: 60,
     prizeMult: 3,
     inviteBonus: 75,
-    priceTon: 10, // 10 TON
+    priceTon: 10,   // 10 TON
     priceStars: 1400, // 1400 Stars
   },
   prem: {
@@ -68,7 +68,7 @@ demo: {
     cap: 100,
     prizeMult: 5,
     inviteBonus: 100,
-    priceTon: 15, // 15 TON
+    priceTon: 15,   // 15 TON
     priceStars: 2100, // 2100 Stars
   },
 };
@@ -343,6 +343,8 @@ function randomItem(a) {
 function TierBadge({ tierKey }) {
   if (tierKey === "free" || !tierKey)
     return <span className="badge free">No status</span>;
+  if (tierKey === "demo")
+    return <span className="badge demo">Demo⭐</span>;
   if (tierKey === "plus")
     return <span className="badge premium">Premium⚡️</span>;
   if (tierKey === "pro") return <span className="badge plus">Plus⭐️</span>;
@@ -1537,43 +1539,9 @@ const handleBuyBgSkinStars = async (skin) => {
 };
 
 
-/* ⭐ Telegram Stars unlock for wheel skins */
-const handleBuyWheelSkinStars = async (skin) => {
-  // Already owned → just equip
-  if (hasWheelSkin(skin.id)) {
-    equipWheelSkin(skin.id);
-    return;
-  }
 
-  // Free / included → unlock directly
-  if (skin.priceStars === 0) {
-    await handleUnlockWheelSkin(skin);
-    return;
-  }
 
-  // Open Stars invoice (item_type = "wheel")
-  await createStarsInvoiceAndOpen("wheel", skin.id);
-  // After successful payment your bot webhook should insert
-  // (tg_id, "wheel", skin.id) into roff_inventory.
-};
 
-/* ⭐ Telegram Stars unlock for background skins */
-const handleBuyBgSkinStars = async (skin) => {
-  if (hasBgSkin(skin.id)) {
-    equipBgSkin(skin.id);
-    return;
-  }
-
-  if (skin.priceStars === 0) {
-    await handleUnlockBgSkin(skin);
-    return;
-  }
-
-  // Open Stars invoice (item_type = "bg")
-  await createStarsInvoiceAndOpen("bg", skin.id);
-  // After successful payment your bot webhook should insert
-  // (tg_id, "bg", skin.id) into roff_inventory.
-};
 
   /* Referral link */
   useEffect(() => {
@@ -3020,6 +2988,7 @@ const LootScreen = () => {
 
   const statusBadge = (() => {
     if (tierKey === "free") return { cls: "free", text: "No status" };
+    if (tierKey === "demo") return { cls: "demo", text: "Demo⭐ (Test)" };
     if (tierKey === "plus") return { cls: "premium", text: "Premium⚡️" };
     if (tierKey === "pro") return { cls: "plus", text: "Plus⭐️" };
     return { cls: "pro", text: "Pro👑" };
