@@ -3025,7 +3025,7 @@ export default function App() {
                 className="btn-premium"
                 onClick={() => setShowPremium(true)}
               >
-                👑Get VIP
+                👑Get VIP Status
               </button>
               <span className={`badge ${statusBadge.cls}`}>
                 {statusBadge.text}
