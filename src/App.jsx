@@ -1692,7 +1692,7 @@ const PremiumModal = () => {
               <div className="ptc label-cell">Badge</div>
               {tierDefs.map((def) => (
                 <div key={def.key} className="ptc value-cell">
-                  <span className={\`tier-pill ${def.key}\`}>
+                  <span className={`tier-pill ${def.key}`}>
                     {def.badge}
                   </span>
                 </div>
