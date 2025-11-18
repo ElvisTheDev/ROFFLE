@@ -603,6 +603,7 @@ body{
   display: flex;
   justify-content: center;
   gap: 10px;         /* ⬅️ was smaller; increased to avoid overlap */
+  margin-top: 6px;
 }
 
 /* Loot buttons row for Skins / Mood */
