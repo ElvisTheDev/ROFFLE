@@ -642,19 +642,17 @@ body{
 }
 
 /* TON / Stars pill buttons */
+/* Shared pill style */
 .pill-ton,
-.pill-stars{
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  gap:6px;
-  border-radius:999px;
-  border:none;
-  cursor:pointer;
-  font-size:12px;
-  font-weight:800;
-  padding:6px 10px;
-  min-width:96px;
+.pill-stars {
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 90px;          /* ⬅️ key: makes pills narrower */
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .pill-ton{
