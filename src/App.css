@@ -687,3 +687,13 @@ body{
   opacity:0.5;
   cursor:default;
 }
+
+/* Highlight for currently owned tier column */
+.vip-col-current {
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.9);
+  background: radial-gradient(
+    circle at top,
+    rgba(34, 197, 94, 0.16),
+    rgba(3, 7, 18, 0.96)
+  );
+}
