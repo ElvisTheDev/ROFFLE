@@ -2014,7 +2014,7 @@ export default function App() {
             </div>
           </div>
           <div className="disclaimer">
-            *Inviter rewards require a backend to credit automatically.
+            *Allow up to 10 minutes for invites and coins to appear in dashboard.
           </div>
         </div>
 
