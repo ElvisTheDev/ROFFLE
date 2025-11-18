@@ -1637,10 +1637,15 @@ export default function App() {
             <div className="vip-row vip-row-head">
               <div className="vip-cell vip-cell-label" />
               {tierDefs.map((def) => (
-                <div key={def.key} className="vip-cell vip-cell-tier">
-                  <div className="vip-tier-name">{def.header}</div>
-                </div>
-              ))}
+    <div
+      key={def.key}
+      className={`vip-cell vip-cell-tier ${
+        def.key === tierKey ? "vip-col-current" : ""
+      }`}
+    >
+      <div className="vip-tier-name">{def.header}</div>
+    </div>
+  ))}
             </div>
 
             {/* Badge row */}
