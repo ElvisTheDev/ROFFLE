@@ -598,11 +598,21 @@ body{
   padding-bottom:12px;
 }
 
-.vip-btn-row{
-  display:flex;
-  flex-direction:column;
-  gap:6px;
+/* VIP modal button row */
+.vip-btn-row {
+  display: flex;
+  justify-content: center;
+  gap: 10px;         /* ⬅️ was smaller; increased to avoid overlap */
+  margin-top: 6px;
 }
+
+/* Loot buttons row for Skins / Mood */
+.loot-actions {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;         /* ⬅️ more px so pills never touch */
+}
+
 
 @media (min-width:480px){
   .vip-btn-row{
@@ -709,3 +719,52 @@ body{
   box-shadow: inset 0 0 0 2px rgba(56, 189, 248, 0.45);
   backdrop-filter: blur(2px);
 }
+
+/* ===== Shared TON / Stars pill buttons ===== */
+
+.pill-ton,
+.pill-stars {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  line-height: 1.2;
+  padding: 6px 14px;       /* keep dimensions compact */
+  border-radius: 999px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-weight: 700;        /* ⬅️ bold text */
+  white-space: nowrap;
+}
+
+/* TON button: gradient fill + gradient outline */
+.pill-ton {
+  color: #ffffff;
+  background-image:
+    linear-gradient(180deg, #1492d2, #1dcdd8),   /* inner fill */
+    linear-gradient(180deg, #ea69ff, #1f03ff);   /* outer border */
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+}
+
+/* Stars button: black fill + gradient outline */
+.pill-stars {
+  color: #ffffff;
+  background-image:
+    linear-gradient(180deg, #000000, #000000),   /* inner fill = black */
+    linear-gradient(180deg, #ea69ff, #1f03ff);   /* outer border */
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+}
+
+.pill-ton-icon {
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
+  background-image: url("/ton-icon.png");
+  background-size: contain;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
