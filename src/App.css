@@ -835,6 +835,29 @@ body{
   background-repeat: no-repeat;
 }
 
+/* Make both balances appear on one line */
+.dual-balance {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;          /* spacing between ROF and Ticket */
+}
+
+/* Individual balance clusters */
+.bal-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;           /* spacing between icon + number */
+}
+
+/* Double size + bold */
+.rof-balance,
+.ticket-balance {
+  font-size: 32px;    /* doubled from ~16px */
+  font-weight: 900;
+  line-height: 1;
+}
+
 
 
 
