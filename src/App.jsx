@@ -3079,34 +3079,49 @@ export default function App() {
           </header>
 
           <section className="balance-block compacted">
-            <div className="bal-line1">Your $ROF Balance:</div>
-            <div className="bal-line2">
-              <img className="bal-icon" src={ROF_ICON_SRC} alt="$ROF" />
-              <span className="bal-value">{bank}</span>
-            </div>
+  <div className="bal-line1">Your Assets:</div>
 
-            <div className="premium-row">
-              <button
-                className="btn-premium"
-                onClick={() => setShowPremium(true)}
-              >
-                👑Get VIP Status
-              </button>
-              <span className={`badge ${statusBadge.cls}`}>
-                {statusBadge.text}
-              </span>
-            </div>
+  <div className="bal-assets">
+    {/* ROF Balance */}
+    <div className="asset-box">
+      <img className="asset-icon" src={ROF_ICON_SRC} alt="$ROF" />
+      <span className="asset-value">{bank}</span>
+    </div>
 
-            {/* Wallet pill (no more 0.1 TON test button) */}
-            {wallet && (
-              <div className="premium-row">
-                <span className="wallet-pill">
-                  {wallet.account.address.slice(0, 4)}…
-                  {wallet.account.address.slice(-4)}
-                </span>
-              </div>
-            )}
-          </section>
+    {/* Golden Tickets */}
+    <div className="asset-box">
+      <img
+        className="asset-icon"
+        src="/golden-ticket.png"
+        alt="Golden Tickets"
+      />
+      <span className="asset-value">{goldTickets}</span>
+    </div>
+  </div>
+
+  <div className="premium-row">
+    <button
+      className="btn-premium"
+      onClick={() => setShowPremium(true)}
+    >
+      👑Get VIP Status
+    </button>
+    <span className={`badge ${statusBadge.cls}`}>
+      {statusBadge.text}
+    </span>
+  </div>
+
+  {/* Wallet pill */}
+  {wallet && (
+    <div className="premium-row">
+      <span className="wallet-pill">
+        {wallet.account.address.slice(0, 4)}…
+        {wallet.account.address.slice(-4)}
+      </span>
+    </div>
+  )}
+</section>
+
 
           <div className="screen flex-grow">
             {tab === "play" && <PlayScreen wheelSkin={wheelSkin} />}
