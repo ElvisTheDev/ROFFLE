@@ -606,13 +606,16 @@ body{
   padding-bottom:12px;
 }
 
-/* VIP modal button row */
+/* VIP modal button row – stack TON above Stars, per column */
 .vip-btn-row {
   display: flex;
+  flex-direction: column;     /* ⬅️ stack vertically instead of row */
+  align-items: center;
   justify-content: center;
-  gap: 10px;         /* ⬅️ was smaller; increased to avoid overlap */
+  gap: 8px;                   /* ⬅️ spacing between TON & Stars */
   margin-top: 6px;
 }
+
 
 /* Loot buttons row for Skins / Mood */
 .loot-actions {
