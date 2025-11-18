@@ -3081,23 +3081,18 @@ export default function App() {
           <section className="balance-block compacted">
   <div className="bal-line1">Your Assets:</div>
 
-  <div className="bal-assets">
-    {/* ROF Balance */}
-    <div className="asset-box">
-      <img className="asset-icon" src={ROF_ICON_SRC} alt="$ROF" />
-      <span className="asset-value">{bank}</span>
-    </div>
-
-    {/* Golden Tickets */}
-    <div className="asset-box">
-      <img
-        className="asset-icon"
-        src="/golden-ticket.png"
-        alt="Golden Tickets"
-      />
-      <span className="asset-value">{goldTickets}</span>
-    </div>
+  <div className="bal-line2 dual-balance">
+  <div className="bal-item">
+    <img className="asset-icon" src="/rof-bn.png" alt="ROF" />
+    <span className="bal-value rof-balance">{bank}</span>
   </div>
+
+  <div className="bal-item">
+    <img className="asset-icon" src="/golden-ticket.png" alt="Tickets" />
+    <span className="bal-value ticket-balance">{tickets}</span>
+  </div>
+</div>
+
 
   <div className="premium-row">
     <button
