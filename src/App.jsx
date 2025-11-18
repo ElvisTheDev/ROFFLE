@@ -3082,17 +3082,18 @@ export default function App() {
   <div className="bal-line1">Your Assets:</div>
 
   <div className="bal-line2 dual-balance">
-  <div className="bal-item">
-    <img className="asset-icon" src="/rof-bn.png" alt="ROF" />
-    <span className="bal-value rof-balance">{bank}</span>
-  </div>
+    {/* ROF balance */}
+    <div className="bal-item">
+      <img className="bal-icon" src="/rof-bn.png" alt="$ROF" />
+      <span className="bal-value rof-balance">{bank}</span>
+    </div>
 
-  <div className="bal-item">
-    <img className="asset-icon" src="/golden-ticket.png" alt="Tickets" />
-    <span className="bal-value ticket-balance">{tickets}</span>
+    {/* Golden tickets balance */}
+    <div className="bal-item">
+      <img className="bal-icon" src="/golden-ticket.png" alt="Tickets" />
+      <span className="bal-value ticket-balance">{goldTickets}</span>
+    </div>
   </div>
-</div>
-
 
   <div className="premium-row">
     <button
@@ -3116,6 +3117,7 @@ export default function App() {
     </div>
   )}
 </section>
+
 
 
           <div className="screen flex-grow">
