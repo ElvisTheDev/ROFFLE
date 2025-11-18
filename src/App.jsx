@@ -1163,11 +1163,12 @@ export default function App() {
 
   /* Referrals load from DB */
   useEffect(() => {
-    if (!tgId) return;
-    fetchReferralsFromDB(tgId).then((rows) => {
-      setReferrals(rows);
-    });
-  }, [tgId]);
+  if (!tgUser) return;
+  fetchReferralsFromDB(tgUser.id).then((rows) => {
+    setReferrals(rows || []);
+  });
+}, [tgUser]);
+
 
   /* Non-additive cooldown ticker – online regen + DB write */
   useEffect(() => {
