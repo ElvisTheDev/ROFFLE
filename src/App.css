@@ -697,3 +697,15 @@ body{
     rgba(3, 7, 18, 0.96)
   );
 }
+
+/* Highlight full active VIP column */
+.vip-col-current {
+  background: radial-gradient(
+      circle at center,
+      rgba(56, 189, 248, 0.09),
+      rgba(15, 23, 42, 0.85)
+    ),
+    rgba(15, 23, 42, 0.7);
+  box-shadow: inset 0 0 0 2px rgba(56, 189, 248, 0.45);
+  backdrop-filter: blur(2px);
+}
