@@ -72,6 +72,50 @@ body{
 .bal-icon{ width:24px; height:24px; object-fit:contain; }
 .bal-value{ font-variation-settings:"wght" 900; }
 
+/* ==== Golden Ticket counter (next to $ROF) ==== */
+
+/* Wrapper when you show multiple balances (ROF + Golden Ticket) */
+.bal-multi {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;           /* space between ROF and Ticket blocks */
+}
+
+/* One balance “bucket” (either ROF or Golden Ticket) */
+.bal-bucket {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Reuse same icon size but allow gold tint if needed */
+.bal-bucket .bal-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+/* Label under/above golden tickets if you decide to add one */
+.bal-gold-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #d3d6d7;
+}
+
+/* Golden ticket number */
+.bal-gold-value {
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--gold2);
+}
+
+/* Optional: stronger highlight for the ticket block */
+.bal-bucket.gold {
+  filter: drop-shadow(0 0 8px rgba(202,160,58,0.4));
+}
+
+
 /* Premium row (button + badge) */
 .premium-row{
   display:flex; align-items:center; justify-content:center;
