@@ -1490,6 +1490,28 @@ export default function App() {
 
     await handleUnlockBgSkin(skin);
   };
+      // ⭐ Telegram Stars unlock for wheel skins
+  const handleBuyWheelSkinStars = async (skin) => {
+    // If already owned, just equip
+    if (hasWheelSkin(skin.id)) {
+      equipWheelSkin(skin.id);
+      return;
+    }
+
+    // Open Stars invoice for this wheel skin
+    await createStarsInvoiceAndOpen("wheel", skin.id);
+  };
+
+  // ⭐ Telegram Stars unlock for background skins
+  const handleBuyBgSkinStars = async (skin) => {
+    if (hasBgSkin(skin.id)) {
+      equipBgSkin(skin.id);
+      return;
+    }
+
+    await createStarsInvoiceAndOpen("bg", skin.id);
+  };
+
 
   /* Referral link */
   useEffect(() => {
@@ -1842,37 +1864,55 @@ export default function App() {
                 else if (owned) buttonText = "Equip";
                 else buttonText = `Buy for ${skin.priceTon} TON`;
 
-                return (
-                  <div
-                    key={skin.id}
-                    className={`loot-row ${isActive ? "active" : ""}`}
-                  >
-                    <div className="loot-left">
-                      <div className="loot-preview" style={previewStyle} />
-                      <div className="loot-text">
-                        <div className="loot-row-name">{skin.name}</div>
-                        <div className="loot-row-tag">{skin.tagline}</div>
-                      </div>
-                    </div>
+                  return (
+    <div
+      key={skin.id}
+      className={`loot-row ${isActive ? "active" : ""}`}
+    >
+      <div className="loot-left">
+        <div className="loot-preview" style={previewStyle} />
+        <div className="loot-text">
+          <div className="loot-row-name">{skin.name}</div>
+          {/* description/tagline removed */}
+        </div>
+      </div>
 
-                    <div className="loot-right">
-                      <div className="loot-price">{priceLabel}</div>
-                      <button
-                        className="loot-btn gradient-outline-btn"
-                        disabled={isActive}
-                        onClick={() => {
-                          if (owned) {
-                            equipWheelSkin(skin.id);
-                          } else {
-                            handleBuyWheelSkinTon(skin);
-                          }
-                        }}
-                      >
-                        {buttonText}
-                      </button>
-                    </div>
-                  </div>
-                );
+      <div className="loot-right">
+        {isActive ? (
+          <div className="loot-status">Equipped</div>
+        ) : owned ? (
+          <button
+            className="loot-equip-btn gradient-outline-btn"
+            onClick={() => equipWheelSkin(skin.id)}
+          >
+            Equip
+          </button>
+        ) : (
+          <div className="loot-actions">
+            <button
+              className="pill-ton"
+              onClick={() => handleBuyWheelSkinTon(skin)}
+            >
+              <span className="pill-ton-icon" />
+              <span className="pill-ton-text">
+                {skin.priceTon} TON
+              </span>
+            </button>
+
+            <button
+              className="pill-stars"
+              onClick={() => handleBuyWheelSkinStars(skin)}
+            >
+              <span className="pill-stars-text">
+                ⭐️ {skin.priceStars}
+              </span>
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
               })}
             </div>
           </div>
@@ -1904,37 +1944,55 @@ export default function App() {
                 else if (owned) buttonText = "Equip";
                 else buttonText = `Buy for ${skin.priceTon} TON`;
 
-                return (
-                  <div
-                    key={skin.id}
-                    className={`loot-row ${isActive ? "active" : ""}`}
-                  >
-                    <div className="loot-left">
-                      <div className="loot-preview" style={previewStyle} />
-                      <div className="loot-text">
-                        <div className="loot-row-name">{skin.name}</div>
-                        <div className="loot-row-tag">{skin.tagline}</div>
-                      </div>
-                    </div>
+                  return (
+    <div
+      key={skin.id}
+      className={`loot-row ${isActive ? "active" : ""}`}
+    >
+      <div className="loot-left">
+        <div className="loot-preview" style={previewStyle} />
+        <div className="loot-text">
+          <div className="loot-row-name">{skin.name}</div>
+          {/* description/tagline removed */}
+        </div>
+      </div>
 
-                    <div className="loot-right">
-                      <div className="loot-price">{priceLabel}</div>
-                      <button
-                        className="loot-btn gradient-outline-btn"
-                        disabled={isActive}
-                        onClick={() => {
-                          if (owned) {
-                            equipBgSkin(skin.id);
-                          } else {
-                            handleBuyBgSkinTon(skin);
-                          }
-                        }}
-                      >
-                        {buttonText}
-                      </button>
-                    </div>
-                  </div>
-                );
+      <div className="loot-right">
+        {isActive ? (
+          <div className="loot-status">Equipped</div>
+        ) : owned ? (
+          <button
+            className="loot-equip-btn gradient-outline-btn"
+            onClick={() => equipBgSkin(skin.id)}
+          >
+            Equip
+          </button>
+        ) : (
+          <div className="loot-actions">
+            <button
+              className="pill-ton"
+              onClick={() => handleBuyBgSkinTon(skin)}
+            >
+              <span className="pill-ton-icon" />
+              <span className="pill-ton-text">
+                {skin.priceTon} TON
+              </span>
+            </button>
+
+            <button
+              className="pill-stars"
+              onClick={() => handleBuyBgSkinStars(skin)}
+            >
+              <span className="pill-stars-text">
+                ⭐️ {skin.priceStars}
+              </span>
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
               })}
             </div>
           </div>
