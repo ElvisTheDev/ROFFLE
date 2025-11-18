@@ -69,8 +69,20 @@ body{
   display:flex; align-items:center; justify-content:center;
   gap:8px; color:#fff; font-weight:900; font-size:26px; margin-bottom:8px;
 }
-.bal-icon{ width:24px; height:24px; object-fit:contain; }
-.bal-value{ font-variation-settings:"wght" 900; }
+/* Balance icons – ROF + Golden Ticket */
+.bal-icon,
+.asset-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  flex-shrink: 0;
+  display: block;
+}
+
+.bal-value {
+  font-variation-settings: "wght" 900;
+}
+
 
 /* ==== Golden Ticket counter (next to $ROF) ==== */
 
@@ -823,13 +835,6 @@ body{
   background-repeat: no-repeat;
 }
 
-/* FORCE balance icons to always be 24×24 no matter the PNG file size */
-.bal-icon,
-.bal-bucket img {
-  width: 24px !important;
-  height: 24px !important;
-  object-fit: contain !important;
-  flex-shrink: 0;
-}
+
 
 
