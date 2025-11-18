@@ -3163,19 +3163,28 @@ export default function App() {
     }
   };
 
-    const handleLinkGo = (task) => {
+      const handleLinkGo = (task) => {
     if (!task.url) return;
 
     const tg = window.Telegram?.WebApp;
-    if (tg?.openTelegramLink) {
-      tg.openTelegramLink(task.url);
+    const url = task.url;
+
+    if (tg) {
+      // Telegram links → openTelegramLink
+      if (url.startsWith("https://t.me/")) {
+        tg.openTelegramLink(url);
+      } else {
+        // External links (X/Twitter, websites, etc.) → openLink
+        tg.openLink(url);
+      }
     } else {
-      window.open(task.url, "_blank");
+      window.open(url, "_blank");
     }
 
-    // After clicking Go, allow the user to Claim this task
+    // After user taps "Go", allow them to Claim
     markTaskVisited(task.id);
   };
+
 
 
       const TasksScreen = () => {
