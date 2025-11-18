@@ -1727,41 +1727,62 @@ export default function App() {
             </div>
 
             {/* Buttons row */}
-            <div className="vip-row vip-row-buttons">
-              <div className="vip-cell vip-cell-label" />
-              {tierDefs.map((def) => {
-                const t = TIERS[def.key];
-                const isLowerOrEqual =
-                  TIER_ORDER[def.key] <= TIER_ORDER[tierKey];
-                const disabled = isLowerOrEqual;
-                const tonLabel = `${t.priceTon} TON`;
-                const starLabel = `${t.priceStars}`;
+<div className="vip-row vip-row-buttons">
+  <div className="vip-cell vip-cell-label" />
+  {tierDefs.map((def) => {
+    const t = TIERS[def.key];
+    if (!t) return null;
 
-                return (
-                  <div key={def.key} className="vip-cell vip-cell-value">
-                    <div className="vip-btn-row">
-                      <button
-                        className="pill-ton"
-                        disabled={disabled}
-                        onClick={() => handleTonClick(def.key)}
-                      >
-                        <span className="pill-ton-icon" />
-                        <span className="pill-ton-text">{tonLabel}</span>
-                      </button>
-                      <button
-                        className="pill-stars"
-                        disabled={disabled}
-                        onClick={() => handleStarsClick(def.key)}
-                      >
-                        <span className="pill-stars-text">
-                          ⭐️ {starLabel}
-                        </span>
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+    const isCurrent = def.key === tierKey;
+    const isLower = TIER_ORDER[def.key] < TIER_ORDER[tierKey];
+
+    let tonLabel = `${t.priceTon} TON`;
+    let starLabel = `${t.priceStars}`;
+    let disabled = false;
+
+    if (isCurrent) {
+      tonLabel = "Owned";
+      starLabel = "Owned";
+      disabled = true;
+    } else if (isLower) {
+      tonLabel = "N/A";
+      starLabel = "N/A";
+      disabled = true;
+    }
+
+    const colClasses = `vip-cell vip-cell-value ${
+      isCurrent ? "vip-col-current" : ""
+    }`;
+
+    return (
+      <div key={def.key} className={colClasses}>
+        <div className="vip-btn-row">
+          <button
+            className="pill-ton"
+            disabled={disabled}
+            onClick={() =>
+              !disabled && handleTonClick(def.key)
+            }
+          >
+            <span className="pill-ton-icon" />
+            <span className="pill-ton-text">{tonLabel}</span>
+          </button>
+          <button
+            className="pill-stars"
+            disabled={disabled}
+            onClick={() =>
+              !disabled && handleStarsClick(def.key)
+            }
+          >
+            <span className="pill-stars-text">
+              ⭐️ {starLabel}
+            </span>
+          </button>
+        </div>
+      </div>
+    );
+  })}
+</div>
           </div>
         </div>
       </div>
