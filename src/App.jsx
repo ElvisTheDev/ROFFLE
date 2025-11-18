@@ -1161,13 +1161,15 @@ export default function App() {
     loadInventory();
   }, [tgId]);
 
-  /* Referrals load from DB */
+    /* Referrals load from DB (use tgId synced from Telegram) */
   useEffect(() => {
-  if (!tgUser) return;
-  fetchReferralsFromDB(tgUser.id).then((rows) => {
-    setReferrals(rows || []);
-  });
-}, [tgUser]);
+    if (!tgId) return;
+
+    fetchReferralsFromDB(tgId).then((rows) => {
+      setReferrals(rows || []);
+    });
+  }, [tgId]);
+
 
 
   /* Non-additive cooldown ticker – online regen + DB write */
