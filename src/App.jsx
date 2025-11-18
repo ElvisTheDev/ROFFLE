@@ -3188,148 +3188,151 @@ export default function App() {
 
 
       const TasksScreen = () => {
-    // Format rewards like "+2500 $ROF · +1 Golden Ticket"
-        const formatReward = (task) => {
-      const reward = task.reward || {};
-      const parts = [];
+  // Build nice rich reward line per task
+  const renderReward = (task) => {
+    const reward = task.reward || {};
+    const parts = [];
 
-      if (reward.rof) {
-        parts.push(
-          <span key="rof">+{reward.rof} $ROF</span>
-        );
-      }
+    if (reward.rof) {
+      parts.push(
+        <span key="rof">
+          <strong>+{reward.rof.toLocaleString()} $ROF</strong>
+        </span>
+      );
+    }
 
-      if (reward.spins) {
-        parts.push(
-          <span key="spins">+{reward.spins} spins</span>
-        );
-      }
+    if (reward.spins) {
+      parts.push(
+        <span key="spins">
+          <strong>+{reward.spins} spins</strong>
+        </span>
+      );
+    }
 
-      if (reward.tickets) {
-        const isTenTicket = task.id === "inv_10"; // ⬅️ adjust if your 10-invite task id is different
-        parts.push(
-          <span
-            key="tickets"
-            style={
-              isTenTicket
-                ? { color: "#facc15", fontWeight: 800 } // gold/yellow
-                : {}
-            }
-          >
-            +{reward.tickets} Golden Ticket
-            {reward.tickets > 1 ? "s" : ""}
+    if (reward.tickets) {
+      const label = `+${reward.tickets} Golden Ticket${
+        reward.tickets > 1 ? "s" : ""
+      }`;
+
+      parts.push(
+        <span
+          key="tickets"
+          style={
+            task.id === "invite_10"
+              ? { color: "#facc15", fontWeight: 800 } // gold for +1 Golden Ticket
+              : { fontWeight: 800 }
+          }
+        >
+          {label}
+        </span>
+      );
+    }
+
+    if (!parts.length) return null;
+
+    // Join parts with " · "
+    const interleaved = [];
+    parts.forEach((p, i) => {
+      if (i > 0) {
+        interleaved.push(
+          <span key={`sep-${i}`} style={{ opacity: 0.7 }}>
+            {" "}
+            ·{" "}
           </span>
         );
       }
+      interleaved.push(p);
+    });
 
-      if (!parts.length) return null;
+    return <div className="loot-row-tag">{interleaved}</div>;
+  };
 
-      // Interleave with separators: " · "
-      return parts.reduce((acc, el, idx) => {
-        if (idx > 0) {
-          acc.push(
-            <span key={`sep-${idx}`}> · </span>
-          );
-        }
-        acc.push(el);
-        return acc;
-      }, []);
-    };
+  return (
+    <div className="loot-section">
+      <div className="loot-title">🕹 Tasks</div>
+      <div className="loot-list">
+        {TASKS.map((task) => {
+          const isClaimed = !!taskClaims[task.id];
+          const visited = !!taskVisited[task.id];
 
+          const canClaim =
+            task.type === "invite"
+              ? invitesCount >= (task.requiresInvites || 0)
+              : true;
 
-    return (
-      <div className="loot-section">
-        <div className="loot-title">🕹 Tasks</div>
-        <div className="loot-list">
-          {TASKS.map((task) => {
-            const isClaimed = !!taskClaims[task.id];
-            const visited = !!taskVisited[task.id];
-            const rewardLabel = formatReward(task.reward);
+          // same squircle-style icon as Skins / Mood
+          const previewStyle = {
+            backgroundImage: `url(${task.icon})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          };
 
-            const canClaim =
-              task.type === "invite"
-                ? invitesCount >= (task.requiresInvites || 0)
-                : true;
+          return (
+            <div key={task.id} className="loot-row">
+              <div className="loot-left">
+                <div className="loot-preview" style={previewStyle} />
+                <div className="loot-text">
+                  <div className="loot-row-name">{task.title}</div>
 
-            // same squircle-style icon as Skins / Mood
-            const previewStyle = {
-              backgroundImage: `url(${task.icon})`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-            };
+                  {/* Reward line (BOLD, with gold ticket highlight for invite_10) */}
+                  {renderReward(task)}
 
-            return (
-              <div key={task.id} className="loot-row">
-                <div className="loot-left">
-                  <div className="loot-preview" style={previewStyle} />
-                  <div className="loot-text">
-                    <div className="loot-row-name">{task.title}</div>
-
-                    {/* Reward line */}
-                    {rewardLabel && (
-                      <div className="loot-row-tag"><b>{rewardLabel}</b></div>
-                    )}
-
-                    {/* Progress for invite tasks */}
-                    {task.type === "invite" && (
-                      <div className="loot-row-tag">
-                        Invites:{" "}
-                        {Math.min(
-                          invitesCount,
-                          task.requiresInvites || 0
-                        )}
-                        /{task.requiresInvites}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="loot-right">
-                  {isClaimed ? (
-                    // Already claimed
-                    <button
-                      className="loot-equip-btn gradient-outline-btn"
-                      disabled
-                    >
-                      Done
-                    </button>
-                  ) : task.type === "link" ? (
-                    // LINK TASKS: Go → Claim
-                    visited ? (
-                      <button
-                        className="loot-equip-btn gradient-outline-btn"
-                        onClick={() => handleClaimTask(task)}
-                      >
-                        Claim
-                      </button>
-                    ) : (
-                      <button
-                        className="loot-equip-btn gradient-outline-btn"
-                        onClick={() => handleLinkGo(task)}
-                      >
-                        Go
-                      </button>
-                    )
-                  ) : (
-                    // INVITE TASKS: Claim when enough invites
-                    <button
-                      className="loot-equip-btn gradient-outline-btn"
-                      disabled={!canClaim}
-                      onClick={() => canClaim && handleClaimTask(task)}
-                    >
-                      {canClaim
-                        ? "Claim"
-                        : `Need ${task.requiresInvites} invites`}
-                    </button>
+                  {/* Progress for invite tasks */}
+                  {task.type === "invite" && (
+                    <div className="loot-row-tag">
+                      Invites:{" "}
+                      {Math.min(invitesCount, task.requiresInvites || 0)}/
+                      {task.requiresInvites}
+                    </div>
                   )}
                 </div>
               </div>
-            );
-          })}
-        </div>
+
+              <div className="loot-right">
+                {isClaimed ? (
+                  // Already claimed
+                  <button
+                    className="loot-equip-btn gradient-outline-btn"
+                    disabled
+                  >
+                    Done
+                  </button>
+                ) : task.type === "link" ? (
+                  // LINK TASKS: Go → Claim
+                  visited ? (
+                    <button
+                      className="loot-equip-btn gradient-outline-btn"
+                      onClick={() => handleClaimTask(task)}
+                    >
+                      Claim
+                    </button>
+                  ) : (
+                    <button
+                      className="loot-equip-btn gradient-outline-btn"
+                      onClick={() => handleOpenTaskLink(task)}
+                    >
+                      Go
+                    </button>
+                  )
+                ) : (
+                  // INVITE TASKS: Claim when ready
+                  <button
+                    className="loot-equip-btn gradient-outline-btn"
+                    disabled={!canClaim}
+                    onClick={() => handleClaimTask(task)}
+                  >
+                    {canClaim ? "Claim" : "Claim"}
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
-    );
-  };
+    </div>
+  );
+};
+
 
 
 
