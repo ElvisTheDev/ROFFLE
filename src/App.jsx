@@ -3189,18 +3189,53 @@ export default function App() {
 
       const TasksScreen = () => {
     // Format rewards like "+2500 $ROF · +1 Golden Ticket"
-    const formatReward = (reward = {}) => {
+        const formatReward = (task) => {
+      const reward = task.reward || {};
       const parts = [];
-      if (reward.rof) parts.push(`+${reward.rof} $ROF`);
-      if (reward.spins) parts.push(`+${reward.spins} spins`);
-      if (reward.tickets)
+
+      if (reward.rof) {
         parts.push(
-          `+${reward.tickets} Golden Ticket${
-            reward.tickets > 1 ? "s" : ""
-          }`
+          <span key="rof">+{reward.rof} $ROF</span>
         );
-      return parts.join(" · ");
+      }
+
+      if (reward.spins) {
+        parts.push(
+          <span key="spins">+{reward.spins} spins</span>
+        );
+      }
+
+      if (reward.tickets) {
+        const isTenTicket = task.id === "inv_10"; // ⬅️ adjust if your 10-invite task id is different
+        parts.push(
+          <span
+            key="tickets"
+            style={
+              isTenTicket
+                ? { color: "#facc15", fontWeight: 800 } // gold/yellow
+                : {}
+            }
+          >
+            +{reward.tickets} Golden Ticket
+            {reward.tickets > 1 ? "s" : ""}
+          </span>
+        );
+      }
+
+      if (!parts.length) return null;
+
+      // Interleave with separators: " · "
+      return parts.reduce((acc, el, idx) => {
+        if (idx > 0) {
+          acc.push(
+            <span key={`sep-${idx}`}> · </span>
+          );
+        }
+        acc.push(el);
+        return acc;
+      }, []);
     };
+
 
     return (
       <div className="loot-section">
@@ -3232,7 +3267,7 @@ export default function App() {
 
                     {/* Reward line */}
                     {rewardLabel && (
-                      <div className="loot-row-tag">{rewardLabel}</div>
+                      <div className="loot-row-tag"><b>{rewardLabel}</b></div>
                     )}
 
                     {/* Progress for invite tasks */}
