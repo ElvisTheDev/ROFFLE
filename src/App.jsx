@@ -682,6 +682,8 @@ export default function App() {
   const [bank, setBank] = useState(0);
   const [tgId, setTgId] = useState(null);
   const [invitesCount, setInvitesCount] = useState(0);
+  const [goldTickets, setGoldTickets] = useState(0);
+
 
   // Inventory: which skins the user owns (wheel + background)
   const [ownedWheelIds, setOwnedWheelIds] = useState(
