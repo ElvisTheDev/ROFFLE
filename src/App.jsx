@@ -230,7 +230,7 @@ const TASKS = [
     icon: "/x-icon.png",
     title: "Follow ROFFLE on X",
     type: "link",
-    url: "https://x.com/rofflereal",
+    url: "https://twitter.com/rofflereal",
     reward: { rof: 1000, spins: 0, tickets: 0 },
   },
   {
@@ -972,6 +972,28 @@ export default function App() {
       localStorage.setItem("rof_task_claims", JSON.stringify(next));
     } catch {}
   };
+
+    // Track whether user already clicked "Go" on link tasks
+  const [taskVisited, setTaskVisited] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("rof_task_visited") || "{}");
+    } catch {
+      return {};
+    }
+  });
+
+  const saveTaskVisited = (next) => {
+    setTaskVisited(next);
+    try {
+      localStorage.setItem("rof_task_visited", JSON.stringify(next));
+    } catch {}
+  };
+
+  const markTaskVisited = (id) => {
+    const next = { ...taskVisited, [id]: true };
+    saveTaskVisited(next);
+  };
+
 
 
   /* Splash */
@@ -3141,22 +3163,51 @@ export default function App() {
     }
   };
 
+    const handleLinkGo = (task) => {
+    if (!task.url) return;
 
-    const TasksScreen = () => {
+    const tg = window.Telegram?.WebApp;
+    if (tg?.openTelegramLink) {
+      tg.openTelegramLink(task.url);
+    } else {
+      window.open(task.url, "_blank");
+    }
+
+    // After clicking Go, allow the user to Claim this task
+    markTaskVisited(task.id);
+  };
+
+
+      const TasksScreen = () => {
+    // Format rewards like "+2500 $ROF · +1 Golden Ticket"
+    const formatReward = (reward = {}) => {
+      const parts = [];
+      if (reward.rof) parts.push(`+${reward.rof} $ROF`);
+      if (reward.spins) parts.push(`+${reward.spins} spins`);
+      if (reward.tickets)
+        parts.push(
+          `+${reward.tickets} Golden Ticket${
+            reward.tickets > 1 ? "s" : ""
+          }`
+        );
+      return parts.join(" · ");
+    };
+
     return (
       <div className="loot-section">
         <div className="loot-title">🕹 Tasks</div>
         <div className="loot-list">
           {TASKS.map((task) => {
             const isClaimed = !!taskClaims[task.id];
+            const visited = !!taskVisited[task.id];
+            const rewardLabel = formatReward(task.reward);
 
-            // For invite tasks we need enough invites to claim
             const canClaim =
               task.type === "invite"
                 ? invitesCount >= (task.requiresInvites || 0)
                 : true;
 
-            // same squircle preview as Skins / Mood
+            // same squircle-style icon as Skins / Mood
             const previewStyle = {
               backgroundImage: `url(${task.icon})`,
               backgroundSize: "cover",
@@ -3169,10 +3220,21 @@ export default function App() {
                   <div className="loot-preview" style={previewStyle} />
                   <div className="loot-text">
                     <div className="loot-row-name">{task.title}</div>
+
+                    {/* Reward line */}
+                    {rewardLabel && (
+                      <div className="loot-row-tag">{rewardLabel}</div>
+                    )}
+
+                    {/* Progress for invite tasks */}
                     {task.type === "invite" && (
                       <div className="loot-row-tag">
-                        Invites: {Math.min(invitesCount, task.requiresInvites || 0)}/
-                        {task.requiresInvites}
+                        Invites:{" "}
+                        {Math.min(
+                          invitesCount,
+                          task.requiresInvites || 0
+                        )}
+                        /{task.requiresInvites}
                       </div>
                     )}
                   </div>
@@ -3180,6 +3242,7 @@ export default function App() {
 
                 <div className="loot-right">
                   {isClaimed ? (
+                    // Already claimed
                     <button
                       className="loot-equip-btn gradient-outline-btn"
                       disabled
@@ -3187,22 +3250,24 @@ export default function App() {
                       Done
                     </button>
                   ) : task.type === "link" ? (
-                    <button
-                      className="loot-equip-btn gradient-outline-btn"
-                      onClick={() => {
-                        if (task.url) {
-                          const tg = window.Telegram?.WebApp;
-                          if (tg?.openTelegramLink) {
-                            tg.openTelegramLink(task.url);
-                          } else {
-                            window.open(task.url, "_blank");
-                          }
-                        }
-                      }}
-                    >
-                      Go
-                    </button>
+                    // LINK TASKS: Go → Claim
+                    visited ? (
+                      <button
+                        className="loot-equip-btn gradient-outline-btn"
+                        onClick={() => handleClaimTask(task)}
+                      >
+                        Claim
+                      </button>
+                    ) : (
+                      <button
+                        className="loot-equip-btn gradient-outline-btn"
+                        onClick={() => handleLinkGo(task)}
+                      >
+                        Go
+                      </button>
+                    )
                   ) : (
+                    // INVITE TASKS: Claim when enough invites
                     <button
                       className="loot-equip-btn gradient-outline-btn"
                       disabled={!canClaim}
@@ -3221,6 +3286,7 @@ export default function App() {
       </div>
     );
   };
+
 
 
   const Menu = () => (
