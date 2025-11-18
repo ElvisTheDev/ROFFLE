@@ -214,6 +214,60 @@ const BG_SKINS = [
   },
 ];
 
+/* ================= TASKS CONFIG ================= */
+
+const TASKS = [
+  {
+    id: "follow_tg",
+    icon: "/tg-icon.png",
+    title: "Follow ROFFLE Announcements",
+    type: "link",
+    url: "https://t.me/rofflereal",
+    reward: { rof: 1000, spins: 0, tickets: 0 }, // tweak amounts if you like
+  },
+  {
+    id: "follow_x",
+    icon: "/x-icon.png",
+    title: "Follow ROFFLE on X",
+    type: "link",
+    url: "https://x.com/rofflereal",
+    reward: { rof: 1000, spins: 0, tickets: 0 },
+  },
+  {
+    id: "invite_1",
+    icon: "/1inv-icon.png",
+    title: "Invite 1 Friend",
+    type: "invite",
+    requiresInvites: 1,
+    reward: { rof: 2500, spins: 0, tickets: 0 },
+  },
+  {
+    id: "invite_3",
+    icon: "/3inv-icon.png",
+    title: "Invite 3 Friends",
+    type: "invite",
+    requiresInvites: 3,
+    reward: { rof: 10000, spins: 0, tickets: 0 },
+  },
+  {
+    id: "invite_5",
+    icon: "/5inv-icon.png",
+    title: "Invite 5 Friends",
+    type: "invite",
+    requiresInvites: 5,
+    reward: { rof: 20000, spins: 0, tickets: 0 },
+  },
+  {
+    id: "invite_10",
+    icon: "/10inv-icon.png",
+    title: "Invite 10 Friends",
+    type: "invite",
+    requiresInvites: 10,
+    reward: { rof: 50000, spins: 0, tickets: 1 }, // +1 Golden Ticket
+  },
+];
+
+
 /* Tier ranking: used to prevent downgrade */
 const TIER_ORDER = { free: 0, plus: 1, pro: 2, prem: 3 };
 
@@ -902,6 +956,23 @@ export default function App() {
   /* Earn / referrals */
   const [myRefLink, setMyRefLink] = useState("");
   const [referrals, setReferrals] = useState([]);
+
+    /* Task claim state (per user, local) */
+  const [taskClaims, setTaskClaims] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("rof_task_claims") || "{}");
+    } catch {
+      return {};
+    }
+  });
+
+  const saveTaskClaims = (next) => {
+    setTaskClaims(next);
+    try {
+      localStorage.setItem("rof_task_claims", JSON.stringify(next));
+    } catch {}
+  };
+
 
   /* Splash */
   useEffect(() => {
@@ -2995,9 +3066,162 @@ export default function App() {
     );
   };
 
-  const TasksScreen = () => (
-    <div className="placeholder-card">🕹 Tasks coming soon…</div>
-  );
+    const handleClaimTask = (task) => {
+    // already claimed
+    if (taskClaims[task.id]) return;
+
+    // Invite-type tasks must check invitesCount
+    if (task.type === "invite") {
+      const need = task.requiresInvites || 0;
+      if (invitesCount < need) {
+        setToast({
+          text: `You need ${need} invites to claim this`,
+          key: Date.now(),
+        });
+        setTimeout(() => setToast(null), 1500);
+        return;
+      }
+    }
+
+    const reward = task.reward || {};
+    const rofAdd = reward.rof || 0;
+    const spinsAdd = reward.spins || 0;
+    const ticketsAdd = reward.tickets || 0;
+
+    // Apply rewards locally + save to DB for coins/spins
+    if (rofAdd) {
+      setBank((prev) => {
+        const nb = prev + rofAdd;
+        if (tgId) {
+          supabase
+            .from("roff_users")
+            .update({ balance: nb })
+            .eq("tg_id", tgId)
+            .then(() => {})
+            .catch((e) => console.error("Task balance update failed", e));
+        }
+        return nb;
+      });
+    }
+
+    if (spinsAdd) {
+      setSpinsLeft((prev) => {
+        const ns = Math.min(spinCap, prev + spinsAdd);
+        if (tgId) {
+          supabase
+            .from("roff_users")
+            .update({ spins_left: ns })
+            .eq("tg_id", tgId)
+            .then(() => {})
+            .catch((e) => console.error("Task spins update failed", e));
+        }
+        return ns;
+      });
+    }
+
+    if (ticketsAdd) {
+      setGoldTickets((prev) => prev + ticketsAdd);
+      // if you later add golden_tickets column to DB, also update it here
+    }
+
+    const nextClaims = { ...taskClaims, [task.id]: true };
+    saveTaskClaims(nextClaims);
+
+    const parts = [];
+    if (rofAdd) parts.push(`+${rofAdd} $ROF`);
+    if (spinsAdd) parts.push(`+${spinsAdd} spins`);
+    if (ticketsAdd)
+      parts.push(
+        `+${ticketsAdd} Golden Ticket${ticketsAdd > 1 ? "s" : ""}`
+      );
+
+    if (parts.length) {
+      setToast({ text: parts.join(" & "), key: Date.now() });
+      setTimeout(() => setToast(null), 1600);
+    }
+  };
+
+
+    const TasksScreen = () => {
+    return (
+      <div className="loot-section">
+        <div className="loot-title">🕹 Tasks</div>
+        <div className="loot-list">
+          {TASKS.map((task) => {
+            const isClaimed = !!taskClaims[task.id];
+
+            // For invite tasks we need enough invites to claim
+            const canClaim =
+              task.type === "invite"
+                ? invitesCount >= (task.requiresInvites || 0)
+                : true;
+
+            // same squircle preview as Skins / Mood
+            const previewStyle = {
+              backgroundImage: `url(${task.icon})`,
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+            };
+
+            return (
+              <div key={task.id} className="loot-row">
+                <div className="loot-left">
+                  <div className="loot-preview" style={previewStyle} />
+                  <div className="loot-text">
+                    <div className="loot-row-name">{task.title}</div>
+                    {task.type === "invite" && (
+                      <div className="loot-row-tag">
+                        Invites: {Math.min(invitesCount, task.requiresInvites || 0)}/
+                        {task.requiresInvites}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="loot-right">
+                  {isClaimed ? (
+                    <button
+                      className="loot-equip-btn gradient-outline-btn"
+                      disabled
+                    >
+                      Done
+                    </button>
+                  ) : task.type === "link" ? (
+                    <button
+                      className="loot-equip-btn gradient-outline-btn"
+                      onClick={() => {
+                        if (task.url) {
+                          const tg = window.Telegram?.WebApp;
+                          if (tg?.openTelegramLink) {
+                            tg.openTelegramLink(task.url);
+                          } else {
+                            window.open(task.url, "_blank");
+                          }
+                        }
+                      }}
+                    >
+                      Go
+                    </button>
+                  ) : (
+                    <button
+                      className="loot-equip-btn gradient-outline-btn"
+                      disabled={!canClaim}
+                      onClick={() => canClaim && handleClaimTask(task)}
+                    >
+                      {canClaim
+                        ? "Claim"
+                        : `Need ${task.requiresInvites} invites`}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
 
   const Menu = () => (
     <nav className="bottom-menu">
