@@ -469,9 +469,17 @@ body{
   padding:8px 10px;
   box-shadow:0 10px 24px rgba(0,0,0,.6);
 }
-.loot-row.active{
-  border-color:var(--brand-teal);
-  box-shadow:0 0 0 1px rgba(92,225,230,.4), 0 12px 32px rgba(92,225,230,.2);
+/* Highlight for currently equipped skin / background */
+.loot-row.active {
+  border-radius: 16px;
+  box-shadow:
+    0 0 0 2px rgba(234, 105, 255, 0.85),
+    0 0 20px rgba(31, 3, 255, 0.55);
+  background: radial-gradient(
+      circle at top left,
+      rgba(234, 105, 255, 0.16),
+      rgba(15, 23, 42, 0.96)
+    );
 }
 .loot-left{
   display:flex; align-items:center; gap:10px;
