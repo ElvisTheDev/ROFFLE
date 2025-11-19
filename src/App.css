@@ -181,24 +181,13 @@ body{
   position: absolute;
   right: 6px;
   top: 6px;
-  width: 104px; /* x2 size */
-  height: 104px;
-  border-radius: 18px;
-  border: 1px solid transparent;
-  background:
-    /* outer gradient outline */
-    linear-gradient(180deg, #50ffea, #ff17ef) border-box,
-    /* inner panel */
-    radial-gradient(
-      circle at top left,
-      rgba(234, 105, 255, 0.18),
-      rgba(15, 23, 42, 0.96)
-    ) padding-box;
-  background-clip: padding-box, border-box;
-  box-shadow:
-    0 0 0 1px rgba(15, 23, 42, 0.9),
-    0 10px 30px rgba(0, 0, 0, 0.8);
-  padding: 6px;
+  width: 80px;   /* a bit larger so it's easier to see */
+  height: 80px;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -211,6 +200,7 @@ body{
   height: 100%;
   object-fit: contain;
 }
+
 
 
 @keyframes giftFloat {
