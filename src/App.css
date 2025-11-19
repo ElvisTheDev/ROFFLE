@@ -916,6 +916,12 @@ body{
   justify-content: flex-start;
   max-height: none !important;   /* override bottom-sheet limit */
 }
+.bundles-modal .modal-body {
+  flex: 0 0 auto;      /* don't stretch to fill vertical space */
+  max-height: none;    /* no scrolling area unless needed */
+  padding-bottom: 4px; /* smaller gap under bundles list */
+}
+
 
 
 .bundles-list {
