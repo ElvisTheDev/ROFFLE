@@ -181,19 +181,24 @@ body{
   position: absolute;
   right: 6px;
   top: 6px;
-  width: 52px;
-  height: 52px;
-  border-radius: 16px;
-  border: 1px solid rgba(234, 105, 255, 0.7);
-  background: radial-gradient(
+  width: 104px; /* x2 size */
+  height: 104px;
+  border-radius: 18px;
+  border: 1px solid transparent;
+  background:
+    /* outer gradient outline */
+    linear-gradient(180deg, #50ffea, #ff17ef) border-box,
+    /* inner panel */
+    radial-gradient(
       circle at top left,
       rgba(234, 105, 255, 0.18),
       rgba(15, 23, 42, 0.96)
-    );
+    ) padding-box;
+  background-clip: padding-box, border-box;
   box-shadow:
     0 0 0 1px rgba(15, 23, 42, 0.9),
     0 10px 30px rgba(0, 0, 0, 0.8);
-  padding: 4px;
+  padding: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -206,6 +211,7 @@ body{
   height: 100%;
   object-fit: contain;
 }
+
 
 @keyframes giftFloat {
   from {
@@ -400,9 +406,9 @@ body{
 /* Modal footer */
 .modal-foot{
   display:flex; align-items:center; justify-content:space-between;
-  gap:8px; padding:8px 0 0;
+  gap:8px; padding:8px 0 8px;
+  margin-bottom: 10px; /* nudges note + Close 10px up from screen edge */
 }
-.mf-note{ color:#98a0a6; font-size:12px; }
 .mf-back{
   appearance:none; background:#111318; color:#fff;
   border:1px solid rgba(255,255,255,.18);
@@ -969,6 +975,15 @@ body{
   font-size: 12px;
   color: #e5e7eb;
 }
+.bundle-rof {
+  color: #e5e7eb; /* neutral/white-ish */
+}
+
+.bundle-ticket {
+  color: #facc15; /* yellow / gold highlight */
+  font-weight: 700;
+}
+
 
 .bundle-gold {
   color: #facc15;
