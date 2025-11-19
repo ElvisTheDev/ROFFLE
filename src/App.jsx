@@ -2110,6 +2110,7 @@ const handleBuyBundleStars = async (bundle) => {
 
 
 
+
   const LootScreen = () => {
     return (
       <div className="loot-wrap">
