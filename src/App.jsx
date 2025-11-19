@@ -391,6 +391,41 @@ const CENTER_LOGO_SRC = "/logo.png";
 const BRAND_LOGO_SRC = "/rof-lg.png";
 const ROF_ICON_SRC = "/rof-bn.png";
 const TREASURY_WALLET = "UQDXJshWTZc6KTvmA3zSlqElus_9LPTRIGz-VFi6Bxt4yXqo";
+const GIFT_ICON_SRC = "/gift-box.png";
+
+const BUNDLES = [
+  {
+    id: "mini",
+    name: "Mini",
+    icon: "/mini.png",
+    rof: 20000,
+    spins: 100,
+    tickets: 1,
+    priceTon: 2,
+    priceStars: 299,
+  },
+  {
+    id: "medi",
+    name: "Medi",
+    icon: "/medi.png",
+    rof: 50000,
+    spins: 250,
+    tickets: 2,
+    priceTon: 4,
+    priceStars: 599,
+  },
+  {
+    id: "maxi",
+    name: "Maxi",
+    icon: "/maxi.png",
+    rof: 125000,
+    spins: 500,
+    tickets: 3,
+    priceTon: 8,
+    priceStars: 1199,
+  },
+];
+
 
 /* ===== Avatar helpers & fallback colors ===== */
 const DEMO_AVATAR_COLORS = [
@@ -1647,6 +1682,83 @@ export default function App() {
     await createStarsInvoiceAndOpen("bg", skin.id);
   };
 
+    const applyBundleRewards = (bundle) => {
+    const { rof, spins, tickets } = bundle;
+
+    // 💰 ROF coins
+    if (rof) {
+      setBank((prev) => {
+        const nb = prev + rof;
+        if (tgId) {
+          supabase
+            .from("roff_users")
+            .update({ balance: nb })
+            .eq("tg_id", tgId)
+            .then(() => {})
+            .catch((e) =>
+              console.error("Bundle: balance update failed", e)
+            );
+        }
+        return nb;
+      });
+    }
+
+    // 🎰 Spins
+    if (spins) {
+      setSpinsLeft((prev) => {
+        const ns = Math.min(spinCap, prev + spins);
+        if (tgId) {
+          supabase
+            .from("roff_users")
+            .update({ spins_left: ns })
+            .eq("tg_id", tgId)
+            .then(() => {})
+            .catch((e) =>
+              console.error("Bundle: spins update failed", e)
+            );
+        }
+        return ns;
+      });
+    }
+
+    // 🎟 Golden tickets (local for now)
+    if (tickets) {
+      setGoldTickets((prev) => prev + tickets);
+      // later: also update golden_tickets in DB when column is ready
+    }
+
+    // Toast
+    const parts = [];
+    if (rof) parts.push(`+${rof.toLocaleString()} $ROF`);
+    if (spins) parts.push(`+${spins} spins`);
+    if (tickets)
+      parts.push(
+        `+${tickets} Golden Ticket${tickets > 1 ? "s" : ""}`
+      );
+
+    if (parts.length) {
+      setToast({ text: parts.join(" & "), key: Date.now() });
+      setTimeout(() => setToast(null), 1600);
+    }
+  };
+
+  const handleBuyBundleTon = async (bundle) => {
+    const ok = await sendTonPayment(
+      bundle.priceTon,
+      `Bundle ${bundle.name}`
+    );
+    if (!ok) return;
+    applyBundleRewards(bundle);
+    setShowBundles(false);
+  };
+
+  const handleBuyBundleStars = async (bundle) => {
+    // Stars side: back-end webhook should grant the bundle
+    await createStarsInvoiceAndOpen("bundle", bundle.id);
+    // If you later get confirmation in-app, then call applyBundleRewards(bundle) there
+  };
+
+
   /* ================= BUNDLE BUY HELPERS ================= */
 
 // TON purchase → apply rewards immediately
@@ -1804,10 +1916,15 @@ const handleBuyBundleStars = async (bundle) => {
     },
   ];
 
-    const BundlesModal = () => {
-  return (
-    <div className="modal-overlay full" onClick={() => setShowBundles(false)}>
-      <div className="modal bundles-modal" onClick={(e) => e.stopPropagation()}>
+      const BundlesModal = () => (
+    <div
+      className="modal-overlay full"
+      onClick={() => setShowBundles(false)}
+    >
+      <div
+        className="modal bundles-modal"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="modal-head">
           <div className="mh-left">
             <span className="mh-icon">🎁</span>
@@ -1833,11 +1950,9 @@ const handleBuyBundleStars = async (bundle) => {
                     <div className="bundle-name">{b.name}</div>
                     <div className="bundle-reward">
                       <b>
-                        +{b.rof.toLocaleString()} $ROF • +{b.spins} spins •{" "}
-                        <span className="bundle-gold">
-                          +{b.tickets} Golden Ticket
-                          {b.tickets > 1 ? "s" : ""}
-                        </span>
+                        +{b.rof.toLocaleString()} $ROF • +{b.spins} spins • +
+                        {b.tickets} Golden Ticket
+                        {b.tickets > 1 ? "s" : ""}
                       </b>
                     </div>
                   </div>
@@ -1849,7 +1964,9 @@ const handleBuyBundleStars = async (bundle) => {
                     onClick={() => handleBuyBundleTon(b)}
                   >
                     <span className="pill-ton-icon" />
-                    <span className="pill-ton-text">{b.priceTon} TON</span>
+                    <span className="pill-ton-text">
+                      {b.priceTon} TON
+                    </span>
                   </button>
                   <button
                     className="pill-stars"
@@ -1867,6 +1984,7 @@ const handleBuyBundleStars = async (bundle) => {
       </div>
     </div>
   );
+
 };
 
 
@@ -3666,6 +3784,8 @@ const handleBuyBundleStars = async (bundle) => {
       )}
 
       {showPremium && <PremiumModal />}
+      {showBundles && <BundlesModal />}
+
     </div>
   );
 }
