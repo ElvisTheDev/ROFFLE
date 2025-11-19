@@ -1828,85 +1828,6 @@ const handleBuyBundleStars = async (bundle) => {
     handleBuyTierTon(tierKeyTarget);
   };
 
-    const BundlesModal = () => {
-  return (
-    <div className="modal-backdrop">
-      <div className="modal">
-        <div className="modal-head">
-          <div className="modal-title">🎁 Spin Bundles</div>
-          <button
-            className="modal-close"
-            onClick={() => setShowBundles(false)}
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="modal-body bundles-modal">
-          <p className="modal-sub">
-            Top up your $ROF, spins and Golden Tickets instantly.
-          </p>
-
-          <div className="bundles-list">
-            {BUNDLES.map((b) => (
-              <div key={b.id} className="bundle-row">
-                <div className="bundle-left">
-                  <div className="bundle-icon">
-                    <img src={b.icon} alt={b.name} />
-                  </div>
-                  <div className="bundle-text">
-                    <div className="bundle-name">{b.name}</div>
-                    <div className="bundle-reward">
-                      <span className="bundle-gold">
-                        +{b.rof.toLocaleString()} $ROF
-                      </span>{" "}
-                      · +{b.spins} spins · +{b.tickets} Golden Ticket
-                      {b.tickets > 1 ? "s" : ""}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bundle-right">
-                  <button
-                    className="pill-ton"
-                    onClick={() => handleBuyBundleTon(b)}
-                  >
-                    <span className="pill-ton-icon" />
-                    <span className="pill-ton-text">
-                      {b.priceTon} TON
-                    </span>
-                  </button>
-
-                  <button
-                    className="pill-stars"
-                    onClick={() => handleBuyBundleStars(b)}
-                  >
-                    <span className="pill-stars-text">
-                      ⭐️ {b.priceStars}
-                    </span>
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="modal-foot">
-          <div className="mf-note">
-            TON is paid on-chain. Stars payments are handled via Telegram.
-          </div>
-          <button
-            className="mf-back"
-            onClick={() => setShowBundles(false)}
-          >
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
 
   const handleStarsClick = (tierKeyTarget) => {
     const t = TIERS[tierKeyTarget];
@@ -2095,6 +2016,92 @@ const handleBuyBundleStars = async (bundle) => {
     </div>
   );
 };
+
+    // 🎁 Bundles modal (opened from floating gift box)
+  const BundlesModal = () => {
+    return (
+      <div
+        className="modal-overlay"
+        onClick={() => setShowBundles(false)}
+      >
+        <div className="modal" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-head">
+            <div className="mh-left">
+              <span className="mh-icon">🎁</span>
+              <div className="mh-title">Spin Bundles</div>
+            </div>
+            <button
+              className="modal-close"
+              onClick={() => setShowBundles(false)}
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="modal-body bundles-modal">
+            <p className="modal-sub">
+              Top up your $ROF, spins and Golden Tickets instantly.
+            </p>
+
+            <div className="bundles-list">
+              {BUNDLES.map((b) => (
+                <div key={b.id} className="bundle-row">
+                  <div className="bundle-left">
+                    <div className="bundle-icon">
+                      <img src={b.icon} alt={b.name} />
+                    </div>
+                    <div className="bundle-text">
+                      <div className="bundle-name">{b.name}</div>
+                      <div className="bundle-reward">
+                        <span className="bundle-gold">
+                          +{b.rof.toLocaleString()} $ROF
+                        </span>{" "}
+                        · +{b.spins} spins · +{b.tickets} Golden Ticket
+                        {b.tickets > 1 ? "s" : ""}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bundle-right">
+                    <button
+                      className="pill-ton"
+                      onClick={() => handleBuyBundleTon(b)}
+                    >
+                      <span className="pill-ton-icon" />
+                      <span className="pill-ton-text">
+                        {b.priceTon} TON
+                      </span>
+                    </button>
+
+                    <button
+                      className="pill-stars"
+                      onClick={() => handleBuyBundleStars(b)}
+                    >
+                      <span className="pill-stars-text">
+                        ⭐️ {b.priceStars}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="modal-foot">
+            <div className="mf-note">
+              TON is paid on-chain. Stars payments are handled via Telegram.
+            </div>
+            <button
+              className="mf-back"
+              onClick={() => setShowBundles(false)}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
 
   const LootScreen = () => {
