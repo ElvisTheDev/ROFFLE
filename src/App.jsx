@@ -2019,14 +2019,14 @@ const handleBuyBundleStars = async (bundle) => {
 
     const BundlesModal = () => {
   return (
+  <div
+    className="modal-overlay"
+    onClick={() => setShowBundles(false)}
+  >
     <div
-      className="modal-overlay full"
-      onClick={() => setShowBundles(false)}
+      className="modal bundles-modal"
+      onClick={(e) => e.stopPropagation()}
     >
-      <div
-        className="modal vip-modal bundles-modal"
-        onClick={(e) => e.stopPropagation()}
-      >
         <div className="modal-head">
           <div className="mh-left">
             <span className="mh-icon">🎁</span>
