@@ -2028,7 +2028,7 @@ const handleBuyBundleStars = async (bundle) => {
           <div className="modal-head">
             <div className="mh-left">
               <span className="mh-icon">🎁</span>
-              <div className="mh-title">Spin Bundles</div>
+              <div className="mh-title">Booster Bundles</div>
             </div>
             <button
               className="modal-close"
@@ -2052,13 +2052,17 @@ const handleBuyBundleStars = async (bundle) => {
                     </div>
                     <div className="bundle-text">
                       <div className="bundle-name">{b.name}</div>
-                      <div className="bundle-reward">
-                        <span className="bundle-gold">
-                          +{b.rof.toLocaleString()} $ROF
-                        </span>{" "}
-                        · +{b.spins} spins · +{b.tickets} Golden Ticket
+                                          <div className="bundle-reward">
+                      <span className="bundle-rof">
+                        +{b.rof.toLocaleString()} $ROF
+                      </span>{" "}
+                      · +{b.spins} spins ·{" "}
+                      <span className="bundle-ticket">
+                        +{b.tickets} Golden Ticket
                         {b.tickets > 1 ? "s" : ""}
-                      </div>
+                      </span>
+                    </div>
+
                     </div>
                   </div>
 
