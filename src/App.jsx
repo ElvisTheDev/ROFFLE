@@ -213,7 +213,7 @@ const BG_SKINS = [
     priceStars: 299,
   },
 ];
-/* ================= BUNDLES CONFIG ================= */
+
 /* ================= TASKS CONFIG ================= */
 
 const TASKS = [
@@ -357,41 +357,6 @@ const CENTER_LOGO_SRC = "/logo.png";
 const BRAND_LOGO_SRC = "/rof-lg.png";
 const ROF_ICON_SRC = "/rof-bn.png";
 const TREASURY_WALLET = "UQDXJshWTZc6KTvmA3zSlqElus_9LPTRIGz-VFi6Bxt4yXqo";
-const GIFT_ICON_SRC = "/gift-box.png";
-
-const BUNDLES = [
-  {
-    id: "mini",
-    name: "Mini",
-    icon: "/mini.png",
-    rof: 20000,
-    spins: 100,
-    tickets: 1,
-    priceTon: 2,
-    priceStars: 299,
-  },
-  {
-    id: "medi",
-    name: "Medi",
-    icon: "/medi.png",
-    rof: 50000,
-    spins: 250,
-    tickets: 2,
-    priceTon: 4,
-    priceStars: 599,
-  },
-  {
-    id: "maxi",
-    name: "Maxi",
-    icon: "/maxi.png",
-    rof: 125000,
-    spins: 500,
-    tickets: 3,
-    priceTon: 8,
-    priceStars: 1199,
-  },
-];
-
 
 /* ===== Avatar helpers & fallback colors ===== */
 const DEMO_AVATAR_COLORS = [
@@ -981,7 +946,6 @@ export default function App() {
   const [tab, setTab] = useState("play");
   const [booting, setBooting] = useState(true);
   const [showPremium, setShowPremium] = useState(false);
-  const [showBundles, setShowBundles] = useState(false);
 
   /* Leaderboard UI */
   const [lbTab, setLbTab] = useState("players");
@@ -1648,82 +1612,6 @@ export default function App() {
     await createStarsInvoiceAndOpen("bg", skin.id);
   };
 
-    const applyBundleRewards = (bundle) => {
-    const { rof, spins, tickets } = bundle;
-
-    // 💰 ROF coins
-    if (rof) {
-      setBank((prev) => {
-        const nb = prev + rof;
-        if (tgId) {
-          supabase
-            .from("roff_users")
-            .update({ balance: nb })
-            .eq("tg_id", tgId)
-            .then(() => {})
-            .catch((e) =>
-              console.error("Bundle: balance update failed", e)
-            );
-        }
-        return nb;
-      });
-    }
-
-    // 🎰 Spins
-    if (spins) {
-      setSpinsLeft((prev) => {
-        const ns = Math.min(spinCap, prev + spins);
-        if (tgId) {
-          supabase
-            .from("roff_users")
-            .update({ spins_left: ns })
-            .eq("tg_id", tgId)
-            .then(() => {})
-            .catch((e) =>
-              console.error("Bundle: spins update failed", e)
-            );
-        }
-        return ns;
-      });
-    }
-
-    // 🎟 Golden tickets (local for now)
-    if (tickets) {
-      setGoldTickets((prev) => prev + tickets);
-      // later: also update golden_tickets in DB when column is ready
-    }
-
-    // Toast
-    const parts = [];
-    if (rof) parts.push(`+${rof.toLocaleString()} $ROF`);
-    if (spins) parts.push(`+${spins} spins`);
-    if (tickets)
-      parts.push(
-        `+${tickets} Golden Ticket${tickets > 1 ? "s" : ""}`
-      );
-
-    if (parts.length) {
-      setToast({ text: parts.join(" & "), key: Date.now() });
-      setTimeout(() => setToast(null), 1600);
-    }
-  };
-
-  const handleBuyBundleTon = async (bundle) => {
-    const ok = await sendTonPayment(
-      bundle.priceTon,
-      `Bundle ${bundle.name}`
-    );
-    if (!ok) return;
-    applyBundleRewards(bundle);
-    setShowBundles(false);
-  };
-
-  const handleBuyBundleStars = async (bundle) => {
-    // Stars side: back-end webhook should grant the bundle
-    await createStarsInvoiceAndOpen("bundle", bundle.id);
-    // If you later get confirmation in-app, then call applyBundleRewards(bundle) there
-  };
-
 
   /* Referral link */
   useEffect(() => {
@@ -1829,78 +1717,6 @@ export default function App() {
       invites: "+100%",
     },
   ];
-
-      const BundlesModal = () => (
-    <div
-      className="modal-overlay full"
-      onClick={() => setShowBundles(false)}
-    >
-      <div
-        className="modal bundles-modal"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="modal-head">
-          <div className="mh-left">
-            <span className="mh-icon">🎁</span>
-            <div className="mh-title">ROFFLE Bundles</div>
-          </div>
-          <button
-            className="modal-close"
-            onClick={() => setShowBundles(false)}
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="modal-body">
-          <div className="bundles-list">
-            {BUNDLES.map((b) => (
-              <div key={b.id} className="bundle-row gradient-border">
-                <div className="bundle-left">
-                  <div className="bundle-icon">
-                    <img src={b.icon} alt={b.name} />
-                  </div>
-                  <div className="bundle-text">
-                    <div className="bundle-name">{b.name}</div>
-                    <div className="bundle-reward">
-                      <b>
-                        +{b.rof.toLocaleString()} $ROF • +{b.spins} spins • +
-                        {b.tickets} Golden Ticket
-                        {b.tickets > 1 ? "s" : ""}
-                      </b>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bundle-right">
-                  <button
-                    className="pill-ton"
-                    onClick={() => handleBuyBundleTon(b)}
-                  >
-                    <span className="pill-ton-icon" />
-                    <span className="pill-ton-text">
-                      {b.priceTon} TON
-                    </span>
-                  </button>
-                  <button
-                    className="pill-stars"
-                    onClick={() => handleBuyBundleStars(b)}
-                  >
-                    <span className="pill-stars-text">
-                      ⭐️ {b.priceStars}
-                    </span>
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-};
-
 
   const handleTonClick = (tierKeyTarget) => {
     const t = TIERS[tierKeyTarget];
@@ -2370,7 +2186,7 @@ export default function App() {
 
 
   
-  const PlayScreen = ({ wheelSkin, onOpenBundles }) => {
+  const PlayScreen = ({ wheelSkin }) => {
     const styleKey = wheelSkin.id;
     const rimGradientId = (() => {
       switch (styleKey) {
@@ -2398,15 +2214,7 @@ export default function App() {
 
     return (
       <>
-    <div className="wheel-wrap compact-no-scroll">
-      {/* 🎁 Floating gift button */}
-      <button
-        type="button"
-        className="floating-gift"
-        onClick={onOpenBundles}
-      >
-        <img src="/gift-box.png" alt="Bundles" />
-      </button>
+        <div className="wheel-wrap compact-no-scroll">
           <svg className="wheel-svg" viewBox="0 0 1000 1000" aria-hidden>
             <defs>
               {Array.from({ length: SEGMENTS_TOTAL }, (_, i) => {
@@ -3287,90 +3095,96 @@ export default function App() {
     );
   };
 
-        const handleClaimTask = (task) => {
-    // already claimed
-    if (taskClaims[task.id]) return;
+    const handleClaimTask = (task) => {
+  // already claimed
+  if (taskClaims[task.id]) return;
 
-    // Invite-type tasks must check invitesCount
-    if (task.type === "invite") {
-      const need = task.requiresInvites || 0;
-      if (invitesCount < need) {
-        setToast({
-          text: `You need ${need} invites to claim this`,
-          key: Date.now(),
-        });
-        setTimeout(() => setToast(null), 1500);
-        return;
-      }
-    }
-
-    const reward = task.reward || {};
-    const rofAdd = reward.rof || 0;
-    const spinsAdd = reward.spins || 0;
-    const ticketsAdd = reward.tickets || 0;
-
-    // Apply rewards locally + save to DB for coins/spins
-    if (rofAdd) {
-      setBank((prev) => {
-        const nb = prev + rofAdd;
-        if (tgId) {
-          supabase
-            .from("roff_users")
-            .update({ balance: nb })
-            .eq("tg_id", tgId)
-            .then(() => {})
-            .catch((e) => console.error("Task balance update failed", e));
-        }
-        return nb;
+  // Invite-type tasks must check invitesCount
+  if (task.type === "invite") {
+    const need = task.requiresInvites || 0;
+    if (invitesCount < need) {
+      setToast({
+        text: `You need ${need} invites to claim this`,
+        key: Date.now(),
       });
+      setTimeout(() => setToast(null), 1500);
+      return;
     }
+  }
 
-    if (spinsAdd) {
-      setSpinsLeft((prev) => {
-        const ns = Math.min(spinCap, prev + spinsAdd);
-        if (tgId) {
-          supabase
-            .from("roff_users")
-            .update({ spins_left: ns })
-            .eq("tg_id", tgId)
-            .then(() => {})
-            .catch((e) => console.error("Task spins update failed", e));
-        }
-        return ns;
-      });
-    }
+    
 
-    if (ticketsAdd) {
-      setGoldTickets((prev) => prev + ticketsAdd);
-      // if you later add golden_tickets column to DB, also update it here
+
+  const reward = task.reward || {};
+  const rofAdd = reward.rof || 0;
+  const spinsAdd = reward.spins || 0;
+  const ticketsAdd = reward.tickets || 0;
+
+  // Apply rewards locally + save to DB for coins / spins / golden tickets
+  if (rofAdd) {
+    setBank((prev) => {
+      const nb = prev + rofAdd;
       if (tgId) {
         supabase
           .from("roff_users")
-          .update({ golden_tickets: prev + ticketsAdd })
+          .update({ balance: nb })
           .eq("tg_id", tgId)
           .then(() => {})
-          .catch((e) => console.error("Task tickets update failed", e));
+          .catch((e) => console.error("Task balance update failed", e));
       }
-    }
+      return nb;
+    });
+  }
 
-    const nextClaims = { ...taskClaims, [task.id]: true };
-    saveTaskClaims(nextClaims);
+  if (spinsAdd) {
+    setSpinsLeft((prev) => {
+      const ns = Math.min(spinCap, prev + spinsAdd);
+      if (tgId) {
+        supabase
+          .from("roff_users")
+          .update({ spins_left: ns })
+          .eq("tg_id", tgId)
+          .then(() => {})
+          .catch((e) => console.error("Task spins update failed", e));
+      }
+      return ns;
+    });
+  }
 
-    const parts = [];
-    if (rofAdd) parts.push(`+${rofAdd} $ROF`);
-    if (spinsAdd) parts.push(`+${spinsAdd} spins`);
-    if (ticketsAdd)
-      parts.push(
-        `+${ticketsAdd} Golden Ticket${ticketsAdd > 1 ? "s" : ""}`
-      );
+  // 🔥 NEW: persist golden tickets in DB as well
+  if (ticketsAdd) {
+    setGoldTickets((prev) => {
+      const nt = prev + ticketsAdd;
+      if (tgId) {
+        supabase
+          .from("roff_users")
+          .update({ golden_tickets: nt })
+          .eq("tg_id", tgId)
+          .then(() => {})
+          .catch((e) =>
+            console.error("Task golden_tickets update failed", e)
+          );
+      }
+      return nt;
+    });
+  }
 
-    if (parts.length) {
-      setToast({ text: parts.join(" & "), key: Date.now() });
-      setTimeout(() => setToast(null), 1600);
-    }
-  };
+  const nextClaims = { ...taskClaims, [task.id]: true };
+  saveTaskClaims(nextClaims);
 
+  const parts = [];
+  if (rofAdd) parts.push(`+${rofAdd} $ROF`);
+  if (spinsAdd) parts.push(`+${spinsAdd} spins`);
+  if (ticketsAdd)
+    parts.push(
+      `+${ticketsAdd} Golden Ticket${ticketsAdd > 1 ? "s" : ""}`
+    );
 
+  if (parts.length) {
+    setToast({ text: parts.join(" & "), key: Date.now() });
+    setTimeout(() => setToast(null), 1600);
+  }
+};
 
 
       const handleLinkGo = (task) => {
@@ -3678,12 +3492,7 @@ export default function App() {
 
 
           <div className="screen flex-grow">
-            {tab === "play" && (
-  <PlayScreen
-    wheelSkin={wheelSkin}
-    onOpenBundles={() => setShowBundles(true)}
-  />
-)}
+            {tab === "play" && <PlayScreen wheelSkin={wheelSkin} />}
             {tab === "loot" && <LootScreen />}
             {tab === "top" && (
               <TopScreen lbTab={lbTab} onTabChange={setLbTab} />
@@ -3699,14 +3508,10 @@ export default function App() {
           )}
 
           <Menu />
-          {showBundles && <BundlesModal />}
-
         </div>
       )}
 
       {showPremium && <PremiumModal />}
-      {showBundles && <BundlesModal />}
-
     </div>
   );
 }
