@@ -3287,7 +3287,7 @@ export default function App() {
     );
   };
 
-      const handleClaimTask = (task) => {
+        const handleClaimTask = (task) => {
     // already claimed
     if (taskClaims[task.id]) return;
 
@@ -3343,13 +3343,19 @@ export default function App() {
     if (ticketsAdd) {
       setGoldTickets((prev) => prev + ticketsAdd);
       // if you later add golden_tickets column to DB, also update it here
+      if (tgId) {
+        supabase
+          .from("roff_users")
+          .update({ golden_tickets: prev + ticketsAdd })
+          .eq("tg_id", tgId)
+          .then(() => {})
+          .catch((e) => console.error("Task tickets update failed", e));
+      }
     }
 
-    // Mark as claimed (localStorage)
     const nextClaims = { ...taskClaims, [task.id]: true };
     saveTaskClaims(nextClaims);
 
-    // Toast summary
     const parts = [];
     if (rofAdd) parts.push(`+${rofAdd} $ROF`);
     if (spinsAdd) parts.push(`+${spinsAdd} spins`);
@@ -3363,6 +3369,7 @@ export default function App() {
       setTimeout(() => setToast(null), 1600);
     }
   };
+
 
 
 
