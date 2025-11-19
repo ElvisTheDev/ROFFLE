@@ -259,7 +259,8 @@ const TASKS = [
     title: "Follow ROFFLE Announcements",
     type: "link",
     url: "https://t.me/rofflereal",
-    reward: { rof: 1000, spins: 0, tickets: 0 }, // tweak amounts if you like
+    // +50 spins added
+    reward: { rof: 1000, spins: 50, tickets: 0 },
   },
   {
     id: "follow_x",
@@ -267,7 +268,8 @@ const TASKS = [
     title: "Follow ROFFLE on X",
     type: "link",
     url: "https://twitter.com/rofflereal",
-    reward: { rof: 1000, spins: 0, tickets: 0 },
+    // +50 spins added
+    reward: { rof: 1000, spins: 50, tickets: 0 },
   },
   {
     id: "invite_1",
@@ -275,7 +277,8 @@ const TASKS = [
     title: "Invite 1 Friend",
     type: "invite",
     requiresInvites: 1,
-    reward: { rof: 2500, spins: 0, tickets: 0 },
+    // +50 spins added
+    reward: { rof: 2500, spins: 50, tickets: 0 },
   },
   {
     id: "invite_3",
@@ -283,7 +286,8 @@ const TASKS = [
     title: "Invite 3 Friends",
     type: "invite",
     requiresInvites: 3,
-    reward: { rof: 10000, spins: 0, tickets: 0 },
+    // +100 spins added
+    reward: { rof: 10000, spins: 100, tickets: 0 },
   },
   {
     id: "invite_5",
@@ -291,7 +295,8 @@ const TASKS = [
     title: "Invite 5 Friends",
     type: "invite",
     requiresInvites: 5,
-    reward: { rof: 20000, spins: 0, tickets: 0 },
+    // +200 spins added
+    reward: { rof: 20000, spins: 200, tickets: 0 },
   },
   {
     id: "invite_10",
@@ -299,9 +304,11 @@ const TASKS = [
     title: "Invite 10 Friends",
     type: "invite",
     requiresInvites: 10,
-    reward: { rof: 50000, spins: 0, tickets: 1 }, // +1 Golden Ticket
+    // +500 spins added (keeps +1 Golden Ticket)
+    reward: { rof: 50000, spins: 500, tickets: 1 }, // +1 Golden Ticket
   },
 ];
+
 
 
 /* Tier ranking: used to prevent downgrade */
