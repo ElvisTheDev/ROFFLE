@@ -3343,7 +3343,7 @@ export default function App() {
                   ) : (
                     <button
                       className="loot-equip-btn gradient-outline-btn"
-                      onClick={() => handleOpenTaskLink(task)}
+                      onClick={() => handleLinkGo(task)}
                     >
                       Go
                     </button>
