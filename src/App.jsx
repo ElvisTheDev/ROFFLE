@@ -2366,8 +2366,6 @@ const handleBuyBundleStars = async (bundle) => {
 
     return (
       <>
-        return (
-  <>
     <div className="wheel-wrap compact-no-scroll">
       {/* 🎁 Floating gift button */}
       <button
