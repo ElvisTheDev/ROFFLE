@@ -970,8 +970,9 @@ const handleBuyBundleTon = async (bundle) => {
   if (!ok) return;
 
   await grantBundleRewards(bundle);
-  setShowBundles(false);
+  // ❌ no setShowBundles(false) here – we’ll close it on click instead
 };
+
 
 const handleBuyBundleStars = async (bundle) => {
   // Stars flow: backend should credit the bundle in DB after payment.
@@ -2069,14 +2070,18 @@ const handleBuyBundleStars = async (bundle) => {
 
                 <div className="bundle-right">
                   <button
-                    className="pill-ton"
-                    onClick={() => handleBuyBundleTon(b)}
-                  >
-                    <span className="pill-ton-icon" />
-                    <span className="pill-ton-text">
-                      {b.priceTon} TON
-                    </span>
-                  </button>
+  className="pill-ton"
+  onClick={() => {
+    setShowBundles(false);   // ⬅️ close Booster Bundles window
+    handleBuyBundleTon(b);   // ⬅️ start TON payment flow
+  }}
+>
+  <span className="pill-ton-icon" />
+  <span className="pill-ton-text">
+    {b.priceTon} TON
+  </span>
+</button>
+
 
                   <button
                     className="pill-stars"
