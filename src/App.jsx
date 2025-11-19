@@ -3191,33 +3191,32 @@ export default function App() {
   if (!task.url) return;
 
   const tg = window.Telegram?.WebApp;
-  const url = task.url;
 
   try {
-    // Telegram chats/channels → use openTelegramLink
-    if (url.startsWith("https://t.me")) {
-      if (tg?.openTelegramLink) {
-        tg.openTelegramLink(url);
-      } else {
-        window.open(url, "_blank");
-      }
-    } else {
-      // Any external site (X, websites, etc.)
-      if (tg?.openLink) {
-        tg.openLink(url);
-      } else {
-        window.open(url, "_blank");
-      }
+    // ✅ Prefer openLink (works for normal https:// links)
+    if (tg?.openLink) {
+      tg.openLink(task.url);
     }
-  } catch (e) {
-    console.error("Task link open error", e);
-    // Fallback: at least try to open a browser tab
-    window.open(url, "_blank");
-  }
+    // Fallback for t.me / internal links
+    else if (tg?.openTelegramLink) {
+      tg.openTelegramLink(task.url);
+    }
+    // Browser fallback (local testing / pop-out)
+    else {
+      window.open(task.url, "_blank", "noopener,noreferrer");
+    }
 
-  // mark the task as visited so it can flip to "Claim"
-  markTaskVisited(task.id);
+    // Mark that user went to the task
+    markTaskVisited(task.id);
+  } catch (e) {
+    console.error("handleLinkGo error", e);
+    // Last-resort browser open
+    try {
+      window.open(task.url, "_blank", "noopener,noreferrer");
+    } catch {}
+  }
 };
+
 
 
 
