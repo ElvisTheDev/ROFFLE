@@ -3257,96 +3257,83 @@ const handleBuyBundleStars = async (bundle) => {
     );
   };
 
-    const handleClaimTask = (task) => {
-  // already claimed
-  if (taskClaims[task.id]) return;
+      const handleClaimTask = (task) => {
+    // already claimed
+    if (taskClaims[task.id]) return;
 
-  // Invite-type tasks must check invitesCount
-  if (task.type === "invite") {
-    const need = task.requiresInvites || 0;
-    if (invitesCount < need) {
-      setToast({
-        text: `You need ${need} invites to claim this`,
-        key: Date.now(),
-      });
-      setTimeout(() => setToast(null), 1500);
-      return;
+    // Invite-type tasks must check invitesCount
+    if (task.type === "invite") {
+      const need = task.requiresInvites || 0;
+      if (invitesCount < need) {
+        setToast({
+          text: `You need ${need} invites to claim this`,
+          key: Date.now(),
+        });
+        setTimeout(() => setToast(null), 1500);
+        return;
+      }
     }
-  }
 
-    
+    const reward = task.reward || {};
+    const rofAdd = reward.rof || 0;
+    const spinsAdd = reward.spins || 0;
+    const ticketsAdd = reward.tickets || 0;
 
+    // Apply rewards locally + save to DB for coins/spins
+    if (rofAdd) {
+      setBank((prev) => {
+        const nb = prev + rofAdd;
+        if (tgId) {
+          supabase
+            .from("roff_users")
+            .update({ balance: nb })
+            .eq("tg_id", tgId)
+            .then(() => {})
+            .catch((e) => console.error("Task balance update failed", e));
+        }
+        return nb;
+      });
+    }
 
-  const reward = task.reward || {};
-  const rofAdd = reward.rof || 0;
-  const spinsAdd = reward.spins || 0;
-  const ticketsAdd = reward.tickets || 0;
+    if (spinsAdd) {
+      setSpinsLeft((prev) => {
+        const ns = Math.min(spinCap, prev + spinsAdd);
+        if (tgId) {
+          supabase
+            .from("roff_users")
+            .update({ spins_left: ns })
+            .eq("tg_id", tgId)
+            .then(() => {})
+            .catch((e) => console.error("Task spins update failed", e));
+        }
+        return ns;
+      });
+    }
 
-  // Apply rewards locally + save to DB for coins / spins / golden tickets
-  if (rofAdd) {
-    setBank((prev) => {
-      const nb = prev + rofAdd;
-      if (tgId) {
-        supabase
-          .from("roff_users")
-          .update({ balance: nb })
-          .eq("tg_id", tgId)
-          .then(() => {})
-          .catch((e) => console.error("Task balance update failed", e));
-      }
-      return nb;
-    });
-  }
+    if (ticketsAdd) {
+      setGoldTickets((prev) => prev + ticketsAdd);
+      // if you later add golden_tickets column to DB, also update it here
+    }
 
-  if (spinsAdd) {
-    setSpinsLeft((prev) => {
-      const ns = Math.min(spinCap, prev + spinsAdd);
-      if (tgId) {
-        supabase
-          .from("roff_users")
-          .update({ spins_left: ns })
-          .eq("tg_id", tgId)
-          .then(() => {})
-          .catch((e) => console.error("Task spins update failed", e));
-      }
-      return ns;
-    });
-  }
+    // Mark as claimed (localStorage)
+    const nextClaims = { ...taskClaims, [task.id]: true };
+    saveTaskClaims(nextClaims);
 
-  // 🔥 NEW: persist golden tickets in DB as well
-  if (ticketsAdd) {
-    setGoldTickets((prev) => {
-      const nt = prev + ticketsAdd;
-      if (tgId) {
-        supabase
-          .from("roff_users")
-          .update({ golden_tickets: nt })
-          .eq("tg_id", tgId)
-          .then(() => {})
-          .catch((e) =>
-            console.error("Task golden_tickets update failed", e)
-          );
-      }
-      return nt;
-    });
-  }
+    // Toast summary
+    const parts = [];
+    if (rofAdd) parts.push(`+${rofAdd} $ROF`);
+    if (spinsAdd) parts.push(`+${spinsAdd} spins`);
+    if (ticketsAdd)
+      parts.push(
+        `+${ticketsAdd} Golden Ticket${ticketsAdd > 1 ? "s" : ""}`
+      );
 
-  const nextClaims = { ...taskClaims, [task.id]: true };
-  saveTaskClaims(nextClaims);
+    if (parts.length) {
+      setToast({ text: parts.join(" & "), key: Date.now() });
+      setTimeout(() => setToast(null), 1600);
+    }
+  };
 
-  const parts = [];
-  if (rofAdd) parts.push(`+${rofAdd} $ROF`);
-  if (spinsAdd) parts.push(`+${spinsAdd} spins`);
-  if (ticketsAdd)
-    parts.push(
-      `+${ticketsAdd} Golden Ticket${ticketsAdd > 1 ? "s" : ""}`
-    );
-
-  if (parts.length) {
-    setToast({ text: parts.join(" & "), key: Date.now() });
-    setTimeout(() => setToast(null), 1600);
-  }
-};
 
 
       const handleLinkGo = (task) => {
