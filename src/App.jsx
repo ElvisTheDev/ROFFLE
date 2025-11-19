@@ -214,40 +214,6 @@ const BG_SKINS = [
   },
 ];
 /* ================= BUNDLES CONFIG ================= */
-const BUNDLES = [
-  {
-    id: "mini",
-    name: "Mini Bundle",
-    icon: "/mini.png",
-    rof: 20000,
-    spins: 100,
-    tickets: 1,
-    priceTon: 2,
-    priceStars: 299,
-  },
-  {
-    id: "medi",
-    name: "Medi Bundle",
-    icon: "/medi.png",
-    rof: 50000,
-    spins: 250,
-    tickets: 2,
-    priceTon: 4,
-    priceStars: 599,
-  },
-  {
-    id: "maxi",
-    name: "Maxi Bundle",
-    icon: "/maxi.png",
-    rof: 125000,
-    spins: 500,
-    tickets: 3,
-    priceTon: 8,
-    priceStars: 1199,
-  },
-];
-
-
 /* ================= TASKS CONFIG ================= */
 
 const TASKS = [
@@ -1757,58 +1723,6 @@ export default function App() {
     await createStarsInvoiceAndOpen("bundle", bundle.id);
     // If you later get confirmation in-app, then call applyBundleRewards(bundle) there
   };
-
-
-  /* ================= BUNDLE BUY HELPERS ================= */
-
-// TON purchase → apply rewards immediately
-const handleBuyBundleTon = async (bundle) => {
-  if (!bundle) return;
-
-  const ok = await sendTonPayment(
-    bundle.priceTon,
-    `${bundle.name} bundle`
-  );
-  if (!ok) return;
-
-  const rofAdd = bundle.rof || 0;
-  const spinsAdd = bundle.spins || 0;
-  const ticketsAdd = bundle.tickets || 0;
-
-  if (rofAdd) {
-    setBank((prev) => prev + rofAdd);
-  }
-
-  if (spinsAdd) {
-    setSpinsLeft((prev) => Math.min(spinCap, prev + spinsAdd));
-  }
-
-  if (ticketsAdd) {
-    setGoldTickets((prev) => prev + ticketsAdd);
-    // if you later store golden_tickets in DB,
-    // also update supabase here similar to coins/spins
-  }
-
-  const parts = [];
-  if (rofAdd) parts.push(`+${rofAdd} $ROF`);
-  if (spinsAdd) parts.push(`+${spinsAdd} spins`);
-  if (ticketsAdd)
-    parts.push(
-      `+${ticketsAdd} Golden Ticket${ticketsAdd > 1 ? "s" : ""}`
-    );
-
-  if (parts.length) {
-    setToast({ text: parts.join(" & "), key: Date.now() });
-    setTimeout(() => setToast(null), 1600);
-  }
-};
-
-// Stars purchase → just open invoice, bot/webhook grants rewards
-const handleBuyBundleStars = async (bundle) => {
-  if (!bundle) return;
-  await createStarsInvoiceAndOpen("bundle", bundle.id);
-};
-
 
 
   /* Referral link */
