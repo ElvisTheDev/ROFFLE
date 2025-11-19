@@ -2184,73 +2184,6 @@ export default function App() {
     );
   };
 
-const TasksScreen = () => {
-  return (
-    <div className="tasks-wrap">
-      <div className="tasks-list">
-        {TASKS.map((task) => {
-          const claimed = taskClaims[task.id];
-          const visited = taskVisited[task.id];
-
-          const canClaim =
-            task.type === "link"
-              ? visited && !claimed
-              : task.type === "invite"
-              ? invitesCount >= (task.requiresInvites || 0) && !claimed
-              : false;
-
-          const rewardText = [
-            task.reward.rof ? `+${task.reward.rof} $ROF` : null,
-            task.reward.spins ? `+${task.reward.spins} spins` : null,
-            task.reward.tickets
-              ? `+${task.reward.tickets} 🎫 Golden Ticket`
-              : null,
-          ]
-            .filter(Boolean)
-            .join(" • ");
-
-          return (
-            <div key={task.id} className="task-row">
-              <div className="task-left">
-                <div className="task-icon-box">
-                  <img src={task.icon} className="task-icon" />
-                </div>
-                <div className="task-texts">
-                  <div className="task-title">{task.title}</div>
-                  <div className="task-reward">
-                    <b>{rewardText}</b>
-                  </div>
-                </div>
-              </div>
-
-              <div className="task-right">
-                {!claimed ? (
-                  canClaim ? (
-                    <button
-                      className="loot-equip-btn gradient-outline-btn"
-                      onClick={() => handleClaimTask(task)}
-                    >
-                      Claim
-                    </button>
-                  ) : (
-                    <button
-                      className="gradient-outline-btn"
-                      onClick={() => task.type === "link" && handleLinkGo(task)}
-                    >
-                      Go
-                    </button>
-                  )
-                ) : (
-                  <div className="task-claimed">✔️</div>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
 
   
   const PlayScreen = ({ wheelSkin }) => {
@@ -3179,17 +3112,7 @@ const TasksScreen = () => {
     }
   }
 
-      const handleLinkGo = (task) => {
-  if (!task.url) return;
-  markTaskVisited(task.id);
-
-  const tg = window.Telegram?.WebApp;
-  if (tg?.openTelegramLink) {
-    tg.openTelegramLink(task.url);
-  } else {
-    window.open(task.url, "_blank");
-  }
-};
+    
 
 
   const reward = task.reward || {};
