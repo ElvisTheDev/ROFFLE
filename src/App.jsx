@@ -71,6 +71,42 @@ const TEST_PRICE_COINS = 0;
 
 /* ================= SKINS CONFIG ================= */
 
+/* ================= BUNDLES CONFIG ================= */
+
+const BUNDLES = [
+  {
+    id: "mini",
+    name: "Mini Bundle",
+    icon: "/mini.png",
+    rof: 20000,
+    spins: 100,
+    tickets: 1,
+    priceTon: 2,
+    priceStars: 299,
+  },
+  {
+    id: "medi",
+    name: "Medi Bundle",
+    icon: "/medi.png",
+    rof: 50000,
+    spins: 250,
+    tickets: 2,
+    priceTon: 4,
+    priceStars: 599,
+  },
+  {
+    id: "maxi",
+    name: "Maxi Bundle",
+    icon: "/maxi.png",
+    rof: 125000,
+    spins: 500,
+    tickets: 3,
+    priceTon: 8,
+    priceStars: 1199,
+  },
+];
+
+
 /* Wheel skins (themes) */
 const WHEEL_SKINS = [
   {
@@ -880,6 +916,70 @@ export default function App() {
     await createStarsInvoiceAndOpen("tier", key);
   };
 
+  /* ================= BUNDLE HELPERS ================= */
+
+const grantBundleRewards = async (bundle) => {
+  const rofAdd = bundle.rof || 0;
+  const spinsAdd = bundle.spins || 0;
+  const ticketsAdd = bundle.tickets || 0;
+
+  const newBalance = bank + rofAdd;
+  const newSpins = Math.min(spinCap, spinsLeft + spinsAdd);
+  const newTickets = goldTickets + ticketsAdd;
+
+  // Local state update
+  if (rofAdd) setBank(newBalance);
+  if (spinsAdd) setSpinsLeft(newSpins);
+  if (ticketsAdd) setGoldTickets(newTickets);
+
+  // Persist to DB
+  if (tgId) {
+    try {
+      await supabase
+        .from("roff_users")
+        .update({
+          balance: newBalance,
+          spins_left: newSpins,
+          golden_tickets: newTickets,
+        })
+        .eq("tg_id", tgId);
+    } catch (e) {
+      console.error("Bundle DB update failed", e);
+    }
+  }
+
+  const parts = [];
+  if (rofAdd) parts.push(`+${rofAdd.toLocaleString()} $ROF`);
+  if (spinsAdd) parts.push(`+${spinsAdd} spins`);
+  if (ticketsAdd)
+    parts.push(
+      `+${ticketsAdd} Golden Ticket${ticketsAdd > 1 ? "s" : ""}`
+    );
+
+  if (parts.length) {
+    setToast({ text: parts.join(" · "), key: Date.now() });
+    setTimeout(() => setToast(null), 1600);
+  }
+};
+
+const handleBuyBundleTon = async (bundle) => {
+  const ok = await sendTonPayment(
+    bundle.priceTon,
+    `${bundle.name} bundle`
+  );
+  if (!ok) return;
+
+  await grantBundleRewards(bundle);
+  setShowBundles(false);
+};
+
+const handleBuyBundleStars = async (bundle) => {
+  // Stars flow: backend should credit the bundle in DB after payment.
+  await createStarsInvoiceAndOpen("bundle", bundle.id);
+  setShowBundles(false);
+};
+
+
   // Skins: current equipped wheel + bg
   const [wheelSkinId, setWheelSkinId] = useState("classic");
   const [bgSkinId, setBgSkinId] = useState("default");
@@ -946,6 +1046,7 @@ export default function App() {
   const [tab, setTab] = useState("play");
   const [booting, setBooting] = useState(true);
   const [showPremium, setShowPremium] = useState(false);
+  const [showBundles, setShowBundles] = useState(false);
 
   /* Leaderboard UI */
   const [lbTab, setLbTab] = useState("players");
@@ -1727,6 +1828,86 @@ export default function App() {
     handleBuyTierTon(tierKeyTarget);
   };
 
+    const BundlesModal = () => {
+  return (
+    <div className="modal-backdrop">
+      <div className="modal">
+        <div className="modal-head">
+          <div className="modal-title">🎁 Spin Bundles</div>
+          <button
+            className="modal-close"
+            onClick={() => setShowBundles(false)}
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="modal-body bundles-modal">
+          <p className="modal-sub">
+            Top up your $ROF, spins and Golden Tickets instantly.
+          </p>
+
+          <div className="bundles-list">
+            {BUNDLES.map((b) => (
+              <div key={b.id} className="bundle-row">
+                <div className="bundle-left">
+                  <div className="bundle-icon">
+                    <img src={b.icon} alt={b.name} />
+                  </div>
+                  <div className="bundle-text">
+                    <div className="bundle-name">{b.name}</div>
+                    <div className="bundle-reward">
+                      <span className="bundle-gold">
+                        +{b.rof.toLocaleString()} $ROF
+                      </span>{" "}
+                      · +{b.spins} spins · +{b.tickets} Golden Ticket
+                      {b.tickets > 1 ? "s" : ""}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bundle-right">
+                  <button
+                    className="pill-ton"
+                    onClick={() => handleBuyBundleTon(b)}
+                  >
+                    <span className="pill-ton-icon" />
+                    <span className="pill-ton-text">
+                      {b.priceTon} TON
+                    </span>
+                  </button>
+
+                  <button
+                    className="pill-stars"
+                    onClick={() => handleBuyBundleStars(b)}
+                  >
+                    <span className="pill-stars-text">
+                      ⭐️ {b.priceStars}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="modal-foot">
+          <div className="mf-note">
+            TON is paid on-chain. Stars payments are handled via Telegram.
+          </div>
+          <button
+            className="mf-back"
+            onClick={() => setShowBundles(false)}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
   const handleStarsClick = (tierKeyTarget) => {
     const t = TIERS[tierKeyTarget];
     if (!t) return;
@@ -2186,7 +2367,7 @@ export default function App() {
 
 
   
-  const PlayScreen = ({ wheelSkin }) => {
+  const PlayScreen = ({ wheelSkin, onOpenBundles }) => {
     const styleKey = wheelSkin.id;
     const rimGradientId = (() => {
       switch (styleKey) {
@@ -3057,7 +3238,7 @@ export default function App() {
               className="pointer"
               points={`${cx - 18},${pointerBaseY} ${cx + 18},${pointerBaseY} ${cx},${pointerTipY}`}
             />
-          </svg>
+                    </svg>
 
           <div className="center-stack">
             <div className="center-ring" />
@@ -3069,9 +3250,15 @@ export default function App() {
             />
             <div className="center-gloss" />
           </div>
+
+          {/* 🎁 Floating gift box button */}
+          <div className="floating-gift" onClick={onOpenBundles}>
+            <img src="/gift-box.png" alt="Bundles" />
+          </div>
         </div>
 
         <div className="spin-row tight">
+
           <button
             className="btn-spin"
             onClick={handleSpin}
@@ -3422,13 +3609,17 @@ export default function App() {
 
   return (
     <div
-      className={`tg-app bg-img ${showPremium ? "modal-open" : ""}`}
+            className={`tg-app bg-img ${
+        showPremium || showBundles ? "modal-open" : ""
+      }`}
+
       style={{
         "--bg": theme.bg,
         "--text": theme.text,
         "--bg-url": `url("${bgSkin.file}")`,
       }}
     >
+
       {booting && (
         <div className="splash">
           <img src={BRAND_LOGO_SRC} alt="ROFFLE" />
@@ -3492,7 +3683,12 @@ export default function App() {
 
 
           <div className="screen flex-grow">
-            {tab === "play" && <PlayScreen wheelSkin={wheelSkin} />}
+            {tab === "play" && (
+              <PlayScreen
+                wheelSkin={wheelSkin}
+                onOpenBundles={() => setShowBundles(true)}
+              />
+            )}
             {tab === "loot" && <LootScreen />}
             {tab === "top" && (
               <TopScreen lbTab={lbTab} onTabChange={setLbTab} />
@@ -3512,6 +3708,7 @@ export default function App() {
       )}
 
       {showPremium && <PremiumModal />}
+      {showBundles && <BundlesModal />}
     </div>
   );
 }
