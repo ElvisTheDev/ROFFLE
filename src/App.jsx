@@ -3183,26 +3183,37 @@ export default function App() {
 
 
       const handleLinkGo = (task) => {
-    if (!task.url) return;
+  if (!task.url) return;
 
-    const tg = window.Telegram?.WebApp;
-    const url = task.url;
+  const tg = window.Telegram?.WebApp;
+  const url = task.url;
 
-    if (tg) {
-      // Telegram links → openTelegramLink
-      if (url.startsWith("https://t.me/")) {
+  try {
+    // Telegram chats/channels → use openTelegramLink
+    if (url.startsWith("https://t.me")) {
+      if (tg?.openTelegramLink) {
         tg.openTelegramLink(url);
       } else {
-        // External links (X/Twitter, websites, etc.) → openLink
-        tg.openLink(url);
+        window.open(url, "_blank");
       }
     } else {
-      window.open(url, "_blank");
+      // Any external site (X, websites, etc.)
+      if (tg?.openLink) {
+        tg.openLink(url);
+      } else {
+        window.open(url, "_blank");
+      }
     }
+  } catch (e) {
+    console.error("Task link open error", e);
+    // Fallback: at least try to open a browser tab
+    window.open(url, "_blank");
+  }
 
-    // After user taps "Go", allow them to Claim
-    markTaskVisited(task.id);
-  };
+  // mark the task as visited so it can flip to "Claim"
+  markTaskVisited(task.id);
+};
+
 
 
 
