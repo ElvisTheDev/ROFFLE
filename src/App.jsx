@@ -2317,28 +2317,39 @@ const handleBuyBundleStars = async (bundle) => {
             </div>
 
             {/* Welcome rewards */}
-            <div className="vip-row">
-              <div className="vip-cell vip-cell-label">Welcome rewards</div>
-              {tierDefs.map((def) => (
-                <div key={def.key} className="vip-cell vip-cell-value">
-                  <b>Yes</b>
-                </div>
-              ))}
-            </div>
+<div className="vip-row">
+  <div className="vip-cell vip-cell-label">Welcome rewards</div>
+  {tierDefs.map((def) => (
+    <div key={def.key} className="vip-cell vip-cell-value">
+      <b>Yes</b>
+    </div>
+  ))}
+</div>
 
-            {/* ROFFLE bonuses */}
-            <div className="vip-row">
-              <div className="vip-cell vip-cell-label">
-                ROFFLE bonuses & pools
-              </div>
-              {tierDefs.map((def) => (
-                <div key={def.key} className="vip-cell vip-cell-value">
-                  <b>Yes</b>
-                </div>
-              ))}
-            </div>
+{/* ROFFLE bonuses */}
+<div className="vip-row">
+  <div className="vip-cell vip-cell-label">
+    ROFFLE bonuses & pools
+  </div>
+  {tierDefs.map((def) => (
+    <div key={def.key} className="vip-cell vip-cell-value">
+      <b>Yes</b>
+    </div>
+  ))}
+</div>
 
-            {/* Buttons row */}
+{/* Turbo mode 🔥 */}
+<div className="vip-row">
+  <div className="vip-cell vip-cell-label">Turbo mode 🔥</div>
+  {tierDefs.map((def) => (
+    <div key={def.key} className="vip-cell vip-cell-value">
+      {/* All VIP tiers have Turbo */}
+      <b>Yes🔥</b>
+    </div>
+  ))}
+</div>
+
+{/* Buttons row */}
 <div className="vip-row vip-row-buttons">
   <div className="vip-cell vip-cell-label" />
   {tierDefs.map((def) => {
@@ -2372,9 +2383,7 @@ const handleBuyBundleStars = async (bundle) => {
           <button
             className="pill-ton"
             disabled={disabled}
-            onClick={() =>
-              !disabled && handleTonClick(def.key)
-            }
+            onClick={() => !disabled && handleTonClick(def.key)}
           >
             <span className="pill-ton-icon" />
             <span className="pill-ton-text">{tonLabel}</span>
@@ -2382,19 +2391,16 @@ const handleBuyBundleStars = async (bundle) => {
           <button
             className="pill-stars"
             disabled={disabled}
-            onClick={() =>
-              !disabled && handleStarsClick(def.key)
-            }
+            onClick={() => !disabled && handleStarsClick(def.key)}
           >
-            <span className="pill-stars-text">
-              ⭐️ {starLabel}
-            </span>
+            <span className="pill-stars-text">⭐️ {starLabel}</span>
           </button>
         </div>
       </div>
     );
   })}
 </div>
+
           </div>
         </div>
       </div>
@@ -3731,13 +3737,14 @@ const handleBuyBundleStars = async (bundle) => {
           </button>
 
           <button
-            className="btn-turbo"
-            onClick={cycleTurbo}
-            disabled={tierKey === "free"}
-          >
-            <span className="turbo-label">Turbo</span>
-            <span className="turbo-mult">x{turboMult}</span>
-          </button>
+  className={`btn-turbo ${tierKey === "free" ? "" : "vip"}`}
+  onClick={cycleTurbo}
+  disabled={tierKey === "free"}
+>
+  <span className="turbo-label">Turbo</span>
+  <span className="turbo-mult">x{turboMult}</span>
+</button>
+
         </div>
 
       </>
