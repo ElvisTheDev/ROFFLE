@@ -1200,11 +1200,33 @@ const handleBuyBundleStars = async (bundle) => {
   }, []);
 
   /* Premium state */
-  const [tierKey, setTierKey] = useState("free");
+    const [tierKey, setTierKey] = useState("free");
   const tier = TIERS[tierKey];
   const regenMs = Math.floor(BASE_REGEN_MS / tier.regenMult);
   const spinCap = tier.cap;
   const prizeMult = tier.prizeMult;
+
+  // 🎛 Turbo spin multiplier (VIP)
+  const [turboMult, setTurboMult] = useState(1);
+
+  // Free = only x1; any VIP tier = x1/x5/x10/x20/x50
+  const getAllowedMultipliers = (tierKeyValue) =>
+    tierKeyValue === "free" ? [1] : [1, 5, 10, 20, 50];
+
+  const cycleTurbo = () => {
+    const allowed = getAllowedMultipliers(tierKey);
+    const idx = allowed.indexOf(turboMult);
+    const next = allowed[(idx + 1) % allowed.length];
+    setTurboMult(next);
+  };
+
+  // Keep turbo multiplier valid when tier changes
+  useEffect(() => {
+    const allowed = getAllowedMultipliers(tierKey);
+    if (!allowed.includes(turboMult)) {
+      setTurboMult(allowed[0]);
+    }
+  }, [tierKey, turboMult]);
 
   /* Wheel (controlled angle) */
   const rafRef = useRef(null);
@@ -1755,9 +1777,25 @@ const handleBuyBundleStars = async (bundle) => {
 
   /* Spin */
   const handleSpin = () => {
+    const mult = turboMult; // how many spins to consume at once
+
     if (spinning || animBusyRef.current || spinsLeft <= 0) return;
+
+    // Not enough spins for current turbo level
+    if (spinsLeft < mult) {
+      setToast({
+        text: `Not enough spins for x${mult}`,
+        key: Date.now(),
+      });
+      setTimeout(() => setToast(null), 1500);
+      return;
+    }
+
     if (!tgId) {
-      setToast({ text: "User not ready yet, try again", key: Date.now() });
+      setToast({
+        text: "Connect Telegram WebApp again",
+        key: Date.now(),
+      });
       setTimeout(() => setToast(null), 1500);
       return;
     }
@@ -1766,7 +1804,6 @@ const handleBuyBundleStars = async (bundle) => {
     setToast(null);
 
     const startVis = currentAngleRef.current;
-
     try {
       const spinsFull = randInt(4, 8);
       const extraDeg = randFloat() * 360;
@@ -1782,7 +1819,7 @@ const handleBuyBundleStars = async (bundle) => {
           localStorage.setItem("rof_calcRot", String(endVis));
         } catch {}
 
-                const idx = indexFromRotation(norm);
+        const idx = indexFromRotation(norm);
         const baseAmount = slots[idx].amount || 0;
         const won = baseAmount * prizeMult;
 
@@ -1805,8 +1842,9 @@ const handleBuyBundleStars = async (bundle) => {
           });
         }
 
-        const newBalance = bank + won;
-        const newSpins = spinsLeft - 1;
+         // 🔥 Turbo: multiplier applies to the win
+        const won = baseAmount * prizeMult * turboMult;
+        const newSpins = spinsLeft - turboMult;
 
         setBank(newBalance);
         setSpinsLeft(newSpins);
@@ -3655,8 +3693,7 @@ const handleBuyBundleStars = async (bundle) => {
           </div>
         </div>
 
-        <div className="spin-row tight">
-
+                <div className="spin-row tight">
           <button
             className="btn-spin"
             onClick={handleSpin}
@@ -3667,15 +3704,29 @@ const handleBuyBundleStars = async (bundle) => {
               <span className="muted">Spins left</span>
             </span>
             <span className="spin-cta">
-              {spinning ? "Spinning…" : "Spin"}
+              {spinning
+                ? "Spinning…"
+                : turboMult === 1
+                ? "Spin"
+                : `Spin x${turboMult}`}
             </span>
             <span className="spin-timer">
               {spinsLeft < spinCap
-                ? `Next spin in ${formatMs(nextInMs)}`
+                ? `Next in ${formatMs(nextInMs)}`
                 : "Ready"}
             </span>
           </button>
+
+          <button
+            className="btn-turbo"
+            onClick={cycleTurbo}
+            disabled={tierKey === "free"}
+          >
+            <span className="turbo-label">Turbo</span>
+            <span className="turbo-mult">x{turboMult}</span>
+          </button>
         </div>
+
       </>
     );
   };
@@ -3966,6 +4017,12 @@ const handleBuyBundleStars = async (bundle) => {
   );
 };
 
+  // 🔔 Notification counters
+  const remainingTasks = TASKS.filter((t) => !taskClaims[t.id]).length;
+
+  // For now "Meet $ROF" has 20 collectibles total
+  // (we'll wire this to real progress when collectibles are fully live)
+  const collectiblesRemaining = 20;
 
 
 
@@ -3984,6 +4041,9 @@ const handleBuyBundleStars = async (bundle) => {
       >
         <span className="mi-emoji">🎁</span>
         <span className="mi-text">Loot</span>
+        {collectiblesRemaining > 0 && (
+          <span className="menu-badge">{collectiblesRemaining}</span>
+        )}
       </button>
       <button
         className={`menu-item ${tab === "top" ? "on" : ""}`}
@@ -4008,6 +4068,9 @@ const handleBuyBundleStars = async (bundle) => {
       >
         <span className="mi-emoji">🕹</span>
         <span className="mi-text">Tasks</span>
+        {remainingTasks > 0 && (
+          <span className="menu-badge">{remainingTasks}</span>
+        )}
       </button>
     </nav>
   );
