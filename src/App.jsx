@@ -309,6 +309,164 @@ const TASKS = [
   },
 ];
 
+/* ================= COLLECTIBLES – "Meet $ROF" ================= */
+/*
+Grid: 4 rows x 5 columns
+Row 1: smallest requirement, Row 4: largest requirement (per column)
+Columns: Spins | Earn | Log-ins | Invites | Golden Tickets
+*/
+
+const MEET_ROF_COLLECTIBLES = [
+  // Row 1
+  {
+    id: "spin_100",
+    metric: "spins",
+    threshold: 100,
+    title: "Spin Wheel 100 times",
+    icon: "/coll-wheel01.png",
+  },
+  {
+    id: "earn_10k",
+    metric: "rof",
+    threshold: 10_000,
+    title: "Earn 10,000 $ROF",
+    icon: "/coll-earn10k.png",
+  },
+  {
+    id: "login_3",
+    metric: "login",
+    threshold: 3,
+    title: "Log-in 3 days",
+    icon: "/coll-log3.png",
+  },
+  {
+    id: "inv_1",
+    metric: "invite",
+    threshold: 1,
+    title: "Invite 1 friend",
+    icon: "/coll-inv1.png",
+  },
+  {
+    id: "gt_1",
+    metric: "ticket",
+    threshold: 1,
+    title: "Obtain 1 Golden Ticket",
+    icon: "/coll-gt1.png",
+  },
+
+  // Row 2
+  {
+    id: "spin_1000",
+    metric: "spins",
+    threshold: 1_000,
+    title: "Spin Wheel 1,000 times",
+    icon: "/coll-wheel1.png",
+  },
+  {
+    id: "earn_50k",
+    metric: "rof",
+    threshold: 50_000,
+    title: "Earn 50,000 $ROF",
+    icon: "/coll-earn50k.png",
+  },
+  {
+    id: "login_7",
+    metric: "login",
+    threshold: 7,
+    title: "Log-in 7 days",
+    icon: "/coll-log7.png",
+  },
+  {
+    id: "inv_3",
+    metric: "invite",
+    threshold: 3,
+    title: "Invite 3 friends",
+    icon: "/coll-inv3.png",
+  },
+  {
+    id: "gt_3",
+    metric: "ticket",
+    threshold: 3,
+    title: "Obtain 3 Golden Tickets",
+    icon: "/coll-gt3.png",
+  },
+
+  // Row 3
+  {
+    id: "spin_10000",
+    metric: "spins",
+    threshold: 10_000,
+    title: "Spin Wheel 10,000 times",
+    icon: "/coll-wheel10.png",
+  },
+  {
+    id: "earn_100k",
+    metric: "rof",
+    threshold: 100_000,
+    title: "Earn 100,000 $ROF",
+    icon: "/coll-earn100k.png",
+  },
+  {
+    id: "login_15",
+    metric: "login",
+    threshold: 15,
+    title: "Log-in 15 days",
+    icon: "/coll-log15.png",
+  },
+  {
+    id: "inv_5",
+    metric: "invite",
+    threshold: 5,
+    title: "Invite 5 friends",
+    icon: "/coll-inv5.png",
+  },
+  {
+    id: "gt_5",
+    metric: "ticket",
+    threshold: 5,
+    title: "Obtain 5 Golden Tickets",
+    icon: "/coll-gt5.png",
+  },
+
+  // Row 4
+  {
+    id: "spin_100000",
+    metric: "spins",
+    threshold: 100_000,
+    title: "Spin Wheel 100,000 times",
+    icon: "/coll-wheel100.png",
+  },
+  {
+    id: "earn_1m",
+    metric: "rof",
+    threshold: 1_000_000,
+    title: "Earn 1,000,000 $ROF",
+    icon: "/coll-earn1m.png",
+  },
+  {
+    id: "login_30",
+    metric: "login",
+    threshold: 30,
+    title: "Log-in 30 days",
+    icon: "/coll-log30.png",
+  },
+  {
+    id: "inv_10",
+    metric: "invite",
+    threshold: 10,
+    title: "Invite 10 friends",
+    icon: "/coll-inv10.png",
+  },
+  {
+    id: "gt_10",
+    metric: "ticket",
+    threshold: 10,
+    title: "Obtain 10 Golden Tickets",
+    icon: "/coll-gt10.png",
+  },
+];
+
+
 
 
 /* Tier ranking: used to prevent downgrade */
@@ -925,49 +1083,61 @@ export default function App() {
 
   /* ================= BUNDLE HELPERS ================= */
 
-const grantBundleRewards = async (bundle) => {
-  const rofAdd = bundle.rof || 0;
-  const spinsAdd = bundle.spins || 0;
-  const ticketsAdd = bundle.tickets || 0;
+  const grantBundleRewards = async (bundle) => {
+    const rofAdd = bundle.rof || 0;
+    const spinsAdd = bundle.spins || 0;
+    const ticketsAdd = bundle.tickets || 0;
 
-  const newBalance = bank + rofAdd;
-  const newSpins = Math.min(spinCap, spinsLeft + spinsAdd);
-  const newTickets = goldTickets + ticketsAdd;
+    const newBalance = bank + rofAdd;
+    const newSpins = Math.min(spinCap, spinsLeft + spinsAdd);
+    const newTickets = goldTickets + ticketsAdd;
 
-  // Local state update
-  if (rofAdd) setBank(newBalance);
-  if (spinsAdd) setSpinsLeft(newSpins);
-  if (ticketsAdd) setGoldTickets(newTickets);
-
-  // Persist to DB
-  if (tgId) {
-    try {
-      await supabase
-        .from("roff_users")
-        .update({
-          balance: newBalance,
-          spins_left: newSpins,
-          golden_tickets: newTickets,
-        })
-        .eq("tg_id", tgId);
-    } catch (e) {
-      console.error("Bundle DB update failed", e);
+    // Lifetime ROF progress for collectibles
+    if (rofAdd) {
+      setTotalRofEarned((prev) => {
+        const next = prev + rofAdd;
+        try {
+          localStorage.setItem("rof_totalEarned", String(next));
+        } catch {}
+        return next;
+      });
     }
-  }
 
-  const parts = [];
-  if (rofAdd) parts.push(`+${rofAdd.toLocaleString()} $ROF`);
-  if (spinsAdd) parts.push(`+${spinsAdd} spins`);
-  if (ticketsAdd)
-    parts.push(
-      `+${ticketsAdd} Golden Ticket${ticketsAdd > 1 ? "s" : ""}`
-    );
+    // Local state update
+    if (rofAdd) setBank(newBalance);
+    if (spinsAdd) setSpinsLeft(newSpins);
+    if (ticketsAdd) setGoldTickets(newTickets);
 
-  if (parts.length) {
-    setToast({ text: parts.join(" · "), key: Date.now() });
-    setTimeout(() => setToast(null), 1600);
-  }
-};
+    // Persist to DB
+    if (tgId) {
+      try {
+        await supabase
+          .from("roff_users")
+          .update({
+            balance: newBalance,
+            spins_left: newSpins,
+            golden_tickets: newTickets,
+          })
+          .eq("tg_id", tgId);
+      } catch (e) {
+        console.error("Bundle DB update failed", e);
+      }
+    }
+
+    const parts = [];
+    if (rofAdd) parts.push(`+${rofAdd.toLocaleString()} $ROF`);
+    if (spinsAdd) parts.push(`+${spinsAdd} spins`);
+    if (ticketsAdd)
+      parts.push(
+        `+${ticketsAdd} Golden Ticket${ticketsAdd > 1 ? "s" : ""}`
+      );
+
+    if (parts.length) {
+      setToast({ text: parts.join(" · "), key: Date.now() });
+      setTimeout(() => setToast(null), 1600);
+    }
+  };
+
 
 const handleBuyBundleTon = async (bundle) => {
   const ok = await sendTonPayment(
@@ -1048,7 +1218,7 @@ const handleBuyBundleStars = async (bundle) => {
   const [nextReadyAt, setNextReadyAt] = useState(null);
   const [nextInMs, setNextInMs] = useState(0);
 
-  /* UI */
+    /* UI */
   const [spinning, setSpinning] = useState(false);
   const [toast, setToast] = useState(null);
   const [tab, setTab] = useState("play");
@@ -1062,9 +1232,69 @@ const handleBuyBundleStars = async (bundle) => {
   /* Loot tabs */
   const [lootTab, setLootTab] = useState("skins");
 
+  /* Collectibles / lifetime progress (local only for now) */
+  const [totalSpins, setTotalSpins] = useState(() => {
+    try {
+      const v = parseInt(localStorage.getItem("rof_totalSpins") || "0", 10);
+      return Number.isNaN(v) ? 0 : v;
+    } catch {
+      return 0;
+    }
+  });
+
+  const [totalRofEarned, setTotalRofEarned] = useState(() => {
+    try {
+      const v = parseInt(localStorage.getItem("rof_totalEarned") || "0", 10);
+      return Number.isNaN(v) ? 0 : v;
+    } catch {
+      return 0;
+    }
+  });
+
+  const [loginDays, setLoginDays] = useState(() => {
+    try {
+      const v = parseInt(localStorage.getItem("rof_loginDays") || "0", 10);
+      return Number.isNaN(v) ? 0 : v;
+    } catch {
+      return 0;
+    }
+  });
+
+  const [meetRofClaimed, setMeetRofClaimed] = useState(() => {
+    try {
+      return localStorage.getItem("rof_meetRof_claimed") === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  // Make sure we only bump loginDays once per real app load
+  const loginInitRef = useRef(false);
+
+  useEffect(() => {
+    if (loginInitRef.current) return;
+    loginInitRef.current = true;
+
+    try {
+      const todayKey = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+      const last = localStorage.getItem("rof_login_last");
+
+      if (last !== todayKey) {
+        const prev = parseInt(localStorage.getItem("rof_loginDays") || "0", 10);
+        const next = (Number.isNaN(prev) ? 0 : prev) + 1;
+        localStorage.setItem("rof_loginDays", String(next));
+        localStorage.setItem("rof_login_last", todayKey);
+        setLoginDays(next);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
   /* Earn / referrals */
   const [myRefLink, setMyRefLink] = useState("");
   const [referrals, setReferrals] = useState([]);
+
 
     /* Task claim state (per user, local) */
   const [taskClaims, setTaskClaims] = useState(() => {
@@ -1102,6 +1332,85 @@ const handleBuyBundleStars = async (bundle) => {
     const next = { ...taskVisited, [id]: true };
     saveTaskVisited(next);
   };
+    /* ===== Collectibles helpers (Meet $ROF) ===== */
+
+  const getCollectibleMetricValue = (metric) => {
+    switch (metric) {
+      case "spins":
+        return totalSpins;
+      case "rof":
+        return totalRofEarned;
+      case "login":
+        return loginDays;
+      case "invite":
+        return invitesCount;
+      case "ticket":
+        return goldTickets;
+      default:
+        return 0;
+    }
+  };
+
+  const isMeetRofCompleted = () =>
+    MEET_ROF_COLLECTIBLES.every(
+      (c) => getCollectibleMetricValue(c.metric) >= c.threshold
+    );
+
+  const handleClaimMeetRof = async () => {
+    if (meetRofClaimed) return;
+    if (!isMeetRofCompleted()) return;
+
+    // 🎁 Mystery reward (only revealed AFTER claim)
+    const rofReward = 1_000_000;
+    const spinsReward = 1000;
+    const ticketsReward = 5;
+
+    const newBalance = bank + rofReward;
+    const newSpins = Math.min(spinCap, spinsLeft + spinsReward);
+    const newTickets = goldTickets + ticketsReward;
+
+    setBank(newBalance);
+    setSpinsLeft(newSpins);
+    setGoldTickets(newTickets);
+
+    // Track total ROF earned for collectibles
+    setTotalRofEarned((prev) => {
+      const next = prev + rofReward;
+      try {
+        localStorage.setItem("rof_totalEarned", String(next));
+      } catch {}
+      return next;
+    });
+
+    setMeetRofClaimed(true);
+    try {
+      localStorage.setItem("rof_meetRof_claimed", "1");
+    } catch {}
+
+    if (tgId) {
+      try {
+        await supabase
+          .from("roff_users")
+          .update({
+            balance: newBalance,
+            spins_left: newSpins,
+            golden_tickets: newTickets,
+          })
+          .eq("tg_id", tgId);
+      } catch (e) {
+        console.error("Meet ROF reward DB update failed", e);
+      }
+    }
+
+    // Show the surprise AFTER completion
+    setToast({
+      text:
+        "Mystery reward unlocked! 🎁 +5 Golden Tickets · +1,000,000 $ROF · +1,000 spins",
+      key: Date.now(),
+    });
+    setTimeout(() => setToast(null), 2200);
+  };
+
 
 
 
@@ -1473,15 +1782,35 @@ const handleBuyBundleStars = async (bundle) => {
           localStorage.setItem("rof_calcRot", String(endVis));
         } catch {}
 
-        const idx = indexFromRotation(norm);
+                const idx = indexFromRotation(norm);
         const baseAmount = slots[idx].amount || 0;
         const won = baseAmount * prizeMult;
+
+        // Lifetime counters for collectibles
+        setTotalSpins((prev) => {
+          const next = prev + 1;
+          try {
+            localStorage.setItem("rof_totalSpins", String(next));
+          } catch {}
+          return next;
+        });
+
+        if (won > 0) {
+          setTotalRofEarned((prev) => {
+            const next = prev + won;
+            try {
+              localStorage.setItem("rof_totalEarned", String(next));
+            } catch {}
+            return next;
+          });
+        }
 
         const newBalance = bank + won;
         const newSpins = spinsLeft - 1;
 
         setBank(newBalance);
         setSpinsLeft(newSpins);
+
 
         supabase
           .from("roff_users")
@@ -2123,7 +2452,9 @@ const handleBuyBundleStars = async (bundle) => {
 
 
 
-  const LootScreen = () => {
+    const LootScreen = () => {
+    const allDone = isMeetRofCompleted();
+
     return (
       <div className="loot-wrap">
         <div className="loot-tabs">
@@ -2140,9 +2471,7 @@ const handleBuyBundleStars = async (bundle) => {
             ROF Mood
           </button>
           <button
-            className={`loot-tab ${
-              lootTab === "collectibles" ? "on" : ""
-            }`}
+            className={`loot-tab ${lootTab === "collectibles" ? "on" : ""}`}
             onClick={() => setLootTab("collectibles")}
           >
             Collectibles
@@ -2151,148 +2480,191 @@ const handleBuyBundleStars = async (bundle) => {
 
         {/* WHEEL SKINS */}
         {lootTab === "skins" && (
-  <div className="loot-section">
-    <div className="loot-title">🎨 Wheel Skins</div>
-    <div className="loot-list">
-      {WHEEL_SKINS.map((skin) => {
-        const isActive = skin.id === wheelSkinId;
-        const owned =
-          hasWheelSkin(skin.id) ||
-          (skin.priceTon === 0 && skin.priceStars === 0);
+          <div className="loot-section">
+            <div className="loot-title">🎨 Wheel Skins</div>
+            <div className="loot-list">
+              {WHEEL_SKINS.map((skin) => {
+                const isActive = skin.id === wheelSkinId;
+                const owned =
+                  hasWheelSkin(skin.id) ||
+                  (skin.priceTon === 0 && skin.priceStars === 0);
 
-        const previewStyle = getWheelPreviewStyle(skin);
+                const previewStyle = getWheelPreviewStyle(skin);
 
-        return (
-          <div
-            key={skin.id}
-            className={`loot-row ${isActive ? "active" : ""}`}
-          >
-            <div className="loot-left">
-              <div className="loot-preview" style={previewStyle} />
-              <div className="loot-text">
-                <div className="loot-row-name">{skin.name}</div>
-              </div>
-            </div>
-
-            <div className="loot-right">
-              {isActive ? null : owned ? (
-                <button
-                  className="loot-equip-btn gradient-outline-btn"
-                  onClick={() => equipWheelSkin(skin.id)}
-                >
-                  Equip
-                </button>
-              ) : (
-                <div className="loot-actions">
-                  <button
-                    className="pill-ton"
-                    onClick={() => handleBuyWheelSkinTon(skin)}
+                return (
+                  <div
+                    key={skin.id}
+                    className={`loot-row ${isActive ? "active" : ""}`}
                   >
-                    <span className="pill-ton-icon" />
-                    <span className="pill-ton-text">
-                      {skin.priceTon} TON
-                    </span>
-                  </button>
+                    <div className="loot-left">
+                      <div className="loot-preview" style={previewStyle} />
+                      <div className="loot-text">
+                        <div className="loot-row-name">{skin.name}</div>
+                      </div>
+                    </div>
 
-                  <button
-                    className="pill-stars"
-                    onClick={() => handleBuyWheelSkinStars(skin)}
-                  >
-                    <span className="pill-stars-text">
-                      ⭐️ {skin.priceStars}
-                    </span>
-                  </button>
-                </div>
-              )}
+                    <div className="loot-right">
+                      {isActive ? null : owned ? (
+                        <button
+                          className="loot-equip-btn gradient-outline-btn"
+                          onClick={() => equipWheelSkin(skin.id)}
+                        >
+                          Equip
+                        </button>
+                      ) : (
+                        <div className="loot-actions">
+                          <button
+                            className="pill-ton"
+                            onClick={() => handleBuyWheelSkinTon(skin)}
+                          >
+                            <span className="pill-ton-icon" />
+                            <span className="pill-ton-text">
+                              {skin.priceTon} TON
+                            </span>
+                          </button>
+
+                          <button
+                            className="pill-stars"
+                            onClick={() => handleBuyWheelSkinStars(skin)}
+                          >
+                            <span className="pill-stars-text">
+                              ⭐️ {skin.priceStars}
+                            </span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
-        );
-      })}
-    </div>
-  </div>
-)}
-
+        )}
 
         {/* BACKGROUND SKINS */}
         {lootTab === "mood" && (
-  <div className="loot-section">
-    <div className="loot-title">🖼 Background Skins</div>
-    <div className="loot-list">
-      {BG_SKINS.map((skin) => {
-        const isActive = skin.id === bgSkinId;
-        const owned =
-          hasBgSkin(skin.id) ||
-          (skin.priceTon === 0 && skin.priceStars === 0);
+          <div className="loot-section">
+            <div className="loot-title">🖼 Background Skins</div>
+            <div className="loot-list">
+              {BG_SKINS.map((skin) => {
+                const isActive = skin.id === bgSkinId;
+                const owned =
+                  hasBgSkin(skin.id) ||
+                  (skin.priceTon === 0 && skin.priceStars === 0);
 
-        const previewStyle = {
-          backgroundImage: `url(${skin.file})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        };
+                const previewStyle = {
+                  backgroundImage: `url(${skin.file})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                };
 
-        return (
-          <div
-            key={skin.id}
-            className={`loot-row ${isActive ? "active" : ""}`}
-          >
-            <div className="loot-left">
-              <div className="loot-preview" style={previewStyle} />
-              <div className="loot-text">
-                <div className="loot-row-name">{skin.name}</div>
-              </div>
-            </div>
-
-            <div className="loot-right">
-              {isActive ? null : owned ? (
-                <button
-                  className="loot-equip-btn gradient-outline-btn"
-                  onClick={() => equipBgSkin(skin.id)}
-                >
-                  Equip
-                </button>
-              ) : (
-                <div className="loot-actions">
-                  <button
-                    className="pill-ton"
-                    onClick={() => handleBuyBgSkinTon(skin)}
+                return (
+                  <div
+                    key={skin.id}
+                    className={`loot-row ${isActive ? "active" : ""}`}
                   >
-                    <span className="pill-ton-icon" />
-                    <span className="pill-ton-text">
-                      {skin.priceTon} TON
-                    </span>
-                  </button>
+                    <div className="loot-left">
+                      <div className="loot-preview" style={previewStyle} />
+                      <div className="loot-text">
+                        <div className="loot-row-name">{skin.name}</div>
+                      </div>
+                    </div>
 
-                  <button
-                    className="pill-stars"
-                    onClick={() => handleBuyBgSkinStars(skin)}
-                  >
-                    <span className="pill-stars-text">
-                      ⭐️ {skin.priceStars}
-                    </span>
-                  </button>
-                </div>
-              )}
+                    <div className="loot-right">
+                      {isActive ? null : owned ? (
+                        <button
+                          className="loot-equip-btn gradient-outline-btn"
+                          onClick={() => equipBgSkin(skin.id)}
+                        >
+                          Equip
+                        </button>
+                      ) : (
+                        <div className="loot-actions">
+                          <button
+                            className="pill-ton"
+                            onClick={() => handleBuyBgSkinTon(skin)}
+                          >
+                            <span className="pill-ton-icon" />
+                            <span className="pill-ton-text">
+                              {skin.priceTon} TON
+                            </span>
+                          </button>
+
+                          <button
+                            className="pill-stars"
+                            onClick={() => handleBuyBgSkinStars(skin)}
+                          >
+                            <span className="pill-stars-text">
+                              ⭐️ {skin.priceStars}
+                            </span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
-        );
-      })}
-    </div>
-  </div>
-)}
+        )}
 
-
-        {/* COLLECTIBLES PLACEHOLDER */}
+        {/* COLLECTIBLES – Meet $ROF */}
         {lootTab === "collectibles" && (
           <div className="loot-section">
-            <div className="loot-title">🎁 Collectibles</div>
-            <div className="placeholder-card">
-              Collectibles coming soon…
+            <div className="loot-title">🎁 Collectibles · Meet $ROF</div>
+
+            <div className="collect-grid">
+              {MEET_ROF_COLLECTIBLES.map((item) => {
+                const value = getCollectibleMetricValue(item.metric);
+                const done = value >= item.threshold;
+
+                return (
+                  <div
+                    key={item.id}
+                    className={`collect-cell ${done ? "done" : ""}`}
+                  >
+                    <div className="collect-icon-wrap">
+                      <img
+                        src={item.icon}
+                        alt={item.title}
+                        className="collect-icon"
+                      />
+                      {done && <div className="collect-check">✓</div>}
+                    </div>
+
+                    <div className="collect-name">{item.title}</div>
+
+                    <div className="collect-progress">
+                      {Math.min(value, item.threshold).toLocaleString()} /{" "}
+                      {item.threshold.toLocaleString()}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="collect-foot">
+              <button
+                className="collect-claim-btn gradient-outline-btn"
+                disabled={!allDone || meetRofClaimed}
+                onClick={handleClaimMeetRof}
+              >
+                {meetRofClaimed
+                  ? "Reward claimed"
+                  : allDone
+                  ? "Claim Reward"
+                  : "Claim Reward"}
+              </button>
+              <div className="collect-note">
+                Complete all 20 challenges to unlock a mystery prize.
+              </div>
             </div>
           </div>
         )}
       </div>
     );
   };
+
 
   function AvatarInline({ name, photo }) {
     if (photo) return <img className="lb-avatar" src={photo} alt={name} />;
@@ -3334,20 +3706,34 @@ const handleBuyBundleStars = async (bundle) => {
   const ticketsAdd = reward.tickets || 0;
 
   // Apply rewards locally + save to DB for coins / spins / golden tickets
-  if (rofAdd) {
-    setBank((prev) => {
-      const nb = prev + rofAdd;
-      if (tgId) {
-        supabase
-          .from("roff_users")
-          .update({ balance: nb })
-          .eq("tg_id", tgId)
-          .then(() => {})
-          .catch((e) => console.error("Task balance update failed", e));
-      }
-      return nb;
-    });
-  }
+      if (rofAdd) {
+      // Lifetime ROF for collectibles
+      setTotalRofEarned((prev) => {
+        const next = prev + rofAdd;
+        try {
+          localStorage.setItem("rof_totalEarned", String(next));
+        } catch {}
+        return next;
+      });
+
+      setBank((prev) => {
+        const nb = prev + rofAdd;
+
+        if (tgId) {
+          supabase
+            .from("roff_users")
+            .update({ balance: nb })
+            .eq("tg_id", tgId)
+            .then(() => {})
+            .catch((e) => {
+              console.error("Failed to update balance for task", e);
+            });
+        }
+
+        return nb;
+      });
+    }
+
 
   if (spinsAdd) {
     setSpinsLeft((prev) => {
