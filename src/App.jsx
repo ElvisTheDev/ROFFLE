@@ -1776,6 +1776,7 @@ const handleBuyBundleStars = async (bundle) => {
   }, [regenMs, spinCap, showPremium, nextReadyAt, tgId]);
 
   /* Spin */
+    /* Spin (with Turbo support) */
   const handleSpin = () => {
     const mult = turboMult; // how many spins to consume at once
 
@@ -1804,6 +1805,7 @@ const handleBuyBundleStars = async (bundle) => {
     setToast(null);
 
     const startVis = currentAngleRef.current;
+
     try {
       const spinsFull = randInt(4, 8);
       const extraDeg = randFloat() * 360;
@@ -1821,20 +1823,24 @@ const handleBuyBundleStars = async (bundle) => {
 
         const idx = indexFromRotation(norm);
         const baseAmount = slots[idx].amount || 0;
-        const won = baseAmount * prizeMult;
+
+        // per-spin win (depends on tier)
+        const perSpinWin = baseAmount * prizeMult;
+        // total win with Turbo multiplier
+        const totalWin = perSpinWin * mult;
 
         // Lifetime counters for collectibles
         setTotalSpins((prev) => {
-          const next = prev + 1;
+          const next = prev + mult;
           try {
             localStorage.setItem("rof_totalSpins", String(next));
           } catch {}
           return next;
         });
 
-        if (won > 0) {
+        if (totalWin > 0) {
           setTotalRofEarned((prev) => {
-            const next = prev + won;
+            const next = prev + totalWin;
             try {
               localStorage.setItem("rof_totalEarned", String(next));
             } catch {}
@@ -1842,29 +1848,31 @@ const handleBuyBundleStars = async (bundle) => {
           });
         }
 
-         // 🔥 Turbo: multiplier applies to the win
-        const won = baseAmount * prizeMult * turboMult;
-        const newSpins = spinsLeft - turboMult;
+        const newBalance = bank + totalWin;
+        const newSpins = spinsLeft - mult;
 
         setBank(newBalance);
         setSpinsLeft(newSpins);
 
+        if (tgId) {
+          supabase
+            .from("roff_users")
+            .update({
+              balance: newBalance,
+              spins_left: newSpins,
+              last_seen: new Date().toISOString(),
+            })
+            .eq("tg_id", tgId)
+            .then(() => {})
+            .catch((e) => {
+              console.error("Supabase update after spin failed", e);
+            });
+        }
 
-        supabase
-          .from("roff_users")
-          .update({
-            balance: newBalance,
-            spins_left: newSpins,
-            last_seen: new Date().toISOString(),
-          })
-          .eq("tg_id", tgId)
-          .then(() => {})
-          .catch((e) => {
-            console.error("Supabase update after spin failed", e);
-          });
-
-        setToast({ text: `+${won} $ROF`, key: Date.now() });
-        setTimeout(() => setToast(null), 1600);
+        if (totalWin > 0) {
+          setToast({ text: `+${totalWin} $ROF`, key: Date.now() });
+          setTimeout(() => setToast(null), 1600);
+        }
 
         setSpinning(false);
       });
@@ -1875,6 +1883,7 @@ const handleBuyBundleStars = async (bundle) => {
       setSpinning(false);
     }
   };
+
 
   /* Tier upgrade (after payment) */
   const buyTier = async (key) => {
@@ -2509,11 +2518,14 @@ const handleBuyBundleStars = async (bundle) => {
             ROF Mood
           </button>
           <button
-            className={`loot-tab ${lootTab === "collectibles" ? "on" : ""}`}
-            onClick={() => setLootTab("collectibles")}
-          >
-            Collectibles
-          </button>
+  className={`loot-tab ${lootTab === "collectibles" ? "on" : ""}`}
+  onClick={() => setLootTab("collectibles")}
+>
+  Collectibles
+  {collectiblesRemaining > 0 && (
+    <span className="menu-badge">{collectiblesRemaining}</span>
+  )}
+</button>
         </div>
 
         {/* WHEEL SKINS */}
@@ -3624,7 +3636,7 @@ const handleBuyBundleStars = async (bundle) => {
                   const sec1 = i + 1;
                   const isMax = sec1 === 1;
                   const baseAmount = slots[i].amount || 0;
-                  const shown = baseAmount * prizeMult;
+                  const shown = baseAmount * prizeMult * turboMult;
 
                   const isYellowStyle =
                     wheelSkin.id === "bloody" ||
@@ -4017,12 +4029,14 @@ const handleBuyBundleStars = async (bundle) => {
   );
 };
 
-  // 🔔 Notification counters
+   // 🔔 Notification counters
   const remainingTasks = TASKS.filter((t) => !taskClaims[t.id]).length;
 
-  // For now "Meet $ROF" has 20 collectibles total
-  // (we'll wire this to real progress when collectibles are fully live)
-  const collectiblesRemaining = 20;
+  // How many Meet $ROF collectibles are NOT done yet
+  const collectiblesRemaining = MEET_ROF_COLLECTIBLES.filter(
+    (c) => getCollectibleMetricValue(c.metric) < c.threshold
+  ).length;
+
 
 
 
