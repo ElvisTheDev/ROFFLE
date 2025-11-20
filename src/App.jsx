@@ -1812,7 +1812,7 @@ const handleBuyBundleStars = async (bundle) => {
       const endVis = startVis + spinsFull * 360 + extraDeg;
       const durationMs = randInt(1900, 2800);
 
-      animateRotation(startVis, endVis, durationMs, () => {
+            animateRotation(startVis, endVis, durationMs, () => {
         const norm = ((endVis % 360) + 360) % 360;
         currentAngleRef.current = norm;
         applyAngle(norm);
@@ -1829,7 +1829,7 @@ const handleBuyBundleStars = async (bundle) => {
         // total win with Turbo multiplier
         const totalWin = perSpinWin * mult;
 
-        // Lifetime counters for collectibles
+        // Lifetime counters for collectibles – count *spins*, not clicks
         setTotalSpins((prev) => {
           const next = prev + mult;
           try {
@@ -1876,6 +1876,7 @@ const handleBuyBundleStars = async (bundle) => {
 
         setSpinning(false);
       });
+
     } catch (err) {
       console.error("Spin failed", err);
       setToast({ text: "Spin error, try again", key: Date.now() });
