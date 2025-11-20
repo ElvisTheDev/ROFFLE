@@ -263,7 +263,14 @@ body{
 .slice-txt.is-max{ filter:url(#textGlow); }
 
 /* SPIN button */
-.spin-row{ display:flex; justify-content:center; margin-top:2px; margin-bottom:0; }
+.spin-row{
+  display:flex;
+  justify-content:center;
+  margin-top:2px;
+  margin-bottom:0;
+  gap:8px;
+}
+.spin-row.tight{ margin-top:0; }
 .spin-row.tight{ margin-top:0; }
 .btn-spin{
   padding:10px 18px; border-radius:14px; background:#000; color:#fff; font-weight:900;
@@ -278,6 +285,38 @@ body{
 .spin-count .muted{ font-weight:700; opacity:.85; }
 .spin-cta{ font-size:18px; line-height:1.05; }
 .spin-timer{ font-size:12px; color:#b9c0c5; }
+.btn-turbo{
+  padding:8px 10px;
+  border-radius:12px;
+  background:#0b0c0f;
+  color:#e5e7eb;
+  font-weight:800;
+  border:1px solid rgba(148,163,184,0.8);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  min-width:70px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.55);
+}
+
+.btn-turbo:disabled{
+  opacity:.45;
+  cursor:default;
+}
+
+.turbo-label{
+  font-size:10px;
+  text-transform:uppercase;
+  letter-spacing:.05em;
+  opacity:.8;
+}
+
+.turbo-mult{
+  font-size:15px;
+  font-weight:900;
+}
+
 
 /* Toast */
 .toast-win{
@@ -303,6 +342,7 @@ body{
   border-top:1px solid rgba(255,255,255,.08);
 }
 .menu-item{
+  position:relative;
   flex:1 1 0; background:#0b0c0f; color:#fff;
   border:1px solid rgba(255,255,255,.18); border-radius:12px;
   padding:6px 6px 8px; font-weight:800;
@@ -314,6 +354,24 @@ body{
 }
 .mi-emoji{ display:block; font-size:16px; line-height:1; }
 .mi-text{ display:block; font-size:12px; }
+.menu-badge{
+  position:absolute;
+  top:3px;
+  right:6px;
+  min-width:16px;
+  height:16px;
+  padding:0 4px;
+  border-radius:999px;
+  background:#e11d48;          /* bright red */
+  color:#fff;
+  font-size:10px;
+  font-weight:900;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:0 0 0 1px rgba(0,0,0,.8);
+}
+
 
 /* Placeholders */
 .placeholder-card{
