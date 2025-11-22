@@ -1266,6 +1266,20 @@ const handleBuyBundleStars = async (bundle) => {
   const [showPremium, setShowPremium] = useState(false);
   const [showBundles, setShowBundles] = useState(false);
   const [showVault, setShowVault] = useState(false);
+  const [splashPrize, setSplashPrize] = useState("");
+
+  useEffect(() => {
+    const messages = [
+      "Wheel of Fate is warming up…",
+      "Calibrating your luck…",
+      "Seeding randomness…",
+      "Turbo mode is charging…",
+      "Preparing juicy rewards…",
+    ];
+    setSplashPrize(
+      messages[Math.floor(Math.random() * messages.length)]
+    );
+  }, []);
 
 
   /* Leaderboard UI */
@@ -4300,12 +4314,27 @@ const handleBuyBundleStars = async (bundle) => {
       }}
     >
 
-      {booting && (
+            {booting && (
         <div className="splash">
+          {/* Logo at top */}
           <img src={BRAND_LOGO_SRC} alt="ROFFLE" />
-          <div className="spinner"></div>
+
+          {/* Mini “Wheel of Fate” */}
+          <div className="splash-wheel-wrapper">
+            <div className="splash-wheel">
+              <div className="splash-wheel-inner" />
+            </div>
+            <div className="splash-pointer" />
+          </div>
+
+          {/* Text under the wheel */}
+          <div className="splash-text">
+            <div className="splash-sub">Spinning the Wheel of Fate…</div>
+            <div className="splash-prize">{splashPrize}</div>
+          </div>
         </div>
       )}
+
 
             {!booting && (
         <div className="compact no-scroll">
