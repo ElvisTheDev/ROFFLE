@@ -4338,20 +4338,19 @@ const handleBuyBundleStars = async (bundle) => {
               </button>
 
               {/* Docs button */}
-              <button
-                className="icon-btn"
-                onClick={() => {
-                  const tg = window.Telegram?.WebApp;
-                  const url = "https://roffle.gitbook.io/roffle-docs/";
-                  if (tg?.openLink) {
-                    tg.openLink(url);
-                  } else if (tg?.openTelegramLink) {
-                    tg.openTelegramLink(url);
-                  } else {
-                    window.open(url, "_blank", "noopener,noreferrer");
-                  }
-                }}
-              >
+             <button
+  className="icon-btn"
+  onClick={() => {
+    const tg = window.Telegram?.WebApp;
+    const url = "https://roffle.gitbook.io/roffle-docs/";
+    if (tg && tg.openLink) {
+      tg.openLink(url, { try_instant_view: false });
+    } else {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  }}
+>
+
                 <img src="/docs.png" alt="Docs" />
               </button>
 
