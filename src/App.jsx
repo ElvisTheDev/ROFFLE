@@ -4336,7 +4336,7 @@ const handleBuyBundleStars = async (bundle) => {
           </div>
 
           <div className="portal-text">
-            <div className="portal-title">Summoning ROFFLE…</div>
+            <div className="portal-title">Loading ROFFLE...</div>
             <div className="portal-sub">
               Linking to TON · Calibrating luck · Loading wheel
             </div>
