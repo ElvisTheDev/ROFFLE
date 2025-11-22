@@ -1780,7 +1780,7 @@ const handleBuyBundleStars = async (bundle) => {
 
   /* Spin */
     /* Spin (with Turbo support) */
-  const handleSpin = () => {
+    const handleSpin = async () => {
     const mult = turboMult; // how many spins to consume at once
 
     if (spinning || animBusyRef.current || spinsLeft <= 0) return;
@@ -1810,12 +1810,48 @@ const handleBuyBundleStars = async (bundle) => {
     const startVis = currentAngleRef.current;
 
     try {
+      // 🔐 Ask backend to perform the spin and update DB
+      const resp = await fetch(`${API_BASE}/spin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tg_id: tgId, turboMult: mult }),
+      });
+
+      const json = await resp.json();
+
+      if (!json.ok) {
+        setSpinning(false);
+
+        if (json.error === "no_spins") {
+          setToast({
+            text: "No spins left",
+            key: Date.now(),
+          });
+          setTimeout(() => setToast(null), 1500);
+          return;
+        }
+
+        console.error("Spin failed:", json.error);
+        setToast({
+          text: "Spin failed, try again",
+          key: Date.now(),
+        });
+        setTimeout(() => setToast(null), 1500);
+        return;
+      }
+
+      const { index, prize, balance: newBalance, spins_left: newSpins } = json;
+
+      // 🎯 Compute a visual rotation that lands on the winning index
+      const startNorm = ((startVis % 360) + 360) % 360;
+      const targetNorm = (360 - index * SEG_DEG + 360) % 360;
+      const baseDelta = (targetNorm - startNorm + 360) % 360;
+
       const spinsFull = randInt(4, 8);
-      const extraDeg = randFloat() * 360;
-      const endVis = startVis + spinsFull * 360 + extraDeg;
+      const endVis = startVis + baseDelta + spinsFull * 360;
       const durationMs = randInt(1900, 2800);
 
-            animateRotation(startVis, endVis, durationMs, () => {
+      animateRotation(startVis, endVis, durationMs, () => {
         const norm = ((endVis % 360) + 360) % 360;
         currentAngleRef.current = norm;
         applyAngle(norm);
@@ -1823,14 +1859,6 @@ const handleBuyBundleStars = async (bundle) => {
           localStorage.setItem("rof_visAngle", String(norm));
           localStorage.setItem("rof_calcRot", String(endVis));
         } catch {}
-
-        const idx = indexFromRotation(norm);
-        const baseAmount = slots[idx].amount || 0;
-
-        // per-spin win (depends on tier)
-        const perSpinWin = baseAmount * prizeMult;
-        // total win with Turbo multiplier
-        const totalWin = perSpinWin * mult;
 
         // Lifetime counters for collectibles – count *spins*, not clicks
         setTotalSpins((prev) => {
@@ -1841,9 +1869,9 @@ const handleBuyBundleStars = async (bundle) => {
           return next;
         });
 
-        if (totalWin > 0) {
+        if (prize > 0) {
           setTotalRofEarned((prev) => {
-            const next = prev + totalWin;
+            const next = prev + prize;
             try {
               localStorage.setItem("rof_totalEarned", String(next));
             } catch {}
@@ -1851,42 +1879,28 @@ const handleBuyBundleStars = async (bundle) => {
           });
         }
 
-        const newBalance = bank + totalWin;
-        const newSpins = spinsLeft - mult;
-
+        // ✅ Use values from server as source of truth
         setBank(newBalance);
         setSpinsLeft(newSpins);
 
-        if (tgId) {
-          supabase
-            .from("roff_users")
-            .update({
-              balance: newBalance,
-              spins_left: newSpins,
-              last_seen: new Date().toISOString(),
-            })
-            .eq("tg_id", tgId)
-            .then(() => {})
-            .catch((e) => {
-              console.error("Supabase update after spin failed", e);
-            });
-        }
-
-        if (totalWin > 0) {
-          setToast({ text: `+${totalWin} $ROF`, key: Date.now() });
+        if (prize > 0) {
+          setToast({
+            text: `+${prize.toLocaleString()} $ROF`,
+            key: Date.now(),
+          });
           setTimeout(() => setToast(null), 1600);
         }
 
         setSpinning(false);
       });
-
     } catch (err) {
       console.error("Spin failed", err);
+      setSpinning(false);
       setToast({ text: "Spin error, try again", key: Date.now() });
       setTimeout(() => setToast(null), 1500);
-      setSpinning(false);
     }
   };
+
 
 
   /* Tier upgrade (after payment) */
