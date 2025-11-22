@@ -1927,30 +1927,33 @@ const handleBuyBundleStars = async (bundle) => {
       } catch {}
     }
 
-    if (tgId) {
+        if (tgId) {
       try {
-        const { error } = await supabase
-          .from("roff_users")
-          .update({ premium_tier: key })
-          .eq("tg_id", tgId);
+        const resp = await fetch(`${API_BASE}/tier/apply`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tg_id: tgId, tier_key: key }),
+        });
 
-        if (error) {
-          console.error("Failed to update premium_tier in DB", error);
+        const json = await resp.json();
+        if (!json.ok) {
+          console.error("tier/apply failed", json.error);
           setToast({
-            text: "Tier saved locally, DB update failed",
+            text: "Tier saved locally, server update failed",
             key: Date.now(),
           });
           setTimeout(() => setToast(null), 2000);
         }
       } catch (e) {
-        console.error("Supabase error updating tier", e);
+        console.error("tier/apply network error", e);
         setToast({
-          text: "Tier saved locally, DB update failed",
+          text: "Tier saved locally, server error",
           key: Date.now(),
         });
         setTimeout(() => setToast(null), 2000);
       }
     }
+
 
     setShowPremium(false);
     setToast({ text: `${t.name} activated!`, key: Date.now() });
