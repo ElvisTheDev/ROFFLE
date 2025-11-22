@@ -1,9 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  TonConnectButton,
-  useTonConnectUI,
-  useTonWallet,
-} from "@tonconnect/ui-react";
+import { useTonConnectUI, useTonWallet } from "@tonconnect/ui-react";
 import { supabase } from "./supabaseClient";
 
 /* ================= CORE WHEEL CONSTANTS ================= */
@@ -1269,6 +1265,8 @@ const handleBuyBundleStars = async (bundle) => {
   const [booting, setBooting] = useState(true);
   const [showPremium, setShowPremium] = useState(false);
   const [showBundles, setShowBundles] = useState(false);
+  const [showVault, setShowVault] = useState(false);
+
 
   /* Leaderboard UI */
   const [lbTab, setLbTab] = useState("players");
@@ -2496,6 +2494,121 @@ const handleBuyBundleStars = async (bundle) => {
   );
 };
 
+    // NEW: Vault modal
+  const VaultModal = () => {
+    const tier = TIERS[tierKey];
+    const regenMinutes = Math.floor(regenMs / 60000);
+
+    const tonDisplay = wallet ? "—" : "0.00"; // we’ll wire real balance later if needed
+
+    const vipLabel =
+      tierKey === "free"
+        ? "No status"
+        : tierKey === "plus"
+        ? "Premium⚡️"
+        : tierKey === "pro"
+        ? "Plus⭐️"
+        : "Pro👑";
+
+    return (
+      <div
+        className="modal-overlay"
+        onClick={() => setShowVault(false)}
+      >
+        <div
+          className="modal vault-modal"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="modal-head">
+            <div className="mh-left">
+              <span className="mh-icon">🧿</span>
+              <div className="mh-title">Vault</div>
+            </div>
+            <button
+              className="modal-close"
+              onClick={() => setShowVault(false)}
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="modal-body vault-body">
+            {/* Roadmap */}
+            <h3 className="vault-section-title">Roadmap</h3>
+            <ul className="vault-roadmap">
+              <li>🟢 Concept and beta development</li>
+              <li>🟢 Web3 integration</li>
+              <li>🟢 Game development</li>
+              <li>🟢 Beta launch</li>
+              <li>🟢 Growing community</li>
+              <li>🟢 Accumulation period</li>
+              <li>⚪ $ROF airdrop and Golden ticket Claim Period</li>
+              <li>⚪ Exchanges listing</li>
+              <li>⚪ TBA</li>
+            </ul>
+
+            {/* Balances */}
+            <h3 className="vault-section-title">Balances</h3>
+            <div className="vault-grid">
+              <div className="vault-row">
+                <span>ROF balance</span>
+                <span>{bank.toLocaleString()}</span>
+              </div>
+              <div className="vault-row">
+                <span>Golden ticket balance</span>
+                <span>{goldTickets}</span>
+              </div>
+              <div className="vault-row">
+                <span>TON wallet balance</span>
+                <span>{tonDisplay}</span>
+              </div>
+            </div>
+
+            {/* Claim button + text */}
+            <button className="btn-premium vault-claim" disabled>
+              Claim Rewards
+            </button>
+            <p className="vault-note">
+              Rewards are accumulating. Save up ROF and claim tokens daily.
+              Airdrops will be available once accumulation period is over.
+              Follow our Announcement channel @rofflereal for updates.
+            </p>
+
+            {/* Account info */}
+            <h3 className="vault-section-title">Your account</h3>
+            <div className="vault-grid">
+              <div className="vault-row">
+                <span>VIP Status</span>
+                <span>{vipLabel}</span>
+              </div>
+              <div className="vault-row">
+                <span>Spin regeneration time</span>
+                <span>{regenMinutes} min / spin</span>
+              </div>
+              <div className="vault-row">
+                <span>Spin regeneration cap</span>
+                <span>{tier.cap}</span>
+              </div>
+              <div className="vault-row">
+                <span>Friends invited</span>
+                <span>{invitesCount}</span>
+              </div>
+              <div className="vault-row">
+                <span>Worldwide rank (Coins)</span>
+                <span>–</span>
+              </div>
+              <div className="vault-row">
+                <span>Worldwide rank (Invites)</span>
+                <span>–</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  
     const BundlesModal = () => {
   return (
   <div
@@ -4187,10 +4300,10 @@ const handleBuyBundleStars = async (bundle) => {
     return { cls: "pro", text: "Pro👑" };
   })();
 
-  return (
+   return (
     <div
-            className={`tg-app bg-img ${
-        showPremium || showBundles ? "modal-open" : ""
+      className={`tg-app bg-img ${
+        showPremium || showBundles || showVault ? "modal-open" : ""
       }`}
 
       style={{
@@ -4208,17 +4321,50 @@ const handleBuyBundleStars = async (bundle) => {
       )}
 
       {!booting && (
-        <div className="compact no-scroll">
-          <header className="header">
-            <img
-              src={BRAND_LOGO_SRC}
-              alt="ROFFLE"
-              className="brand-logo"
-            />
-            <div className="header-right">
-              <TonConnectButton />
+                    <div className="header-right">
+              {/* Vault button */}
+              <button
+                className="icon-btn"
+                onClick={() => setShowVault(true)}
+              >
+                <img src="/vault.png" alt="Vault" />
+              </button>
+
+              {/* Docs button */}
+              <button
+                className="icon-btn"
+                onClick={() => {
+                  const tg = window.Telegram?.WebApp;
+                  const url = "https://roffle.gitbook.io/roffle-docs/";
+                  if (tg?.openLink) {
+                    tg.openLink(url);
+                  } else if (tg?.openTelegramLink) {
+                    tg.openTelegramLink(url);
+                  } else {
+                    window.open(url, "_blank", "noopener,noreferrer");
+                  }
+                }}
+              >
+                <img src="/docs.png" alt="Docs" />
+              </button>
+
+              {/* TON wallet button */}
+              <button
+                className="icon-btn"
+                onClick={() => {
+                  if (wallet) {
+                    // already connected → disconnect
+                    tonConnectUI.disconnect();
+                  } else {
+                    // not connected → open TonConnect modal
+                    tonConnectUI.openModal();
+                  }
+                }}
+              >
+                <img src="/ton.png" alt="TON Wallet" />
+              </button>
             </div>
-          </header>
+
 
           <section className="balance-block compacted">
   <div className="bal-line1">Your Assets:</div>
@@ -4289,6 +4435,7 @@ const handleBuyBundleStars = async (bundle) => {
 
       {showPremium && <PremiumModal />}
       {showBundles && <BundlesModal />}
+      {showVault && <VaultModal />}
     </div>
   );
 }
