@@ -32,84 +32,144 @@ body{
 
 /* Splash */
 .splash{
-  position:fixed; inset:0;
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  background:#000; z-index:9999;
+  position:fixed;
+  inset:0;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  background:radial-gradient(circle at top, #1e293b 0%, #020617 45%, #000000 100%);
+  z-index:9999;
+  overflow:hidden;
 }
-.splash img{
-  width:96px; height:auto; margin-bottom:16px;
-  filter: drop-shadow(0 8px 24px rgba(0,0,0,.6));
-}
-.spinner{
-  width:28px; height:28px; border-radius:50%;
-  border:3px solid rgba(255,255,255,.15); border-top-color:#fff;
-  animation:spin 1s linear infinite;
-}
-@keyframes spin{ to { transform:rotate(360deg); } }
 
-/* === Loading: Wheel of Fate mini-wheel === */
+/* === Cosmic Portal loading === */
 
-.splash-wheel-wrapper{
+.portal-container{
   position:relative;
-  width:120px;
-  height:120px;
-  margin-bottom:16px;
+  width:180px;
+  height:180px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
 
-.splash-wheel{
-  width:100%;
-  height:100%;
+.portal-ring{
+  position:absolute;
+  inset:0;
   border-radius:50%;
   background:conic-gradient(
     from 0deg,
-    #ff5b9e,
-    #ffda5b,
-    #5bffcd,
-    #5b8dff,
-    #ff5b9e
+    #22d3ee,
+    #a855f7,
+    #f97316,
+    #22d3ee
   );
-  box-shadow:0 0 20px rgba(0,0,0,.6);
-  position:relative;
-  animation:splash-spin 1.8s cubic-bezier(0.19,1,0.22,1) forwards;
+  filter:blur(2px);
+  opacity:0.9;
+  animation:portal-spin 4s linear infinite;
+  box-shadow:0 0 40px rgba(56,189,248,0.35);
 }
 
-.splash-wheel-inner{
+.portal-core{
   position:absolute;
-  inset:14px;
+  inset:20px;
   border-radius:50%;
-  background:radial-gradient(circle at 30% 30%, #1f2937, #020617);
-  border:2px solid rgba(255,255,255,.12);
+  background:radial-gradient(circle at 30% 30%, #1f2937, #020617 65%, #000 100%);
+  box-shadow:0 0 30px rgba(15,23,42,0.9) inset;
 }
 
-.splash-pointer{
+/* ROFFLE logo in the middle */
+.portal-logo{
+  position:relative;
+  width:90px;
+  height:auto;
+  filter:drop-shadow(0 12px 30px rgba(0,0,0,0.9));
+  animation:portal-logo-pulse 2.4s ease-in-out infinite;
+}
+
+/* Small orbiting particles */
+.portal-particles{
   position:absolute;
-  top:-6px;
+  inset:0;
+  pointer-events:none;
+}
+
+.portal-particles span{
+  position:absolute;
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:#e5e7eb;
+  box-shadow:0 0 12px rgba(248,250,252,0.9);
+}
+
+/* Positions + different orbit paths */
+.portal-particles .p1{
+  top:10%;
   left:50%;
   transform:translateX(-50%);
-  width:0;
-  height:0;
-  border-left:6px solid transparent;
-  border-right:6px solid transparent;
-  border-bottom:10px solid #fff;
-  filter:drop-shadow(0 2px 4px rgba(0,0,0,.7));
+  animation:portal-orbit-1 5s linear infinite;
+}
+.portal-particles .p2{
+  bottom:12%;
+  left:20%;
+  animation:portal-orbit-2 6s linear infinite;
+}
+.portal-particles .p3{
+  bottom:18%;
+  right:18%;
+  animation:portal-orbit-3 7s linear infinite;
 }
 
-.splash-text{
+/* Loading text */
+.portal-text{
+  margin-top:16px;
   text-align:center;
   color:#e5e7eb;
   font-size:13px;
 }
 
-.splash-sub{
-  opacity:.9;
+.portal-title{
+  font-size:14px;
+  font-weight:700;
+  letter-spacing:0.04em;
+  text-transform:uppercase;
+  color:#f9fafb;
 }
 
-.splash-prize{
+.portal-sub{
   margin-top:4px;
-  font-weight:700;
-  font-size:14px;
-  color:#f97316;
+  font-size:12px;
+  opacity:0.8;
 }
+
+/* Animations */
+
+@keyframes portal-spin{
+  0%{ transform:rotate(0deg); }
+  100%{ transform:rotate(360deg); }
+}
+
+@keyframes portal-logo-pulse{
+  0%,100%{ transform:scale(1); opacity:1; }
+  50%{ transform:scale(1.06); opacity:0.95; }
+}
+
+@keyframes portal-orbit-1{
+  0%{ transform:translate(-50%, 0) rotate(0deg) translateY(-6px); }
+  100%{ transform:translate(-50%, 0) rotate(360deg) translateY(-6px); }
+}
+@keyframes portal-orbit-2{
+  0%{ transform:rotate(0deg) translateX(8px); }
+  100%{ transform:rotate(-360deg) translateX(8px); }
+}
+@keyframes portal-orbit-3{
+  0%{ transform:rotate(0deg) translateY(10px); }
+  100%{ transform:rotate(360deg) translateY(10px); }
+}
+
+
 
 /* Spin once, then stop (so it feels like “landed” on something) */
 @keyframes splash-spin{
