@@ -2494,12 +2494,10 @@ const handleBuyBundleStars = async (bundle) => {
   );
 };
 
-    // NEW: Vault modal
+      // NEW: Vault modal
   const VaultModal = () => {
     const tier = TIERS[tierKey];
     const regenMinutes = Math.floor(regenMs / 60000);
-
-    const tonDisplay = wallet ? "—" : "0.00"; // we’ll wire real balance later if needed
 
     const vipLabel =
       tierKey === "free"
@@ -2558,10 +2556,6 @@ const handleBuyBundleStars = async (bundle) => {
                 <span>Golden ticket balance</span>
                 <span>{goldTickets}</span>
               </div>
-              <div className="vault-row">
-                <span>TON wallet balance</span>
-                <span>{tonDisplay}</span>
-              </div>
             </div>
 
             {/* Claim button + text */}
@@ -2593,20 +2587,13 @@ const handleBuyBundleStars = async (bundle) => {
                 <span>Friends invited</span>
                 <span>{invitesCount}</span>
               </div>
-              <div className="vault-row">
-                <span>Worldwide rank (Coins)</span>
-                <span>–</span>
-              </div>
-              <div className="vault-row">
-                <span>Worldwide rank (Invites)</span>
-                <span>–</span>
-              </div>
             </div>
           </div>
         </div>
       </div>
     );
   };
+
 
   
     const BundlesModal = () => {
