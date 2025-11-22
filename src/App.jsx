@@ -1499,7 +1499,9 @@ const handleBuyBundleStars = async (bundle) => {
   /* Splash */
   useEffect(() => {
     const timer = setTimeout(() => {
-      setBooting(false);
+      setTimeout(() => {
+  setBooting(false);
+}, 3000); // 3 seconds
       const tg = window.Telegram?.WebApp;
       if (!tg) return;
       tg.ready();
