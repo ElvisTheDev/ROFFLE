@@ -4318,21 +4318,28 @@ const handleBuyBundleStars = async (bundle) => {
 
             {booting && (
         <div className="splash">
-          {/* Logo at top */}
-          <img src={BRAND_LOGO_SRC} alt="ROFFLE" />
+          <div className="portal-container">
+            <div className="portal-ring"></div>
+            <div className="portal-core"></div>
 
-          {/* Mini “Wheel of Fate” */}
-          <div className="splash-wheel-wrapper">
-            <div className="splash-wheel">
-              <div className="splash-wheel-inner" />
+            <div className="portal-particles">
+              <span className="p1" />
+              <span className="p2" />
+              <span className="p3" />
             </div>
-            <div className="splash-pointer" />
+
+            <img
+              src={BRAND_LOGO_SRC}
+              alt="ROFFLE"
+              className="portal-logo"
+            />
           </div>
 
-          {/* Text under the wheel */}
-          <div className="splash-text">
-            <div className="splash-sub">Spinning the Wheel of Fate…</div>
-            <div className="splash-prize">{splashPrize}</div>
+          <div className="portal-text">
+            <div className="portal-title">Summoning ROFFLE…</div>
+            <div className="portal-sub">
+              Linking to TON · Calibrating luck · Loading wheel
+            </div>
           </div>
         </div>
       )}
