@@ -1852,6 +1852,8 @@ const handleBuyBundleStars = async (bundle) => {
       const baseDelta = (targetNorm - startNorm + 360) % 360;
       const spinsFull = randInt(4, 8);
       const endVis = startVis + baseDelta + spinsFull * 360;
+      const durationMs = randInt(1900, 2800);
+
 
       animateRotation(startVis, endVis, durationMs, () => {
         const norm = ((endVis % 360) + 360) % 360;
