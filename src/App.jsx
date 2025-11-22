@@ -1695,16 +1695,15 @@ const handleBuyBundleStars = async (bundle) => {
             setNextInMs(nextMs);
 
 
-          await supabase
-            .from("roff_users")
-            .update({
+            await fetch(`${API_BASE}/spins/update`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              tg_id: baseUser.tg_id,
               spins_left: dbSpins,
-              last_seen: new Date(lastSeenMs).toISOString(),
-              username: baseUser.username,
-              full_name: baseUser.full_name,
-              photo_url: baseUser.photo_url,
-            })
-            .eq("tg_id", tgUser.id);
+            }),
+          });
+
         }
       } catch (err) {
         console.error("Supabase sync error", err);
@@ -1805,17 +1804,17 @@ const handleBuyBundleStars = async (bundle) => {
           else localStorage.removeItem("rof_nextReadyAt");
         } catch {}
 
-        if (tgId) {
-          supabase
-            .from("roff_users")
-            .update({
+          if (tgId) {
+          fetch(`${API_BASE}/spins/update`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              tg_id: tgId,
               spins_left: newSpins,
-              last_seen: new Date().toISOString(),
-            })
-            .eq("tg_id", tgId)
-            .then(() => {})
-            .catch((e) => console.error("Regen update failed", e));
+            }),
+          }).catch((e) => console.error("Regen update failed", e));
         }
+
 
         return newSpins;
       });
