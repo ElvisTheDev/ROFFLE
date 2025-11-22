@@ -1840,16 +1840,18 @@ const handleBuyBundleStars = async (bundle) => {
         return;
       }
 
-      const { index, prize, balance: newBalance, spins_left: newSpins } = json;
+       const { index, prize, balance: newBalance, spins_left: newSpins } = json;
 
-      // 🎯 Compute a visual rotation that lands on the winning index
+      // 🎯 Compute a visual rotation that lands the pointer on the CENTER of the winning slice
       const startNorm = ((startVis % 360) + 360) % 360;
-      const targetNorm = (360 - index * SEG_DEG + 360) % 360;
-      const baseDelta = (targetNorm - startNorm + 360) % 360;
 
+      // Each slice is SEG_DEG wide; center is at index * SEG_DEG + SEG_DEG/2
+      const segmentCenter = index * SEG_DEG + SEG_DEG / 2;
+      const targetNorm = (360 - segmentCenter + 360) % 360;
+
+      const baseDelta = (targetNorm - startNorm + 360) % 360;
       const spinsFull = randInt(4, 8);
       const endVis = startVis + baseDelta + spinsFull * 360;
-      const durationMs = randInt(1900, 2800);
 
       animateRotation(startVis, endVis, durationMs, () => {
         const norm = ((endVis % 360) + 360) % 360;
