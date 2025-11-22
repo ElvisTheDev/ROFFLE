@@ -1267,6 +1267,24 @@ const handleBuyBundleStars = async (bundle) => {
   const [showBundles, setShowBundles] = useState(false);
   const [showVault, setShowVault] = useState(false);
   const [splashPrize, setSplashPrize] = useState("");
+  const [showDocs, setShowDocs] = useState(false);
+  const [docsOpen, setDocsOpen] = useState({
+    intro: true,
+    core: false,
+    vip: false,
+    wheel: false,
+    invites: false,
+    collectibles: false,
+    bundles: false,
+    turbo: false,
+    tasks: false,
+    leaderboard: false,
+  });
+
+  const toggleDocsSection = (key) => {
+    setDocsOpen((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
 
   useEffect(() => {
     const messages = [
@@ -2510,6 +2528,381 @@ const handleBuyBundleStars = async (bundle) => {
   );
 };
 
+  // NEW: Docs modal
+  const DocsModal = () => {
+    return (
+      <div
+        className="modal-overlay"
+        onClick={() => setShowDocs(false)}
+      >
+        <div
+          className="modal docs-modal"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="modal-head">
+            <div className="mh-left">
+              <span className="mh-icon">📚</span>
+              <div className="mh-title">ROFFLE Guide</div>
+            </div>
+            <button
+              className="modal-close"
+              onClick={() => setShowDocs(false)}
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="modal-body">
+            <p className="modal-sub">
+              Learn how to get the most out of ROFFLE — spins, tasks, invites, collectibles and more.
+            </p>
+
+            {/* Intro */}
+            <div className={`docs-section ${docsOpen.intro ? "open" : ""}`}>
+              <button
+                className="docs-header"
+                onClick={() => toggleDocsSection("intro")}
+              >
+                <span>Intro – What is ROFFLE?</span>
+                <span className="docs-arrow">
+                  {docsOpen.intro ? "▾" : "▸"}
+                </span>
+              </button>
+              {docsOpen.intro && (
+                <div className="docs-body">
+                  <p>
+                    🎉 <b>WELCOME TO ROFFLE</b> — the ultimate TON-powered mini-app where fun, rewards and real utility collide.
+                  </p>
+                  <p>
+                    You’ve just entered <b>ROFFLE</b>, a next-gen Web3 community dApp built on the TON Blockchain.
+                  </p>
+                  <p>Here’s what you can do inside ROFFLE:</p>
+                  <ul>
+                    <li>✨ <b>Spin the Wheel</b> — Earn $ROF, claim rewards.</li>
+                    <li>🎯 <b>Complete Daily Tasks</b> — Earn extra $ROF by being active.</li>
+                    <li>🤝 <b>Invite Friends</b> — Grow your friends list & rewards.</li>
+                    <li>📦 <b>Collect Collectibles</b> — Complete sets and unlock mystery prizes.</li>
+                    <li>💰 <b>Earn & Upgrade</b> — Stack $ROF and level up through the ecosystem.</li>
+                  </ul>
+                  <p>
+                    ROFFLE aims to evolve into a <b>multi-chain trading ecosystem</b>, powered by advanced AI and real-time data.
+                  </p>
+                  <p><b>Coming soon:</b></p>
+                  <ul>
+                    <li>🤖 <b>$ROF AI Trade Bot</b> — Multi-chain signals & automated strategies.</li>
+                    <li>📈 <b>On-chain Staking</b> — Earn passive rewards inside the dApp.</li>
+                    <li>
+                      📊 <b>Market Predictions</b> — AI-assisted forecasts using historic patterns, volatility, global & political sentiment, and probabilistic impact scoring.
+                    </li>
+                  </ul>
+                  <p>
+                    ROFFLE is built to become one of the biggest community-driven multichain hubs — where anyone, anywhere, can earn and participate.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Core functionality */}
+            <div className={`docs-section ${docsOpen.core ? "open" : ""}`}>
+              <button
+                className="docs-header"
+                onClick={() => toggleDocsSection("core")}
+              >
+                <span>How ROFFLE Basically Works</span>
+                <span className="docs-arrow">
+                  {docsOpen.core ? "▾" : "▸"}
+                </span>
+              </button>
+              {docsOpen.core && (
+                <div className="docs-body">
+                  <p>At the core of ROFFLE you have:</p>
+                  <ul>
+                    <li><b>Spins</b> – your “energy” for playing the wheel.</li>
+                    <li><b>$ROF</b> – the main in-app currency you earn.</li>
+                    <li><b>Golden Tickets</b> – rarer rewards used for boosts & future claims.</li>
+                    <li><b>VIP Tiers</b> – better regeneration, higher caps, stronger multipliers.</li>
+                    <li><b>Tasks, Invites, Collectibles & Bundles</b> – all ways to accelerate your progress.</li>
+                  </ul>
+                  <p>
+                    You play → earn → invite → level up → unlock more over time. ROFFLE is designed for daily use and long-term grinding — not a one-shot gamble.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* VIP */}
+            <div className={`docs-section ${docsOpen.vip ? "open" : ""}`}>
+              <button
+                className="docs-header"
+                onClick={() => toggleDocsSection("vip")}
+              >
+                <span>Get VIP Status</span>
+                <span className="docs-arrow">
+                  {docsOpen.vip ? "▾" : "▸"}
+                </span>
+              </button>
+              {docsOpen.vip && (
+                <div className="docs-body">
+                  <p>
+                    The <b>Get VIP Status</b> section lets you upgrade from the Free tier to higher VIP tiers.
+                  </p>
+                  <p>Each VIP tier improves your account in 3 main ways:</p>
+                  <ul>
+                    <li>
+                      <b>1. Spin Regeneration Speed</b> – higher tiers regenerate spins faster, so you can play more often.
+                    </li>
+                    <li>
+                      <b>2. Spin Cap (Max Spins)</b> – higher tiers increase the maximum spins you can naturally regenerate to.
+                    </li>
+                    <li>
+                      <b>3. Reward Multipliers & Invite Bonuses</b> – VIP tiers boost your earning potential and invite rewards.
+                    </li>
+                  </ul>
+                  <p>
+                    VIP doesn’t block Free users — it <b>supercharges</b> your account so you progress faster, regen quicker and have more flexibility during events & airdrops.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Wheel */}
+            <div className={`docs-section ${docsOpen.wheel ? "open" : ""}`}>
+              <button
+                className="docs-header"
+                onClick={() => toggleDocsSection("wheel")}
+              >
+                <span>The Wheel – Spins, Rewards & Regeneration</span>
+                <span className="docs-arrow">
+                  {docsOpen.wheel ? "▾" : "▸"}
+                </span>
+              </button>
+              {docsOpen.wheel && (
+                <div className="docs-body">
+                  <p>
+                    The wheel is the heart of ROFFLE. Each spin consumes spins and gives you a chance to land on different reward segments.
+                  </p>
+                  <p>When you spin:</p>
+                  <ul>
+                    <li>You spend spins (or more if Turbo is active).</li>
+                    <li>The 25-segment wheel spins and lands on a prize.</li>
+                    <li>You earn $ROF and sometimes Golden Tickets depending on the result.</li>
+                  </ul>
+                  <p>
+                    Smaller rewards appear more often, while big payouts are rarer — ROFFLE is tuned to be fun, rewarding and sustainable.
+                  </p>
+                  <p><b>Regeneration:</b></p>
+                  <ul>
+                    <li>Your account has a <b>spin cap</b> based on your VIP tier.</li>
+                    <li>When you’re below cap, spins regenerate automatically over time.</li>
+                    <li>Free tier – slower regen, lower cap. Higher VIP – faster regen, higher cap.</li>
+                    <li>
+                      Rewards from tasks, invites, bundles & collectibles can <b>go above your cap</b> — the cap only limits natural regeneration.
+                    </li>
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            {/* Invites */}
+            <div className={`docs-section ${docsOpen.invites ? "open" : ""}`}>
+              <button
+                className="docs-header"
+                onClick={() => toggleDocsSection("invites")}
+              >
+                <span>Invite Friends</span>
+                <span className="docs-arrow">
+                  {docsOpen.invites ? "▾" : "▸"}
+                </span>
+              </button>
+              {docsOpen.invites && (
+                <div className="docs-body">
+                  <p>
+                    The <b>Invite Friends</b> system turns your network into a farming engine.
+                  </p>
+                  <p>When someone joins ROFFLE via your invite link:</p>
+                  <ul>
+                    <li><b>You</b> earn extra $ROF, spins and sometimes Golden Tickets.</li>
+                    <li><b>Your friend</b> gets a starter boost.</li>
+                  </ul>
+                  <p>Your invite count is used for:</p>
+                  <ul>
+                    <li>Invite-based tasks (e.g. “Invite X friends”).</li>
+                    <li>Your position in the <b>Invites leaderboard</b>.</li>
+                    <li>Unlocking Collectibles that require a certain number of invites.</li>
+                    <li>Potential weight in future airdrops / events.</li>
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            {/* Collectibles */}
+            <div className={`docs-section ${docsOpen.collectibles ? "open" : ""}`}>
+              <button
+                className="docs-header"
+                onClick={() => toggleDocsSection("collectibles")}
+              >
+                <span>Collectibles – Meet $ROF & More</span>
+                <span className="docs-arrow">
+                  {docsOpen.collectibles ? "▾" : "▸"}
+                </span>
+              </button>
+              {docsOpen.collectibles && (
+                <div className="docs-body">
+                  <p>
+                    The <b>Collectibles</b> section turns your actions into long-term progress and trophies.
+                  </p>
+                  <p>
+                    The first major set is <b>“Meet $ROF”</b> – a 20-challenge collection where each tile corresponds to a goal:
+                  </p>
+                  <ul>
+                    <li>Spin the wheel X times.</li>
+                    <li>Earn X total $ROF.</li>
+                    <li>Invite X friends.</li>
+                    <li>Log in X days.</li>
+                    <li>Obtain X Golden Tickets, and more.</li>
+                  </ul>
+                  <p>
+                    As you complete each requirement, the collectible is marked as done. When <b>all 20</b> are completed, you unlock a <b>mystery prize</b> (mix of $ROF, spins, tickets, etc.).
+                  </p>
+                  <p>
+                    Future collections will add more themes (Wheel Master, Golden Ticket Hunter, seasonal sets) with their own requirements and rewards.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Bundles */}
+            <div className={`docs-section ${docsOpen.bundles ? "open" : ""}`}>
+              <button
+                className="docs-header"
+                onClick={() => toggleDocsSection("bundles")}
+              >
+                <span>Bundles</span>
+                <span className="docs-arrow">
+                  {docsOpen.bundles ? "▾" : "▸"}
+                </span>
+              </button>
+              {docsOpen.bundles && (
+                <div className="docs-body">
+                  <p>
+                    <b>Bundles</b> are optional boost packs that give you a big chunk of value instantly.
+                  </p>
+                  <p>Typical bundle perks include:</p>
+                  <ul>
+                    <li>A large amount of extra spins (on top of your regen cap).</li>
+                    <li>Golden Tickets.</li>
+                    <li>Sometimes extra $ROF or cosmetic goodies.</li>
+                  </ul>
+                  <p>
+                    Bundles are ideal when you don’t want to wait for natural regen, or when you want to grind hard during events & airdrops.
+                  </p>
+                  <p>
+                    <b>Important:</b> Bundles can push your spins <b>above</b> your cap. The cap only limits natural regeneration.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Turbo */}
+            <div className={`docs-section ${docsOpen.turbo ? "open" : ""}`}>
+              <button
+                className="docs-header"
+                onClick={() => toggleDocsSection("turbo")}
+              >
+                <span>Turbo Mode</span>
+                <span className="docs-arrow">
+                  {docsOpen.turbo ? "▾" : "▸"}
+                </span>
+              </button>
+              {docsOpen.turbo && (
+                <div className="docs-body">
+                  <p>
+                    <b>Turbo mode</b> lets you crank up the intensity of your spins.
+                  </p>
+                  <p>You can select multipliers like:</p>
+                  <ul>
+                    <li>x1 – normal spin.</li>
+                    <li>x5, x10, x20, x50 – higher risk, higher potential rewards.</li>
+                  </ul>
+                  <p>
+                    Higher Turbo options may consume more spins or be recommended when you have a strong balance and regen from VIP / bundles.
+                  </p>
+                  <p>
+                    Use Turbo when you’re ready to go degen mode and chase bigger hits — especially during special events or when you’ve stacked a lot of spins.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Tasks */}
+            <div className={`docs-section ${docsOpen.tasks ? "open" : ""}`}>
+              <button
+                className="docs-header"
+                onClick={() => toggleDocsSection("tasks")}
+              >
+                <span>Tasks</span>
+                <span className="docs-arrow">
+                  {docsOpen.tasks ? "▾" : "▸"}
+                </span>
+              </button>
+              {docsOpen.tasks && (
+                <div className="docs-body">
+                  <p>
+                    The <b>Tasks</b> section gives you missions to complete in exchange for extra $ROF, spins and tickets.
+                  </p>
+                  <p>Tasks can include:</p>
+                  <ul>
+                    <li>Joining or following partner channels.</li>
+                    <li>Reaching spin or earning milestones.</li>
+                    <li>Inviting friends.</li>
+                    <li>Trying partner dApps / services.</li>
+                    <li>Using different ROFFLE features (Vault, Turbo, etc.).</li>
+                  </ul>
+                  <p>
+                    Each task shows requirements and a reward. Once completed, tap <b>Claim</b> to receive it.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Leaderboard */}
+            <div className={`docs-section ${docsOpen.leaderboard ? "open" : ""}`}>
+              <button
+                className="docs-header"
+                onClick={() => toggleDocsSection("leaderboard")}
+              >
+                <span>Leaderboard</span>
+                <span className="docs-arrow">
+                  {docsOpen.leaderboard ? "▾" : "▸"}
+                </span>
+              </button>
+              {docsOpen.leaderboard && (
+                <div className="docs-body">
+                  <p>
+                    The <b>Leaderboard</b> shows who is currently dominating ROFFLE.
+                  </p>
+                  <p>You’ll usually see:</p>
+                  <ul>
+                    <li>
+                      <b>Coins leaderboard</b> – ranked by total $ROF earned / held.
+                    </li>
+                    <li>
+                      <b>Invites leaderboard</b> – ranked by total invited users.
+                    </li>
+                  </ul>
+                  <p>
+                    Climbing the leaderboard is not just for flex — high ranks can matter for future airdrops, special rewards, allowlists and exclusive collectibles.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  
       // NEW: Vault modal
   const VaultModal = () => {
     const tier = TIERS[tierKey];
@@ -4363,21 +4756,13 @@ const handleBuyBundleStars = async (bundle) => {
               </button>
 
               {/* Docs button */}
-             <button
+<button
   className="icon-btn"
-  onClick={() => {
-    const tg = window.Telegram?.WebApp;
-    const url = "https://roffle.gitbook.io/roffle-docs/";
-    if (tg && tg.openLink) {
-      tg.openLink(url, { try_instant_view: false });
-    } else {
-      window.open(url, "_blank", "noopener,noreferrer");
-    }
-  }}
+  onClick={() => setShowDocs(true)}
 >
+  <img src="/docs.png" alt="Docs" />
+</button>
 
-                <img src="/docs.png" alt="Docs" />
-              </button>
 
               {/* TON wallet button */}
               <button
@@ -4472,6 +4857,7 @@ const handleBuyBundleStars = async (bundle) => {
       {showPremium && <PremiumModal />}
       {showBundles && <BundlesModal />}
       {showVault && <VaultModal />}
+      {showDocs && <DocsModal />}
     </div>
   );
 }
