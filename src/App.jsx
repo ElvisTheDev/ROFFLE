@@ -1083,14 +1083,10 @@ export default function App() {
 
   /* ================= BUNDLE HELPERS ================= */
 
-  const grantBundleRewards = async (bundle) => {
+    const grantBundleRewards = async (bundle) => {
     const rofAdd = bundle.rof || 0;
     const spinsAdd = bundle.spins || 0;
     const ticketsAdd = bundle.tickets || 0;
-
-    const newBalance = bank + rofAdd;
-    const newSpins = Math.min(spinCap, spinsLeft + spinsAdd);
-    const newTickets = goldTickets + ticketsAdd;
 
     // Lifetime ROF progress for collectibles
     if (rofAdd) {
@@ -1103,40 +1099,66 @@ export default function App() {
       });
     }
 
-    // Local state update
-    if (rofAdd) setBank(newBalance);
-    if (spinsAdd) setSpinsLeft(newSpins);
-    if (ticketsAdd) setGoldTickets(newTickets);
-
-    // Persist to DB
-    if (tgId) {
-      try {
-        await supabase
-          .from("roff_users")
-          .update({
-            balance: newBalance,
-            spins_left: newSpins,
-            golden_tickets: newTickets,
-          })
-          .eq("tg_id", tgId);
-      } catch (e) {
-        console.error("Bundle DB update failed", e);
-      }
+    if (!tgId) {
+      setToast({ text: "User not ready yet", key: Date.now() });
+      setTimeout(() => setToast(null), 1500);
+      return;
     }
 
-    const parts = [];
-    if (rofAdd) parts.push(`+${rofAdd.toLocaleString()} $ROF`);
-    if (spinsAdd) parts.push(`+${spinsAdd} spins`);
-    if (ticketsAdd)
-      parts.push(
-        `+${ticketsAdd} Golden Ticket${ticketsAdd > 1 ? "s" : ""}`
-      );
+    try {
+      const resp = await fetch(`${API_BASE}/bundle/apply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tg_id: tgId, bundle_id: bundle.id }),
+      });
 
-    if (parts.length) {
-      setToast({ text: parts.join(" · "), key: Date.now() });
-      setTimeout(() => setToast(null), 1600);
+      const json = await resp.json();
+      if (!json.ok) {
+        console.error("bundle/apply failed", json.error);
+        setToast({
+          text: "Bundle claim failed, try again",
+          key: Date.now(),
+        });
+        setTimeout(() => setToast(null), 1500);
+        return;
+      }
+
+      const {
+        balance: newBalance,
+        spins_left: newSpins,
+        golden_tickets: newTickets,
+      } = json;
+
+      // Local state update from server truth
+      if (rofAdd) setBank(newBalance);
+      if (spinsAdd) setSpinsLeft(newSpins);
+      if (ticketsAdd) setGoldTickets(newTickets);
+
+      const parts = [];
+      if (rofAdd) parts.push(`+${rofAdd.toLocaleString()} $ROF`);
+      if (spinsAdd) parts.push(`+${spinsAdd} spins`);
+      if (ticketsAdd)
+        parts.push(
+          `+${ticketsAdd} Golden Ticket${ticketsAdd > 1 ? "s" : ""}`
+        );
+
+      if (parts.length) {
+        setToast({
+          text: parts.join(" · "),
+          key: Date.now(),
+        });
+        setTimeout(() => setToast(null), 2000);
+      }
+    } catch (e) {
+      console.error("bundle/apply network error", e);
+      setToast({
+        text: "Bundle claim failed, server error",
+        key: Date.now(),
+      });
+      setTimeout(() => setToast(null), 2000);
     }
   };
+
 
 
 const handleBuyBundleTon = async (bundle) => {
