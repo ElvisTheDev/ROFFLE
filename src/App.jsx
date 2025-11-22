@@ -1400,7 +1400,7 @@ const handleBuyBundleStars = async (bundle) => {
       (c) => getCollectibleMetricValue(c.metric) >= c.threshold
     );
 
-  const handleClaimMeetRof = async () => {
+    const handleClaimMeetRof = async () => {
     if (meetRofClaimed) return;
     if (!isMeetRofCompleted()) return;
 
@@ -1409,51 +1409,77 @@ const handleBuyBundleStars = async (bundle) => {
     const spinsReward = 1000;
     const ticketsReward = 5;
 
-    const newBalance = bank + rofReward;
-    const newSpins = Math.min(spinCap, spinsLeft + spinsReward);
-    const newTickets = goldTickets + ticketsReward;
-
-    setBank(newBalance);
-    setSpinsLeft(newSpins);
-    setGoldTickets(newTickets);
-
-    // Track total ROF earned for collectibles
-    setTotalRofEarned((prev) => {
-      const next = prev + rofReward;
-      try {
-        localStorage.setItem("rof_totalEarned", String(next));
-      } catch {}
-      return next;
-    });
-
-    setMeetRofClaimed(true);
-    try {
-      localStorage.setItem("rof_meetRof_claimed", "1");
-    } catch {}
-
-    if (tgId) {
-      try {
-        await supabase
-          .from("roff_users")
-          .update({
-            balance: newBalance,
-            spins_left: newSpins,
-            golden_tickets: newTickets,
-          })
-          .eq("tg_id", tgId);
-      } catch (e) {
-        console.error("Meet ROF reward DB update failed", e);
-      }
+    if (!tgId) {
+      setToast({ text: "User not ready yet", key: Date.now() });
+      setTimeout(() => setToast(null), 1500);
+      return;
     }
 
-    // Show the surprise AFTER completion
-    setToast({
-      text:
-        "Mystery reward unlocked! 🎁 +5 Golden Tickets · +1,000,000 $ROF · +1,000 spins",
-      key: Date.now(),
-    });
-    setTimeout(() => setToast(null), 2200);
+    try {
+      const resp = await fetch(`${API_BASE}/reward/apply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tg_id: tgId,
+          rofAdd: rofReward,
+          spinsAdd: spinsReward,
+          ticketsAdd: ticketsReward,
+        }),
+      });
+
+      const json = await resp.json();
+      if (!json.ok) {
+        console.error("Meet ROF reward failed", json.error);
+        setToast({
+          text: "Reward claim failed, try again",
+          key: Date.now(),
+        });
+        setTimeout(() => setToast(null), 2000);
+        return;
+      }
+
+      const {
+        balance: newBalance,
+        spins_left: newSpins,
+        golden_tickets: newTickets,
+      } = json;
+
+      // Update local state from server truth
+      setBank(newBalance);
+      setSpinsLeft(newSpins);
+      setGoldTickets(newTickets);
+
+      // Track total ROF earned for collectibles
+      setTotalRofEarned((prev) => {
+        const next = prev + rofReward;
+        try {
+          localStorage.setItem("rof_totalEarned", String(next));
+        } catch {}
+        return next;
+      });
+
+      setMeetRofClaimed(true);
+      try {
+        localStorage.setItem("rof_meetRof_claimed", "1");
+      } catch {}
+
+      // Show the surprise AFTER completion
+      setToast({
+        text:
+          "Mystery reward unlocked! 🎁 +5 Golden Tickets · +1,000,000 $ROF · +1,000 spins",
+        key: Date.now(),
+      });
+      setTimeout(() => setToast(null), 2200);
+    } catch (e) {
+      console.error("Meet ROF reward network error", e);
+      setToast({
+        text: "Reward claim failed, server error",
+        key: Date.now(),
+      });
+      setTimeout(() => setToast(null), 2000);
+    }
   };
+
 
 
 
@@ -3814,34 +3840,30 @@ const handleBuyBundleStars = async (bundle) => {
     );
   };
 
-    const handleClaimTask = (task) => {
-  // already claimed
-  if (taskClaims[task.id]) return;
+      const handleClaimTask = async (task) => {
+    // already claimed
+    if (taskClaims[task.id]) return;
 
-  // Invite-type tasks must check invitesCount
-  if (task.type === "invite") {
-    const need = task.requiresInvites || 0;
-    if (invitesCount < need) {
-      setToast({
-        text: `You need ${need} invites to claim this`,
-        key: Date.now(),
-      });
-      setTimeout(() => setToast(null), 1500);
-      return;
+    // Invite-type tasks must check invitesCount
+    if (task.type === "invite") {
+      const need = task.requiresInvites || 0;
+      if (invitesCount < need) {
+        setToast({
+          text: `You need ${need} invites to claim this`,
+          key: Date.now(),
+        });
+        setTimeout(() => setToast(null), 1500);
+        return;
+      }
     }
-  }
 
-    
+    const reward = task.reward || {};
+    const rofAdd = reward.rof || 0;
+    const spinsAdd = reward.spins || 0;
+    const ticketsAdd = reward.tickets || 0;
 
-
-  const reward = task.reward || {};
-  const rofAdd = reward.rof || 0;
-  const spinsAdd = reward.spins || 0;
-  const ticketsAdd = reward.tickets || 0;
-
-  // Apply rewards locally + save to DB for coins / spins / golden tickets
-      if (rofAdd) {
-      // Lifetime ROF for collectibles
+    // Lifetime ROF for collectibles
+    if (rofAdd) {
       setTotalRofEarned((prev) => {
         const next = prev + rofAdd;
         try {
@@ -3849,75 +3871,74 @@ const handleBuyBundleStars = async (bundle) => {
         } catch {}
         return next;
       });
-
-      setBank((prev) => {
-        const nb = prev + rofAdd;
-
-        if (tgId) {
-          supabase
-            .from("roff_users")
-            .update({ balance: nb })
-            .eq("tg_id", tgId)
-            .then(() => {})
-            .catch((e) => {
-              console.error("Failed to update balance for task", e);
-            });
-        }
-
-        return nb;
-      });
     }
 
+    if (!tgId) {
+      setToast({ text: "User not ready yet", key: Date.now() });
+      setTimeout(() => setToast(null), 1500);
+      return;
+    }
 
-  if (spinsAdd) {
-    setSpinsLeft((prev) => {
-      const ns = Math.min(spinCap, prev + spinsAdd);
-      if (tgId) {
-        supabase
-          .from("roff_users")
-          .update({ spins_left: ns })
-          .eq("tg_id", tgId)
-          .then(() => {})
-          .catch((e) => console.error("Task spins update failed", e));
+    try {
+      const resp = await fetch(`${API_BASE}/reward/apply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tg_id: tgId,
+          rofAdd,
+          spinsAdd,
+          ticketsAdd,
+        }),
+      });
+
+      const json = await resp.json();
+      if (!json.ok) {
+        console.error("Task reward apply failed", json.error);
+        setToast({
+          text: "Task claim failed, try again",
+          key: Date.now(),
+        });
+        setTimeout(() => setToast(null), 2000);
+        return;
       }
-      return ns;
-    });
-  }
 
-  // 🔥 NEW: persist golden tickets in DB as well
-  if (ticketsAdd) {
-    setGoldTickets((prev) => {
-      const nt = prev + ticketsAdd;
-      if (tgId) {
-        supabase
-          .from("roff_users")
-          .update({ golden_tickets: nt })
-          .eq("tg_id", tgId)
-          .then(() => {})
-          .catch((e) =>
-            console.error("Task golden_tickets update failed", e)
-          );
+      const {
+        balance: newBalance,
+        spins_left: newSpins,
+        golden_tickets: newTickets,
+      } = json;
+
+      if (rofAdd) setBank(newBalance);
+      if (spinsAdd) setSpinsLeft(newSpins);
+      if (ticketsAdd) setGoldTickets(newTickets);
+
+      // Mark as claimed
+      const nextClaims = { ...taskClaims, [task.id]: true };
+      saveTaskClaims(nextClaims);
+
+      // Toast text
+      const parts = [];
+      if (rofAdd) parts.push(`+${rofAdd} $ROF`);
+      if (spinsAdd) parts.push(`+${spinsAdd} spins`);
+      if (ticketsAdd)
+        parts.push(
+          `+${ticketsAdd} Golden Ticket${ticketsAdd > 1 ? "s" : ""}`
+        );
+
+      if (parts.length) {
+        setToast({ text: parts.join(" & "), key: Date.now() });
+        setTimeout(() => setToast(null), 1600);
       }
-      return nt;
-    });
-  }
+    } catch (e) {
+      console.error("Task reward network error", e);
+      setToast({
+        text: "Task claim failed, server error",
+        key: Date.now(),
+      });
+      setTimeout(() => setToast(null), 2000);
+    }
+  };
 
-  const nextClaims = { ...taskClaims, [task.id]: true };
-  saveTaskClaims(nextClaims);
-
-  const parts = [];
-  if (rofAdd) parts.push(`+${rofAdd} $ROF`);
-  if (spinsAdd) parts.push(`+${spinsAdd} spins`);
-  if (ticketsAdd)
-    parts.push(
-      `+${ticketsAdd} Golden Ticket${ticketsAdd > 1 ? "s" : ""}`
-    );
-
-  if (parts.length) {
-    setToast({ text: parts.join(" & "), key: Date.now() });
-    setTimeout(() => setToast(null), 1600);
-  }
-};
 
 
       const handleLinkGo = (task) => {
