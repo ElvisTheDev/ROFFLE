@@ -4320,8 +4320,15 @@ const handleBuyBundleStars = async (bundle) => {
         </div>
       )}
 
-      {!booting && (
-                    <div className="header-right">
+            {!booting && (
+        <div className="compact no-scroll">
+          <header className="header">
+            <img
+              src={BRAND_LOGO_SRC}
+              alt="ROFFLE"
+              className="brand-logo"
+            />
+            <div className="header-right">
               {/* Vault button */}
               <button
                 className="icon-btn"
@@ -4364,49 +4371,53 @@ const handleBuyBundleStars = async (bundle) => {
                 <img src="/ton.png" alt="TON Wallet" />
               </button>
             </div>
-
+          </header>
 
           <section className="balance-block compacted">
-  <div className="bal-line1">Your Assets:</div>
+            <div className="bal-line1">Your Assets:</div>
 
-  <div className="bal-line2 dual-balance">
-    {/* ROF balance */}
-    <div className="bal-item">
-      <img className="bal-icon" src="/rof-bn.png" alt="$ROF" />
-      <span className="bal-value rof-balance">{bank}</span>
-    </div>
+            <div className="bal-line2 dual-balance">
+              {/* ROF balance */}
+              <div className="bal-item">
+                <img className="bal-icon" src="/rof-bn.png" alt="$ROF" />
+                <span className="bal-value rof-balance">{bank}</span>
+              </div>
 
-    {/* Golden tickets balance */}
-    <div className="bal-item">
-      <img className="bal-icon" src="/golden-ticket.png" alt="Tickets" />
-      <span className="bal-value ticket-balance">{goldTickets}</span>
-    </div>
-  </div>
+              {/* Golden tickets balance */}
+              <div className="bal-item">
+                <img
+                  className="bal-icon"
+                  src="/golden-ticket.png"
+                  alt="Tickets"
+                />
+                <span className="bal-value ticket-balance">
+                  {goldTickets}
+                </span>
+              </div>
+            </div>
 
-  <div className="premium-row">
-    <button
-      className="btn-premium"
-      onClick={() => setShowPremium(true)}
-    >
-      👑Get VIP Status
-    </button>
-    <span className={`badge ${statusBadge.cls}`}>
-      {statusBadge.text}
-    </span>
-  </div>
+            <div className="premium-row">
+              <button
+                className="btn-premium"
+                onClick={() => setShowPremium(true)}
+              >
+                👑Get VIP Status
+              </button>
+              <span className={`badge ${statusBadge.cls}`}>
+                {statusBadge.text}
+              </span>
+            </div>
 
-  {/* Wallet pill */}
-  {wallet && (
-    <div className="premium-row">
-      <span className="wallet-pill">
-        {wallet.account.address.slice(0, 4)}…
-        {wallet.account.address.slice(-4)}
-      </span>
-    </div>
-  )}
-</section>
-
-
+            {/* Wallet pill */}
+            {wallet && (
+              <div className="premium-row">
+                <span className="wallet-pill">
+                  {wallet.account.address.slice(0, 4)}…
+                  {wallet.account.address.slice(-4)}
+                </span>
+              </div>
+            )}
+          </section>
 
           <div className="screen flex-grow">
             {tab === "play" && (
@@ -4432,6 +4443,7 @@ const handleBuyBundleStars = async (bundle) => {
           <Menu />
         </div>
       )}
+
 
       {showPremium && <PremiumModal />}
       {showBundles && <BundlesModal />}
