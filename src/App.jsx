@@ -1569,7 +1569,7 @@ const handleBuyBundleStars = async (bundle) => {
       try {
         setTgId(tgUser.id);
 
-        const baseUser = {
+                const baseUser = {
           tg_id: tgUser.id,
           username: tgUser.username || null,
           full_name: [tgUser.first_name, tgUser.last_name]
@@ -1578,17 +1578,20 @@ const handleBuyBundleStars = async (bundle) => {
           photo_url: tgUser.photo_url || null,
         };
 
-        const { data, error } = await supabase
-          .from("roff_users")
-          .upsert(baseUser, { onConflict: "tg_id", ignoreDuplicates: false })
-          .select("*")
-          .eq("tg_id", tgUser.id)
-          .single();
+        const resp = await fetch(`${API_BASE}/user/sync`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(baseUser),
+        });
 
-        if (error) {
-          console.error("Supabase upsert/select error", error);
+        const json = await resp.json();
+        if (!json.ok) {
+          console.error("user/sync failed", json.error);
           return;
         }
+
+        const data = json.user;
+
 
         if (data) {
   const dbTierKey =
