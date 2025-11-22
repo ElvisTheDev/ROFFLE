@@ -1973,20 +1973,26 @@ const handleBuyBundleStars = async (bundle) => {
       return true;
     }
 
-    try {
-      const { error } = await supabase.from("roff_inventory").insert({
-        tg_id: tgId,
-        item_type: "wheel",
-        item_id: skin.id,
+        try {
+      const resp = await fetch(`${API_BASE}/inventory/unlock`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tg_id: tgId,
+          item_type: "wheel",
+          item_id: skin.id,
+        }),
       });
 
-      if (error) {
-        console.error("Failed to unlock wheel skin", error);
+      const json = await resp.json();
+      if (!json.ok) {
+        console.error("inventory/unlock failed", json.error);
         setToast({ text: "Unlock failed, try again", key: Date.now() });
         setTimeout(() => setToast(null), 1500);
         return false;
       }
 
+      // Update local state & UI
       setOwnedWheelIds((prev) => {
         const next = new Set(prev);
         next.add(skin.id);
@@ -1999,8 +2005,11 @@ const handleBuyBundleStars = async (bundle) => {
       return true;
     } catch (e) {
       console.error("Unlock wheel skin error", e);
+      setToast({ text: "Unlock failed, server error", key: Date.now() });
+      setTimeout(() => setToast(null), 1500);
       return false;
     }
+
   };
 
   const handleUnlockBgSkin = async (skin) => {
@@ -2015,15 +2024,20 @@ const handleBuyBundleStars = async (bundle) => {
       return true;
     }
 
-    try {
-      const { error } = await supabase.from("roff_inventory").insert({
-        tg_id: tgId,
-        item_type: "bg",
-        item_id: skin.id,
+        try {
+      const resp = await fetch(`${API_BASE}/inventory/unlock`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tg_id: tgId,
+          item_type: "bg",
+          item_id: skin.id,
+        }),
       });
 
-      if (error) {
-        console.error("Failed to unlock bg skin", error);
+      const json = await resp.json();
+      if (!json.ok) {
+        console.error("inventory/unlock failed", json.error);
         setToast({ text: "Unlock failed, try again", key: Date.now() });
         setTimeout(() => setToast(null), 1500);
         return false;
@@ -2041,8 +2055,11 @@ const handleBuyBundleStars = async (bundle) => {
       return true;
     } catch (e) {
       console.error("Unlock bg skin error", e);
+      setToast({ text: "Unlock failed, server error", key: Date.now() });
+      setTimeout(() => setToast(null), 1500);
       return false;
     }
+
   };
 
   // TON-gated unlock for wheel skins
