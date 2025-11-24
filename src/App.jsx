@@ -2966,14 +2966,17 @@ const handleBuyBundleStars = async (bundle) => {
     const tier = TIERS[tierKey];
     const regenMinutes = Math.floor(regenMs / 60000);
 
-    const vipLabel =
+        const vipLabel =
       tierKey === "free"
         ? "No status"
         : tierKey === "plus"
         ? "Premium⚡️"
         : tierKey === "pro"
         ? "Plus⭐️"
+        : tierKey === "mentour"
+        ? "Mentour💎"
         : "Pro👑";
+
 
     return (
       <div
@@ -3054,6 +3057,33 @@ const handleBuyBundleStars = async (bundle) => {
                 <span>Friends invited</span>
                 <span>{invitesCount}</span>
               </div>
+                              {invitesCount < 10 ? (
+                  <div className="vault-row">
+                    <span>Mentour status</span>
+                    <span>
+                      Invite {10 - invitesCount} more friend
+                      {10 - invitesCount === 1 ? "" : "s"} to unlock
+                    </span>
+                  </div>
+                ) : (
+                  <div className="vault-row">
+                    <span>Mentour status</span>
+                    <button
+                      className="btn-mentour-claim"
+                      onClick={() => {
+                        // Frontend-only claim: show toast + ensure Mentour is active
+                        setTierKey("mentour");
+                        setToast({
+                          text: "Mentour💎 status unlocked!",
+                          key: Date.now(),
+                        });
+                        setTimeout(() => setToast(null), 1500);
+                      }}
+                    >
+                      Claim Mentour💎 Status
+                    </button>
+                  </div>
+                )}
             </div>
           </div>
         </div>
@@ -4776,12 +4806,15 @@ const handleBuyBundleStars = async (bundle) => {
     </nav>
   );
 
-  const statusBadge = (() => {
+    const statusBadge = (() => {
     if (tierKey === "free") return { cls: "free", text: "No status" };
     if (tierKey === "plus") return { cls: "premium", text: "Premium⚡️" };
     if (tierKey === "pro") return { cls: "plus", text: "Plus⭐️" };
-    return { cls: "pro", text: "Pro👑" };
+    if (tierKey === "mentour")
+      return { cls: "mentour", text: "Mentour💎" };
+    return { cls: "pro", text: "Pro👑" }; // for prem or anything else
   })();
+
 
    return (
     <div
