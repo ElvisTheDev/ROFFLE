@@ -613,11 +613,14 @@ function TierBadge({ tierKey }) {
     return <span className="badge free">No status</span>;
   if (tierKey === "plus")
     return <span className="badge premium">Premium⚡️</span>;
-  if (tierKey === "pro") return <span className="badge plus">Plus⭐️</span>;
+  if (tierKey === "pro")
+    return <span className="badge plus">Plus⭐️</span>;
+  if (tierKey === "prem")
+    return <span className="badge pro">Pro👑</span>;
   if (tierKey === "mentour")
     return <span className="badge mentour">Mentour💎</span>;
-  return <span className="badge pro">Pro👑</span>;
 }
+
 
 
 /* --------- Earn helpers --------- */
@@ -1225,18 +1228,32 @@ const handleBuyBundleStars = async (bundle) => {
   );
 
   const equipWheelSkin = (id) => {
-    setWheelSkinId(id);
-    try {
-      localStorage.setItem("rof_wheel_skin", id);
-    } catch {}
-  };
+  if (id === "mentour" && invitesCount < 10) {
+    setToast({ text: "Mentour skin requires 10 invites", key: Date.now() });
+    setTimeout(() => setToast(null), 1500);
+    return;
+  }
 
-  const equipBgSkin = (id) => {
-    setBgSkinId(id);
-    try {
-      localStorage.setItem("rof_bg_skin", id);
-    } catch {}
-  };
+  setWheelSkinId(id);
+  try {
+    localStorage.setItem("rof_wheel_skin", id);
+  } catch {}
+};
+
+
+ const equipBgSkin = (id) => {
+  if (id === "mentour" && invitesCount < 10) {
+    setToast({ text: "Mentour background requires 10 invites", key: Date.now() });
+    setTimeout(() => setToast(null), 1500);
+    return;
+  }
+
+  setBgSkinId(id);
+  try {
+    localStorage.setItem("rof_bg_skin", id);
+  } catch {}
+};
+
 
   // Load equipped skins from localStorage
   useEffect(() => {
@@ -3867,6 +3884,31 @@ const handleBuyBundleStars = async (bundle) => {
                     );
                   }
                 }
+        if (styleKey === "mentour") {
+    if (sec1 === 1) {
+      return (
+        <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#7c3aed" />
+          <stop offset="100%" stopColor="#38bdf8" />
+        </linearGradient>
+      );
+    } else if (sec1 % 2 === 0) {
+      return (
+        <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#38bdf8" />
+          <stop offset="100%" stopColor="#7c3aed" />
+        </linearGradient>
+      );
+    } else {
+      return (
+        <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#1e1b4b" />
+          <stop offset="100%" stopColor="#0f172a" />
+        </linearGradient>
+      );
+    }
+}
+
 
                 if (styleKey === "toxic") {
                   if (sec1 === 1) {
