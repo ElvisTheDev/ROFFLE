@@ -3919,44 +3919,28 @@ const handleBuyBundleStars = async (bundle) => {
                     );
                   }
                 }
-                  if (styleKey === "mentour") {
-  // Use actual payout to decide colors
+               if (styleKey === "mentour") {
   const amount = slots[sec1 - 1]?.amount || 0;
 
-  // Max win slice – keep special bright metallic gradient
-  if (sec1 === 1) {
+  // 1 = black segment
+  if (amount === 1) {
     return (
-      <linearGradient
-        id={id}
-        key={id}
-        x1="0%"
-        y1="0%"
-        x2="0%"
-        y2="100%"
-      >
-        <stop offset="0%" stopColor="#f9f9ff" />
-        <stop offset="50%" stopColor="#2855c8" />
-        <stop offset="100%" stopColor="#ff09f5" />
+      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#000000" />
+        <stop offset="100%" stopColor="#000000" />
       </linearGradient>
     );
   }
 
-  // 🔹 Smallest denominations (1 and 2) → dark segments (with white text)
-  if (amount <= 2) {
-    return (
-      <linearGradient
-        id={id}
-        key={id}
-        x1="0%"
-        y1="0%"
-        x2="0%"
-        y2="100%"
-      >
-        <stop offset="0%" stopColor="#020617" />
-        <stop offset="100%" stopColor="#020617" />
-      </linearGradient>
-    );
-  }
+  // Higher denominations = purple → pink gradient
+  return (
+    <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stopColor="#2855c8" />
+      <stop offset="100%" stopColor="#ff09f5" />
+    </linearGradient>
+  );
+}
+
 
   // 🔹 Bigger denominations (5, 20, 50, etc.) → purple/pink metallic gradient
   return (
@@ -3973,9 +3957,6 @@ const handleBuyBundleStars = async (bundle) => {
     </linearGradient>
   );
 }
-
-
-
 
                 if (styleKey === "toxic") {
                   if (sec1 === 1) {
