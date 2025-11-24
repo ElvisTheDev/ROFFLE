@@ -57,7 +57,18 @@ const TIERS = {
     priceTon: 15, // 15 TON
     priceStars: 2100, // 2100 Stars
   },
+  mentour: {
+    key: "mentour",
+    name: "Mentour💎",
+    regenMult: 5,
+    cap: 100,
+    prizeMult: 5,
+    inviteBonus: 100,
+    priceTon: 0,
+    priceStars: 0,
+  },
 };
+
 
 /**
  * Coins test price – not used for TON flow anymore, but left in case you
@@ -146,6 +157,13 @@ const WHEEL_SKINS = [
     tagline: "Deep purple haze after the win",
     priceTon: 2,
     priceStars: 299,
+  },
+    {
+    id: "mentour",
+    name: "Mentour Glow",
+    tagline: "Purple afterglow with light blue energy",
+    priceTon: 0,
+    priceStars: 0,
   },
   {
     id: "retro",
@@ -236,7 +254,7 @@ const BG_SKINS = [
     priceTon: 2,
     priceStars: 299,
   },
-  {
+    {
     id: "stars",
     name: "Starfield",
     tagline: "Colours for radiant people",
@@ -244,7 +262,16 @@ const BG_SKINS = [
     priceTon: 2,
     priceStars: 299,
   },
+  {
+    id: "mentour",
+    name: "Mentour Realm",
+    tagline: "Mentour-only cosmic gradient",
+    file: "/app-bg-mentour.png",
+    priceTon: 0,
+    priceStars: 0,
+  },
 ];
+
 
 /* ================= TASKS CONFIG ================= */
 
@@ -466,7 +493,7 @@ const MEET_ROF_COLLECTIBLES = [
 
 
 /* Tier ranking: used to prevent downgrade */
-const TIER_ORDER = { free: 0, plus: 1, pro: 2, prem: 3 };
+const TIER_ORDER = { free: 0, plus: 1, pro: 2, prem: 3, mentour: 4 };
 
 /* RNG helpers (cryptographically strong) */
 function randUint32() {
@@ -587,8 +614,11 @@ function TierBadge({ tierKey }) {
   if (tierKey === "plus")
     return <span className="badge premium">Premium⚡️</span>;
   if (tierKey === "pro") return <span className="badge plus">Plus⭐️</span>;
+  if (tierKey === "mentour")
+    return <span className="badge mentour">Mentour💎</span>;
   return <span className="badge pro">Pro👑</span>;
 }
+
 
 /* --------- Earn helpers --------- */
 function getTGUser() {
@@ -898,6 +928,9 @@ function getWheelPreviewStyle(skin) {
   if (styleKey === "stealth") {
     return { backgroundImage: "linear-gradient(135deg,#111827,#4b5563)" };
   }
+    if (styleKey === "mentour") {
+    return { backgroundImage: "linear-gradient(135deg,#7c3aed,#38bdf8)" };
+  }
   return { backgroundColor: "#111827" };
 }
 function getCenterLogoSrc(styleKey) {
@@ -914,7 +947,9 @@ function getCenterLogoSrc(styleKey) {
       return "/r-leaf.png";
     case "retro":
       return "/r-retro.png";
-    case "royal":
+        case "royal":
+      return "/r-afterglow.png";
+    case "mentour":
       return "/r-afterglow.png";
     case "candy":
       return "/r-candypop.png";
@@ -1670,17 +1705,28 @@ const handleBuyBundleStars = async (bundle) => {
           return;
         }
 
-        const data = json.user;
-
+                const data = json.user;
 
         if (data) {
   const dbTierKey =
     data.premium_tier && TIERS[data.premium_tier]
       ? data.premium_tier
       : "free";
-  setTierKey(dbTierKey);
 
-  const tierCfg = TIERS[dbTierKey];
+  const dbInvites =
+    typeof data.invites === "number" ? data.invites : 0;
+  const dbTickets =
+    typeof data.golden_tickets === "number" ? data.golden_tickets : 0;
+
+  // Mentour: auto-upgrade tier if invites >= 10
+  let effectiveTierKey = dbTierKey;
+  if (dbInvites >= 10 && TIERS["mentour"]) {
+    effectiveTierKey = "mentour";
+  }
+
+  setTierKey(effectiveTierKey);
+
+  const tierCfg = TIERS[effectiveTierKey];
   const capDb = tierCfg.cap;
   const regenMsDb = Math.floor(BASE_REGEN_MS / tierCfg.regenMult);
 
@@ -1688,10 +1734,7 @@ const handleBuyBundleStars = async (bundle) => {
     typeof data.balance === "number" ? data.balance : 0;
   let dbSpins =
     typeof data.spins_left === "number" ? data.spins_left : BASE_CAP;
-  const dbInvites =
-    typeof data.invites === "number" ? data.invites : 0;
-  const dbTickets =
-    typeof data.golden_tickets === "number" ? data.golden_tickets : 0;
+
 
 
           const now = Date.now();
@@ -1721,8 +1764,6 @@ const handleBuyBundleStars = async (bundle) => {
 
             setBank(dbBalance);
             setSpinsLeft(dbSpins);
-            setInvitesCount(dbInvites);
-            setGoldTickets(dbTickets);   // ⬅️ NEW
             setNextReadyAt(nextReady);
             setNextInMs(nextMs);
 
@@ -3138,10 +3179,12 @@ const handleBuyBundleStars = async (bundle) => {
             <div className="loot-title">🎨 Wheel Skins</div>
             <div className="loot-list">
               {WHEEL_SKINS.map((skin) => {
-                const isActive = skin.id === wheelSkinId;
-                const owned =
-                  hasWheelSkin(skin.id) ||
-                  (skin.priceTon === 0 && skin.priceStars === 0);
+  const isActive = skin.id === wheelSkinId;
+  const owned =
+    hasWheelSkin(skin.id) ||
+    (skin.priceTon === 0 && skin.priceStars === 0) ||
+    (tierKey === "mentour" && skin.id === "mentour");
+
 
                 const previewStyle = getWheelPreviewStyle(skin);
 
@@ -3201,10 +3244,12 @@ const handleBuyBundleStars = async (bundle) => {
             <div className="loot-title">🖼 Background Skins</div>
             <div className="loot-list">
               {BG_SKINS.map((skin) => {
-                const isActive = skin.id === bgSkinId;
-                const owned =
-                  hasBgSkin(skin.id) ||
-                  (skin.priceTon === 0 && skin.priceStars === 0);
+  const isActive = skin.id === bgSkinId;
+  const owned =
+    hasBgSkin(skin.id) ||
+    (skin.priceTon === 0 && skin.priceStars === 0) ||
+    (tierKey === "mentour" && skin.id === "mentour");
+
 
                 const previewStyle = {
                   backgroundImage: `url(${skin.file})`,
