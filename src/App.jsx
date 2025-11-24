@@ -1783,6 +1783,9 @@ const handleBuyBundleStars = async (bundle) => {
             setSpinsLeft(dbSpins);
             setNextReadyAt(nextReady);
             setNextInMs(nextMs);
+            setInvitesCount(dbInvites);
+            setGoldTickets(dbTickets);
+
 
 
             await fetch(`${API_BASE}/spins/update`, {
