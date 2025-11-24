@@ -3919,46 +3919,44 @@ const handleBuyBundleStars = async (bundle) => {
                     );
                   }
                 }
-               if (styleKey === "mentour") {
-  const amount = slots[sec1 - 1]?.amount || 0;
+               
+                if (styleKey === "mentour") {
+                  const amount = slots[sec1 - 1]?.amount || 0;
 
-  // 1 = black segment
-  if (amount === 1) {
-    return (
-      <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-        <stop offset="0%" stopColor="#000000" />
-        <stop offset="100%" stopColor="#000000" />
-      </linearGradient>
-    );
-  }
+                  // Denomination 1 → black slice
+                  if (amount === 1) {
+                    return (
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
+                        <stop offset="0%" stopColor="#000000" />
+                        <stop offset="100%" stopColor="#000000" />
+                      </linearGradient>
+                    );
+                  }
 
-  // Higher denominations = purple → pink gradient
-  return (
-    <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stopColor="#2855c8" />
-      <stop offset="100%" stopColor="#ff09f5" />
-    </linearGradient>
-  );
-}
+                  // Denominations 2,5,10,20,50,100 → purple/pink gradient
+                  return (
+                    <linearGradient
+                      id={id}
+                      key={id}
+                      x1="0%"
+                      y1="0%"
+                      x2="0%"
+                      y2="100%"
+                    >
+                      <stop offset="0%" stopColor="#2855c8" />
+                      <stop offset="100%" stopColor="#ff09f5" />
+                    </linearGradient>
+                  );
+                }
 
-
-  // 🔹 Bigger denominations (5, 20, 50, etc.) → purple/pink metallic gradient
-  return (
-    <linearGradient
-      id={id}
-      key={id}
-      x1="0%"
-      y1="0%"
-      x2="0%"
-      y2="100%"
-    >
-      <stop offset="0%" stopColor="#2855c8" />
-      <stop offset="100%" stopColor="#ff09f5" />
-    </linearGradient>
-  );
-}
-
-                if (styleKey === "toxic") {
+if (styleKey === "toxic") {
                   if (sec1 === 1) {
                     return (
                       <linearGradient
