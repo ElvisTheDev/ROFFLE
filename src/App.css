@@ -356,6 +356,12 @@ body{
   background:linear-gradient(180deg, rgba(250,214,120,.28), rgba(250,214,120,.16));
   border-color:rgba(250,214,120,.6);
 }
+.badge.mentour{
+  color:#bfdbfe;
+  background:linear-gradient(180deg, rgba(129,140,248,.3), rgba(56,189,248,.18));
+  border-color:rgba(59,130,246,.7);
+}
+
 
 /* Wheel */
 .wheel-wrap{
