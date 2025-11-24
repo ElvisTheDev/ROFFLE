@@ -3919,56 +3919,60 @@ const handleBuyBundleStars = async (bundle) => {
                     );
                   }
                 }
-                                       if (styleKey === "mentour") {
-                  // Metallic: bright max slice, gradient accents, dark small wins
-                  if (sec1 === 1) {
-                    // Max win slice – metallic blue/pink with a light top
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#f9f9ff" />
-                        <stop offset="50%" stopColor="#2855c8" />
-                        <stop offset="100%" stopColor="#ff09f5" />
-                      </linearGradient>
-                    );
-                  } else if (sec1 % 2 === 0) {
-                    // Higher-style slices – pure metallic gradient
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#2855c8" />
-                        <stop offset="100%" stopColor="#ff09f5" />
-                      </linearGradient>
-                    );
-                  } else {
-                    // Smaller-win slices – dark background
-                    return (
-                      <linearGradient
-                        id={id}
-                        key={id}
-                        x1="0%"
-                        y1="0%"
-                        x2="0%"
-                        y2="100%"
-                      >
-                        <stop offset="0%" stopColor="#020617" />
-                        <stop offset="100%" stopColor="#020617" />
-                      </linearGradient>
-                    );
-                  }
-                }
+                  if (styleKey === "mentour") {
+  // Use actual payout to decide colors
+  const amount = slots[sec1 - 1]?.amount || 0;
+
+  // Max win slice – keep special bright metallic gradient
+  if (sec1 === 1) {
+    return (
+      <linearGradient
+        id={id}
+        key={id}
+        x1="0%"
+        y1="0%"
+        x2="0%"
+        y2="100%"
+      >
+        <stop offset="0%" stopColor="#f9f9ff" />
+        <stop offset="50%" stopColor="#2855c8" />
+        <stop offset="100%" stopColor="#ff09f5" />
+      </linearGradient>
+    );
+  }
+
+  // 🔹 Smallest denominations (1 and 2) → dark segments (with white text)
+  if (amount <= 2) {
+    return (
+      <linearGradient
+        id={id}
+        key={id}
+        x1="0%"
+        y1="0%"
+        x2="0%"
+        y2="100%"
+      >
+        <stop offset="0%" stopColor="#020617" />
+        <stop offset="100%" stopColor="#020617" />
+      </linearGradient>
+    );
+  }
+
+  // 🔹 Bigger denominations (5, 20, 50, etc.) → purple/pink metallic gradient
+  return (
+    <linearGradient
+      id={id}
+      key={id}
+      x1="0%"
+      y1="0%"
+      x2="0%"
+      y2="100%"
+    >
+      <stop offset="0%" stopColor="#2855c8" />
+      <stop offset="100%" stopColor="#ff09f5" />
+    </linearGradient>
+  );
+}
 
 
 
@@ -4392,26 +4396,31 @@ const handleBuyBundleStars = async (bundle) => {
                   const baseAmount = slots[i].amount || 0;
                   const shown = baseAmount * prizeMult * turboMult;
 
-                  const isYellowStyle =
-                    wheelSkin.id === "bloody" ||
-                    wheelSkin.id === "emerald" ||
-                    wheelSkin.id === "stealth";
+                  const isMentour = wheelSkin.id === "mentour";
+const isYellowStyle =
+  wheelSkin.id === "bloody" ||
+  wheelSkin.id === "emerald" ||
+  wheelSkin.id === "stealth";
 
-                  let textFill;
-                  if (isYellowStyle) {
-                    if (baseAmount === 1) {
-                      textFill = "#ffffff";
-                    } else {
-                      textFill = "#facc15";
-                    }
-                  } else {
-                    textFill =
-                      sec1 === 1
-                        ? "#fff"
-                        : sec1 % 2 === 0
-                        ? "#fff"
-                        : "#000";
-                  }
+let textFill;
+if (isMentour) {
+  // Mentour: always white text so nothing is black/invisible
+  textFill = "#ffffff";
+} else if (isYellowStyle) {
+  if (baseAmount === 1) {
+    textFill = "#ffffff";
+  } else {
+    textFill = "#facc15";
+  }
+} else {
+  textFill =
+    sec1 === 1
+      ? "#fff"
+      : sec1 % 2 === 0
+      ? "#fff"
+      : "#000";
+}
+
 
                   const textAngle = (mid + 270) % 360;
                   const flip = textAngle > 90 && textAngle < 270;
