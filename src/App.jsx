@@ -3528,6 +3528,8 @@ const handleBuyBundleStars = async (bundle) => {
           return "rim-cyber";
         case "royal":
           return "rim-royal";
+        case "mentour":
+          return "rim-royal"; // ⬅ uses the same purple/navy metallic as Afterglow
         case "retro":
           return "rim-retro";
         case "candy":
@@ -3917,10 +3919,10 @@ const handleBuyBundleStars = async (bundle) => {
                     );
                   }
                 }
-                       if (styleKey === "mentour") {
-                  // Metallic-style: bright max slice, blue/pink accents, dark fillers
+                                       if (styleKey === "mentour") {
+                  // Metallic: bright max slice, gradient accents, dark small wins
                   if (sec1 === 1) {
-                    // max slice – brighter, more metallic
+                    // Max win slice – metallic blue/pink with a light top
                     return (
                       <linearGradient
                         id={id}
@@ -3931,12 +3933,12 @@ const handleBuyBundleStars = async (bundle) => {
                         y2="100%"
                       >
                         <stop offset="0%" stopColor="#f9f9ff" />
-                        <stop offset="45%" stopColor="#2855c8" />
+                        <stop offset="50%" stopColor="#2855c8" />
                         <stop offset="100%" stopColor="#ff09f5" />
                       </linearGradient>
                     );
                   } else if (sec1 % 2 === 0) {
-                    // even slices – blue → pink accent
+                    // Higher-style slices – pure metallic gradient
                     return (
                       <linearGradient
                         id={id}
@@ -3951,7 +3953,7 @@ const handleBuyBundleStars = async (bundle) => {
                       </linearGradient>
                     );
                   } else {
-                    // odd slices – dark metallic fallback
+                    // Smaller-win slices – dark background
                     return (
                       <linearGradient
                         id={id}
@@ -3962,11 +3964,12 @@ const handleBuyBundleStars = async (bundle) => {
                         y2="100%"
                       >
                         <stop offset="0%" stopColor="#020617" />
-                        <stop offset="100%" stopColor="#1e293b" />
+                        <stop offset="100%" stopColor="#020617" />
                       </linearGradient>
                     );
                   }
                 }
+
 
 
 
