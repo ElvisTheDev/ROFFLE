@@ -931,8 +931,8 @@ function getWheelPreviewStyle(skin) {
   if (styleKey === "stealth") {
     return { backgroundImage: "linear-gradient(135deg,#111827,#4b5563)" };
   }
-    if (styleKey === "mentour") {
-    return { backgroundImage: "linear-gradient(135deg,#7c3aed,#38bdf8)" };
+   if (styleKey === "mentour") {
+    return { backgroundImage: "linear-gradient(135deg,#2855c8,#ff09f5)" };
   }
   return { backgroundColor: "#111827" };
 }
@@ -3917,30 +3917,57 @@ const handleBuyBundleStars = async (bundle) => {
                     );
                   }
                 }
-        if (styleKey === "mentour") {
-    if (sec1 === 1) {
-      return (
-        <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#7c3aed" />
-          <stop offset="100%" stopColor="#38bdf8" />
-        </linearGradient>
-      );
-    } else if (sec1 % 2 === 0) {
-      return (
-        <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#38bdf8" />
-          <stop offset="100%" stopColor="#7c3aed" />
-        </linearGradient>
-      );
-    } else {
-      return (
-        <linearGradient id={id} key={id} x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#1e1b4b" />
-          <stop offset="100%" stopColor="#0f172a" />
-        </linearGradient>
-      );
-    }
-}
+                       if (styleKey === "mentour") {
+                  // Metallic-style: bright max slice, blue/pink accents, dark fillers
+                  if (sec1 === 1) {
+                    // max slice – brighter, more metallic
+                    return (
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
+                        <stop offset="0%" stopColor="#f9f9ff" />
+                        <stop offset="45%" stopColor="#2855c8" />
+                        <stop offset="100%" stopColor="#ff09f5" />
+                      </linearGradient>
+                    );
+                  } else if (sec1 % 2 === 0) {
+                    // even slices – blue → pink accent
+                    return (
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
+                        <stop offset="0%" stopColor="#2855c8" />
+                        <stop offset="100%" stopColor="#ff09f5" />
+                      </linearGradient>
+                    );
+                  } else {
+                    // odd slices – dark metallic fallback
+                    return (
+                      <linearGradient
+                        id={id}
+                        key={id}
+                        x1="0%"
+                        y1="0%"
+                        x2="0%"
+                        y2="100%"
+                      >
+                        <stop offset="0%" stopColor="#020617" />
+                        <stop offset="100%" stopColor="#1e293b" />
+                      </linearGradient>
+                    );
+                  }
+                }
+
 
 
                 if (styleKey === "toxic") {
